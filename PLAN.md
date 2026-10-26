@@ -108,3 +108,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.6.1 — rotate buttons moved under the top bar so the cash has room
 - 0.7.0 — never tagged; its work buildings, hireable workers, farms from Lv 15 and share card shipped in 0.8.0
 - 0.8.0 — holiday events (Halloween now), Pot Bucks, farmer creator, start spot and farm moving, restart, right-click / hold tile menu, hippie festivals, vivid strains and crosses, share card shows your farm
+- 0.8.1 — seed shelves fold into low, mid and high level drop-downs

@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -45,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -195,31 +197,57 @@ internal fun SeedPanel(ui: UiState) {
             else "No exotic seeds. The back-alley dealer in Town sells them now and then.", 12.sp, Dim, bold = false)
         return
     }
+    // Longer shelves fold into low, mid and high level drop-downs; the one with your seed (or your best unlocked) starts open.
+    val groups = if (list.size <= 6) listOf("" to list) else {
+        val byLevel = list.sortedBy { it.level }
+        val per = (byLevel.size + 2) / 3
+        listOf("Low level", "Mid level", "High level").zip(byLevel.chunked(per))
+    }
+    val start = groups.indexOfFirst { (_, g) -> g.any { it.id == ui.seed } }.takeIf { it >= 0 }
+        ?: groups.indexOfLast { (_, g) -> g.any { f.unlocked(it) } }.coerceAtLeast(0)
+    var opened by remember(tab) { mutableStateOf(setOf(start)) }
     LazyVerticalGrid(GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(list) { s ->
-            Store.rev
-            val open = f.unlocked(s)
-            val chosen = ui.seed == s.id
-            Column(
-                Modifier.clickable(enabled = open) { ui.seed = s.id; ui.panel = Panel.NONE }
-                    .frame(if (chosen) Color(0xFF4A3A22) else WoodIn, if (chosen) Gold else edge)
-                    .padding(3.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Px(Sprites.strainIcon(s), 36.dp)
-                    if (!open) Px(Sprites.lock, 22.dp)
+        groups.forEachIndexed { gi, (name, g) ->
+            val shown = name.isEmpty() || gi in opened
+            if (name.isNotEmpty()) item(key = "h$gi", span = { GridItemSpan(maxLineSpan) }) {
+                Row(Modifier.fillMaxWidth().clickable { opened = if (gi in opened) opened - gi else opened + gi }
+                    .frame(if (shown) Color(0xFF3A2E1E) else WoodIn, edge).padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    T(if (shown) "▾" else "▸", 14.sp, Gold); Spacer(Modifier.width(6.dp))
+                    T(name, 13.sp, Cream, Modifier.weight(1f))
+                    val lo = g.first().level; val hi = g.last().level
+                    T("Lv ${if (lo == hi) "$lo" else "$lo–$hi"} · ${g.count { f.unlocked(it) }}/${g.size}", 11.sp, Dim)
                 }
-                T(s.name, 11.sp, if (open) Cream else Dim, align = TextAlign.Center)
-                if (open) {
-                    T(dur(s.seconds), 10.sp, Sky)
-                    if (s.exotic) T("${f.seeds[s.id] ?: 0} seeds", 11.sp, Color(0xFFD86AF0))
-                    else T(money(s.seed), 11.sp, Gold)
-                    T("${s.yield}g × ${money(s.price)}", 9.sp, Dim, bold = false)
-                    s.parents?.let { (a, b) -> T("${Strains[a]?.name} × ${Strains[b]?.name}", 8.sp, Color(0xFF5CD0E0), bold = false, align = TextAlign.Center) }
-                } else T("Lv ${s.level}", 11.sp, Bad)
             }
+            if (shown) items(g, key = { it.id }) { s -> SeedCell(ui, s, edge) }
         }
+    }
+}
+
+@Composable
+private fun SeedCell(ui: UiState, s: Strain, edge: Color) {
+    val f = Store.farm
+    Store.rev
+    val open = f.unlocked(s)
+    val chosen = ui.seed == s.id
+    Column(
+        Modifier.clickable(enabled = open) { ui.seed = s.id; ui.panel = Panel.NONE }
+            .frame(if (chosen) Color(0xFF4A3A22) else WoodIn, if (chosen) Gold else edge)
+            .padding(3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Px(Sprites.strainIcon(s), 36.dp)
+            if (!open) Px(Sprites.lock, 22.dp)
+        }
+        T(s.name, 11.sp, if (open) Cream else Dim, align = TextAlign.Center)
+        if (open) {
+            T(dur(s.seconds), 10.sp, Sky)
+            if (s.exotic) T("${f.seeds[s.id] ?: 0} seeds", 11.sp, Color(0xFFD86AF0))
+            else T(money(s.seed), 11.sp, Gold)
+            T("${s.yield}g × ${money(s.price)}", 9.sp, Dim, bold = false)
+            s.parents?.let { (a, b) -> T("${Strains[a]?.name} × ${Strains[b]?.name}", 8.sp, Color(0xFF5CD0E0), bold = false, align = TextAlign.Center) }
+        } else T("Lv ${s.level}", 11.sp, Bad)
     }
 }
 

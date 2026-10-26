@@ -10,6 +10,8 @@ import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Hybrids
 import dev.m4s4t0.kushacres.model.Progress
 import dev.m4s4t0.kushacres.model.Season
+import dev.m4s4t0.kushacres.model.Site
+import dev.m4s4t0.kushacres.model.Sites
 import dev.m4s4t0.kushacres.model.Stat
 import dev.m4s4t0.kushacres.model.Trophy
 import dev.m4s4t0.kushacres.model.Kind
@@ -22,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import kotlin.random.Random
 
@@ -441,5 +444,120 @@ class FarmTest {
         assertTrue(Updater.newer("0.10.0", "0.9.9"))
         assertFalse(Updater.newer("v0.2.1", "0.2.1"))
         assertFalse(Updater.newer("0.2", "0.2.1"))
+    }
+
+    // ---- Other farms ----
+
+    private fun rich() = farm().apply { level = 20; bestLevel = 20; cash = 10_000_000_000L }
+
+    @Test fun buyAndSwitchFarms() {
+        val f = rich()
+        val red = Sites["redwood"]!!
+        f.level = 19
+        assertEquals(Result.LOCKED, f.canBuy(red))
+        f.level = 20
+        assertEquals(Result.LOCKED, f.canBuy(Sites["mesa"]!!))
+        val cash = f.cash
+        assertEquals(Result.OK, f.buySite(red))
+        assertEquals(cash - red.price, f.cash)
+        assertEquals(Result.BLOCKED, f.buySite(red))
+        assertEquals("redwood", f.site.def.id)
+        assertEquals(8, f.land)
+        assertEquals(Kind.SHACK, f.tile(f.ox, f.oy).kind)
+        assertEquals(Kind.PLOT, f.tile(f.ox + 3, f.oy + 3).kind)
+        // The bought square and the ring round it are clear of water and rocks.
+        for (y in f.oy - 1..f.oy + f.land) for (x in f.ox - 1..f.ox + f.land)
+            assertTrue(f.tile(x, y).kind != Kind.WATER && f.tile(x, y).kind != Kind.ROCK)
+        // The map itself has some terrain.
+        assertTrue(f.tiles.any { it.kind == Kind.WATER })
+        assertTrue(f.switchTo("home"))
+        assertEquals(6, f.land)
+        assertEquals(Kind.PLOT, f.tile(2, 2).kind)
+        assertFalse(f.switchTo("mesa"))
+    }
+
+    @Test fun everyFarmGrowsAroundItsSpot() {
+        for (def in Sites.all) {
+            val st = Site(def)
+            for ((a, b) in Farm.LAND.zipWithNext()) {
+                st.land = a.first; val ox = st.ox; val oy = st.oy
+                st.land = b.first
+                assertTrue("${def.id} ${a.first}->${b.first}", st.ox <= ox && st.oy <= oy &&
+                    st.ox + b.first >= ox + a.first && st.oy + b.first >= oy + a.first && st.ox + b.first <= Farm.MAX && st.oy + b.first <= Farm.MAX)
+            }
+        }
+        assertEquals(10, Sites.all.size - 1)
+        assertEquals(Sites.all.size, Sites.all.map { it.id }.toSet().size)
+    }
+
+    @Test fun otherFarmsKeepGrowing() {
+        val f = rich()
+        assertEquals(Result.OK, f.plant(2, 3, "ditch", t0))
+        f.buySite(Sites["redwood"]!!)
+        f.plant(f.ox + 3, f.oy + 3, "ditch", t0)
+        f.tick(t0 + 6 * 60_000L)
+        assertTrue(f.tile(f.ox + 3, f.oy + 3).ready())
+        f.switchTo("home")
+        assertTrue(f.tile(2, 3).ready())
+    }
+
+    @Test fun waterKeepsPlotsWet() {
+        val f = farm()
+        f.plant(2, 3, "ditch", t0)
+        assertFalse(f.sprinkled(2, 3))
+        f.tile(1, 3).kind = Kind.WATER
+        assertTrue(f.sprinkled(2, 3))
+    }
+
+    @Test fun bouldersCanBeBrokenUp() {
+        val f = farm()
+        f.tile(4, 4).kind = Kind.ROCK
+        assertEquals(Result.BLOCKED, f.build(4, 4, Kind.PLOT))
+        assertEquals(Result.BLOCKED, f.demolish(4, 4))
+        f.cash = f.rockCost() - 1
+        assertEquals(Result.NO_CASH, f.clearRock(4, 4))
+        f.cash = f.rockCost()
+        assertEquals(Result.OK, f.clearRock(4, 4))
+        assertEquals(0L, f.cash)
+        assertEquals(Kind.GRASS, f.tile(4, 4).kind)
+        assertEquals(Result.BLOCKED, f.clearRock(4, 4))
+    }
+
+    @Test fun farmsSaveAndOldSavesMigrate() {
+        val f = rich()
+        f.plant(2, 3, "ditch", t0)
+        f.buySite(Sites["mesa"]!!.also { f.level = 30 })
+        f.roof = 3
+        val g = Farm()
+        Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals("mesa", g.site.def.id)
+        assertEquals(listOf("home", "mesa"), g.sites.map { it.def.id })
+        assertEquals(3, g.roof)
+        g.switchTo("home")
+        assertEquals("ditch", g.tile(2, 3).strain)
+
+        // A v4 save kept one farm's tiles at the top level.
+        val home = rich(); home.plant(2, 3, "ditch", t0); assertEquals(Result.OK, home.expand())
+        val o = JSONObject(Save.write(home))
+        val site = o.getJSONArray("sites").getJSONObject(0)
+        o.remove("sites"); o.remove("site")
+        o.put("land", site.getInt("land")).put("roof", site.getInt("roof")).put("wall", site.getInt("wall")).put("tiles", site.getJSONArray("tiles"))
+        val h = Farm()
+        Save.read(o.toString(), h)
+        assertEquals(1, h.sites.size)
+        assertEquals(8, h.land)
+        assertEquals("ditch", h.tile(2, 3).strain)
+        assertEquals(Kind.SHACK, h.tile(0, 0).kind)
+    }
+
+    @Test fun sellingTheFarmKeepsOnlyHome() {
+        val f = rich()
+        f.level = 40; f.bestLevel = 40
+        f.buySite(Sites["redwood"]!!)
+        assertEquals(Result.OK, f.sellFarm(t0))
+        assertEquals(1, f.sites.size)
+        assertEquals("home", f.site.def.id)
+        assertEquals(Kind.SHACK, f.tile(0, 0).kind)
     }
 }

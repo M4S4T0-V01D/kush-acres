@@ -79,7 +79,7 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
     LEVEL_25("Seasoned Grower", "Reach level 25", 25, { it.bestLevel.toLong() }),
     LEVEL_50("Master Grower", "Reach level 50", 50, { it.bestLevel.toLong() }),
     LEVEL_80("Legend of Kush", "Reach level 80", 80, { it.bestLevel.toLong() }),
-    LAND_MAX("Lord of the Land", "Own the full ${Farm.MAX}×${Farm.MAX} farm", Farm.MAX.toLong(), { it.land.toLong() }),
+    LAND_MAX("Lord of the Land", "Own the full ${Farm.MAX}×${Farm.MAX} farm", Farm.MAX.toLong(), { f -> f.sites.maxOf { it.land }.toLong() }),
     MANSION("Mansion Life", "Move into the Kush Mansion", 5, { it.shack.toLong() }),
     PALACE("Palace Dweller", "Move into the Kush Palace", 9, { it.shack.toLong() }),
     HYBRID_1("Mad Scientist", "Breed a hybrid", 1, { it.bred.size.toLong() }),

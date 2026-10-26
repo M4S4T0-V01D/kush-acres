@@ -9,7 +9,8 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.random.Random
 
-enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH }
+/** ROCK can be cleared for cash; WATER stays and keeps the plots beside it wet. */
+enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER }
 
 /**
  * One square of land. Plots grow things; sprinklers, lamps and decor help the squares around them. The shack covers
@@ -126,8 +127,16 @@ class Farm(var rng: Random = Random.Default) {
         private val CELEBS = listOf("Snoop Dogg-ish", "A Famous Rapper", "Movie Star Max", "Rockstar Roxy", "Pop Idol Pia")
     }
 
-    val tiles = Array(MAX * MAX) { Tile() }
-    var land = 6
+    /** Every farm you own; [site] is the one on screen. The tile/land/paint fields below are the active site's. */
+    val sites = arrayListOf(Site(Sites.HOME))
+    var site = sites[0]
+    val tiles: Array<Tile> get() = site.tiles
+    var land: Int
+        get() = site.land
+        set(v) { site.land = v }
+    /** Top-left corner of the owned square on the active site's map. */
+    val ox get() = site.ox
+    val oy get() = site.oy
     var cash = 30L
     var level = 1
     var xp = 0L
@@ -153,8 +162,12 @@ class Farm(var rng: Random = Random.Default) {
     /** Buff → wall-clock millis it lasts until. */
     val buffs = HashMap<Buff, Long>()
     var shack = 0
-    var roof = 0
-    var wall = 0
+    var roof: Int
+        get() = site.roof
+        set(v) { site.roof = v }
+    var wall: Int
+        get() = site.wall
+        set(v) { site.wall = v }
     /** Per-strain market demand, 0.4..1: selling a lot of one strain floods the market; it recovers over time. */
     val demand = HashMap<String, Double>()
     val orders = arrayOfNulls<Order>(MAX_ORDERS)
@@ -185,13 +198,24 @@ class Farm(var rng: Random = Random.Default) {
     val events = ArrayList<FarmEvent>()
 
     fun tile(x: Int, y: Int): Tile = tiles[y * MAX + x]
-    fun inLand(x: Int, y: Int) = x in 0 until land && y in 0 until land
+    fun inLand(x: Int, y: Int) = x in ox until ox + land && y in oy until oy + land
+    /** Calls [f] for every owned square of the active site. */
+    inline fun eachLand(f: (x: Int, y: Int, t: Tile) -> Unit) {
+        val x0 = ox; val y0 = oy; val n = land
+        for (y in y0 until y0 + n) for (x in x0 until x0 + n) f(x, y, tile(x, y))
+    }
+    /** Runs [f] with each owned site made active in turn, then puts the one on screen back. */
+    inline fun eachSite(f: (Site) -> Unit) {
+        val keep = site
+        try { for (s in sites) { site = s; f(s) } } finally { site = keep }
+    }
+    fun owns(id: String) = sites.any { it.def.id == id }
 
     fun newGame(now: Long) {
-        placeShack(0, 0)
+        placeShack(ox, oy)
         // A little patch beside the shack, two plants already waiting to be picked.
         for ((i, p) in listOf(2 to 2, 3 to 2, 2 to 3, 3 to 3).withIndex()) {
-            val t = tile(p.first, p.second)
+            val t = tile(ox + p.first, oy + p.second)
             t.kind = Kind.PLOT
             if (i < 2) { t.strain = "ditch"; t.last = "ditch"; t.progress = Strains["ditch"]!!.seconds.toDouble() }
         }
@@ -234,7 +258,8 @@ class Farm(var rng: Random = Random.Default) {
     private fun earn(x: Long) { cash += x; totalEarned += x; bump(Stat.EARNED, x) }
     fun count(kind: Kind) = tiles.count { it.kind == kind }
     fun count(f: Facility) = tiles.count { it.kind == Kind.FACILITY && it.item == f.name }
-    fun placed(d: Decor) = tiles.any { (it.kind == Kind.DECOR || it.kind == Kind.PATH) && it.item == d.name }
+    /** Decor bonuses to prices and XP count from any farm you own. */
+    fun placed(d: Decor) = sites.any { s -> s.tiles.any { (it.kind == Kind.DECOR || it.kind == Kind.PATH) && it.item == d.name } }
     fun decorCount() = count(Kind.DECOR)
     fun decorCap() = 3 + 3 * shack
 
@@ -281,7 +306,8 @@ class Farm(var rng: Random = Random.Default) {
 
     private fun barrelBeside(x: Int, y: Int): Boolean =
         listOf(x - 1 to y, x + 1 to y, x to y - 1, x to y + 1).any { (nx, ny) ->
-            nx in 0 until MAX && ny in 0 until MAX && tile(nx, ny).let { it.kind == Kind.DECOR && it.item == Decor.BARREL.name }
+            nx in 0 until MAX && ny in 0 until MAX &&
+                tile(nx, ny).let { it.kind == Kind.WATER || it.kind == Kind.DECOR && it.item == Decor.BARREL.name }
         }
 
     fun sprinkled(x: Int, y: Int) = around(x, y, Kind.SPRINKLER) > 0 || barrelBeside(x, y)
@@ -331,11 +357,11 @@ class Farm(var rng: Random = Random.Default) {
         // Without helpers nothing depends on the order things happen in, so one step is exact. With them, step
         // through the gap so offline harvests, replants and sales land roughly when they would have.
         val helping = anyHelper()
-        val step = if (helping) max(30_000L, total / 2000) else total
+        val step = if (helping) max(30_000L, total / max(200, 2000 / sites.size)) else total
         var t = lastTick
         while (t < now) {
             val t1 = min(now, t + step)
-            grow(t, t1)
+            eachSite { grow(t, t1) }
             recoverDemand(t1 - t)
             refillOrders(t1)
             lastTick = t1
@@ -351,11 +377,10 @@ class Farm(var rng: Random = Random.Default) {
     private fun grow(t0: Long, t1: Long) {
         val dt = (t1 - t0) / 1000.0
         val b = boost(t0, t1)
-        for (y in 0 until land) for (x in 0 until land) {
-            val t = tile(x, y)
-            if (t.kind != Kind.PLOT || t.pest) continue
-            val s = t.strain?.let { Strains[it] } ?: continue
-            if (t.progress >= s.seconds) continue
+        eachLand { x, y, t ->
+            if (t.kind != Kind.PLOT || t.pest) return@eachLand
+            val s = t.strain?.let { Strains[it] } ?: return@eachLand
+            if (t.progress >= s.seconds) return@eachLand
             val wet = if (sprinkled(x, y)) dt else ((min(t.wetUntil, t1) - t0) / 1000.0).coerceIn(0.0, dt)
             t.progress = min(s.seconds.toDouble(), t.progress + (wet * WET_BOOST + (dt - wet)) * speed(x, y) * b)
         }
@@ -383,8 +408,14 @@ class Farm(var rng: Random = Random.Default) {
 
     /** Everything the hired help does each step. */
     private fun work(now: Long) {
-        if (farmhand) pick(now)
-        if (has(Helper.COOK)) cook(now)
+        val active = site
+        eachSite { s ->
+            val before = events.size
+            if (farmhand) pick(now)
+            if (has(Helper.COOK)) cook(now)
+            // Pops for the other farms would show up in the wrong place.
+            if (s !== active) for (i in events.size - 1 downTo before) if (events[i] is FarmEvent.Harvest) events.removeAt(i)
+        }
         if (has(Helper.FETCHER)) fetch()
         if (has(Helper.RUNNER) && runnerOn && now >= runnerAt) {
             runnerAt = now + RUNNER_MILLIS
@@ -394,11 +425,10 @@ class Farm(var rng: Random = Random.Default) {
 
     /** The farmhand picks everything ready and clears pests; with the Grow Manager the same strain goes back in. */
     private fun pick(now: Long) {
-        for (y in 0 until land) for (x in 0 until land) {
-            val t = tile(x, y)
-            if (t.kind != Kind.PLOT) continue
-            if (t.pest) { t.pest = false; bump(Stat.PESTS); continue }
-            if (!t.ready()) continue
+        eachLand { x, y, t ->
+            if (t.kind != Kind.PLOT) return@eachLand
+            if (t.pest) { t.pest = false; bump(Stat.PESTS); return@eachLand }
+            if (!t.ready()) return@eachLand
             val before = events.size
             if (harvest(x, y, now) != Result.OK) return
             val h = events.getOrNull(before) as? FarmEvent.Harvest
@@ -410,9 +440,8 @@ class Farm(var rng: Random = Random.Default) {
     }
 
     private fun cook(now: Long) {
-        for (y in 0 until land) for (x in 0 until land) {
-            val t = tile(x, y)
-            if (t.kind != Kind.FACILITY) continue
+        eachLand { x, y, t ->
+            if (t.kind != Kind.FACILITY) return@eachLand
             if (t.strain != null && now >= t.doneAt && collect(x, y, now) == Result.OK) away.batches++
             val last = t.last
             if (t.strain == null && last != null) startBatch(x, y, last, now)
@@ -460,7 +489,7 @@ class Farm(var rng: Random = Random.Default) {
     /** After a break, give the player a few minutes before the next event. */
     fun delayEvents(now: Long) { nextEventAt = now + (3 + rng.nextInt(4)) * 60_000L }
 
-    private fun growing() = (0 until land * land).map { (it % land) to (it / land) }
+    private fun growing() = (0 until land * land).map { ox + it % land to oy + it / land }
         .filter { (x, y) -> tile(x, y).let { it.kind == Kind.PLOT && it.strain != null && !it.ready() && !it.pest } }
 
     fun makeEvent(now: Long, force: EventKind? = null): Happening? {
@@ -490,8 +519,7 @@ class Farm(var rng: Random = Random.Default) {
                 Happening(kind, plots = hit.size)
             }
             EventKind.RAIN -> {
-                for (y in 0 until land) for (x in 0 until land) {
-                    val t = tile(x, y)
+                eachLand { _, _, t ->
                     if (t.kind == Kind.PLOT) t.wetUntil = max(t.wetUntil, now + waterMillis())
                 }
                 Happening(kind)
@@ -606,9 +634,8 @@ class Farm(var rng: Random = Random.Default) {
     /** Rain waters every growing plant for free; how many it reached that were dry. */
     fun rain(now: Long): Int {
         var n = 0
-        for (y in 0 until land) for (x in 0 until land) {
-            val t = tile(x, y)
-            if (t.kind != Kind.PLOT || t.strain == null || t.ready()) continue
+        eachLand { x, y, t ->
+            if (t.kind != Kind.PLOT || t.strain == null || t.ready()) return@eachLand
             if (t.wetUntil <= now && !sprinkled(x, y)) n++
             t.wetUntil = maxOf(t.wetUntil, now + 5 * 60_000L)
         }
@@ -724,7 +751,7 @@ class Farm(var rng: Random = Random.Default) {
     fun demolish(x: Int, y: Int): Result {
         val t = tile(x, y)
         when (t.kind) {
-            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY -> return Result.BLOCKED
+            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.ROCK, Kind.WATER -> return Result.BLOCKED
             Kind.PLOT -> if (t.strain != null || count(Kind.PLOT) <= 1) return Result.BLOCKED
             Kind.DECOR, Kind.PATH -> { val d = t.item ?: ""; decorInv[d] = (decorInv[d] ?: 0) + 1 }
             else -> {}
@@ -753,7 +780,7 @@ class Farm(var rng: Random = Random.Default) {
     /** For old saves: finds the first free 2×2 spot for the shack. */
     fun autoPlaceShack(): Boolean {
         if (shackAt() != null) return true
-        for (s in 0 until 2 * land) for (x in 0..s) { if (placeShack(x, s - x)) return true }
+        for (s in 0 until 2 * land) for (x in 0..s) { if (placeShack(ox + x, oy + s - x)) return true }
         return false
     }
 
@@ -772,7 +799,7 @@ class Farm(var rng: Random = Random.Default) {
             placeShack(ax, ay)
             return Result.BLOCKED
         }
-        if (from.kind == Kind.GRASS || !inLand(tx, ty)) return Result.BLOCKED
+        if (from.kind == Kind.GRASS || from.kind == Kind.ROCK || from.kind == Kind.WATER || !inLand(tx, ty)) return Result.BLOCKED
         val to = tile(tx, ty)
         if (to.kind != Kind.GRASS) return Result.BLOCKED
         to.copyFrom(from)
@@ -801,6 +828,49 @@ class Farm(var rng: Random = Random.Default) {
         cash -= next.third
         land = next.first
         return Result.OK
+    }
+
+    fun rockCost(): Long = nice(200.0 + 40.0 * level * level)
+
+    /** Breaks up a boulder on your land so the square can be built on. */
+    fun clearRock(x: Int, y: Int): Result {
+        val t = tile(x, y)
+        if (!inLand(x, y) || t.kind != Kind.ROCK) return Result.BLOCKED
+        val c = rockCost()
+        if (cash < c) return Result.NO_CASH
+        cash -= c
+        t.clear()
+        addXp(2)
+        return Result.OK
+    }
+
+    // ---- Other farms ----
+
+    fun canBuy(def: SiteDef): Result = when {
+        owns(def.id) -> Result.BLOCKED
+        level < def.level -> Result.LOCKED
+        cash < def.price -> Result.NO_CASH
+        else -> Result.OK
+    }
+
+    /** Buys a farm somewhere else: fresh land with a shack and a little patch, and makes it the one on screen. */
+    fun buySite(def: SiteDef): Result {
+        canBuy(def).let { if (it != Result.OK) return it }
+        cash -= def.price
+        val s = Site(def)
+        s.land = SiteDef.START_LAND
+        Sites.carve(def, s.tiles, s.ox, s.oy, s.land)
+        sites += s
+        site = s
+        placeShack(ox, oy)
+        for ((x, y) in listOf(3 to 3, 4 to 3, 3 to 4, 4 to 4)) tile(ox + x, oy + y).kind = Kind.PLOT
+        return Result.OK
+    }
+
+    fun switchTo(id: String): Boolean {
+        val s = sites.firstOrNull { it.def.id == id } ?: return false
+        site = s
+        return true
     }
 
     fun buy(u: Upgrade): Result {
@@ -1068,12 +1138,15 @@ class Farm(var rng: Random = Random.Default) {
     fun canSellFarm() = level >= Progress.LEGACY_LEVEL
 
     /**
-     * Starts over on fresh land for a permanent bonus. Kept: legacy, stats, trophies, hybrids, streak, paint,
+     * Starts over on fresh land for a permanent bonus. The other farms are sold too. Kept: legacy, stats, trophies, hybrids, streak, paint,
      * envelopes, exotic seeds and all decor (placed decor goes back in the inventory).
      */
     fun sellFarm(now: Long): Result {
         if (!canSellFarm()) return Result.LOCKED
-        for (t in tiles) if (t.kind == Kind.DECOR || t.kind == Kind.PATH) t.item?.let { decorInv[it] = (decorInv[it] ?: 0) + 1 }
+        for (s in sites) for (t in s.tiles) if (t.kind == Kind.DECOR || t.kind == Kind.PATH) t.item?.let { decorInv[it] = (decorInv[it] ?: 0) + 1 }
+        // Back to the home farm only; its paint stays.
+        site = sites[0]
+        sites.retainAll { it === site }
         tiles.forEach { it.clear() }
         land = 6; cash = 30; level = 1; xp = 0
         upgrades.fill(0); helpers.fill(false); supplies.fill(0)

@@ -42,11 +42,18 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Rotate buttons in the farm HUD, recentre on rotate, remember choice
 - [ ] Check on a real phone: shack/decor/helpers look right from all 4 sides
 
-## Phase 4 — Multiple farms
-- [ ] Split per-farm state (tiles, land, shack, paint, layout) from player state (cash, level, stash…)
-- [ ] 10 new farm sites: name, map shape/obstacles (water, rocks, roads), land position on map, price, level
-- [ ] Realtor keeper (level 20+) to buy; farm switcher; offline ticking for all owned farms
-- [ ] Save format v5 with a list of sites
+## Phase 4 — Multiple farms (0.6.0)
+- [x] Split per-farm state (`Site`: tiles, land, paint) from player state (cash, level, stash, shack level, helpers)
+- [x] 10 new farm sites (`Sites.kt`): own grass/wild colours, trees or pines, lakes/rivers/coast/boulders/crater rim,
+      land anchored at its own spot on the map (corner, edge or middle), price and level (20 → 64)
+- [x] Mona sells them from Lv 20 ("Your farms" list also in the farm chip under the HUD); switch any time;
+      every owned farm keeps growing and helpers pick/cook on all of them
+- [x] Boulders on your land can be broken up (cost scales with level); water keeps nearby plots wet
+- [x] Save format v5 with a list of sites (v4 saves migrate into Home Acres)
+- [x] Seed menu in shelves: Street / Mid / Top shelf / Legend (the ladder in quarters), Lab hybrids, Exotic seeds
+- [x] Menu wood colours follow the farm you're on (`Theme`), so each farm is recognisable at a glance
+- [ ] Check on a real phone: terrain look, farm switching, menu colours
+- Note: roads were left out; per-site strains and towns come in phase 5.
 
 ## Phase 5 — Per-farm towns
 - [ ] Each site: town name, keepers (names/looks), back-alley dealer + stock
@@ -69,3 +76,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
 - 0.4.0 — map 40×40 with land tiers up to 40×40; only the visible part of the farm is drawn
 - 0.5.0 — rotate the farm 4 ways (↺ ↻ in the top bar)
+- 0.6.0 — 10 more farms to buy from Mona at Lv 20+, each with its own land, colours and terrain; tiered seed menu

@@ -69,6 +69,7 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.model.SHACKS
+import dev.m4s4t0.kushacres.model.Strain
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.WALL_COLORS
 
@@ -115,6 +116,7 @@ fun PanelHost(ui: UiState) {
                 Panel.SHACK -> SHACKS[f.shack].title
                 Panel.FACILITY -> ui.fac?.let { (x, y) -> f.facility(x, y)?.title } ?: ""
                 Panel.MENU -> "Farm Book"
+                Panel.FARMS -> "Your farms"
                 Panel.NONE -> ""
             }
             Row(Modifier.fillMaxWidth().frame(Color(0xFF3F2C1A), Color(0xFFB08440)).padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -138,18 +140,46 @@ fun PanelHost(ui: UiState) {
                 Panel.SHACK -> ShackPanel(ui)
                 Panel.FACILITY -> FacilityPanel(ui)
                 Panel.MENU -> MenuPanel(ui)
+                Panel.FARMS -> FarmsPanel(ui)
                 Panel.NONE -> {}
             }
         }
     }
 }
 
+/** The seed menu's shelves: the ladder cut into four, then lab hybrids, then black-market exotics. */
+private val SHELVES: List<Pair<String, List<Strain>>> = run {
+    val per = (Strains.ladder.size + 3) / 4
+    val ladder = Strains.ladder.chunked(per)
+    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics)
+}
+private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0).map { Color(it) }
+
 @Composable
 internal fun SeedPanel(ui: UiState) {
     val f = Store.farm
     Store.rev
-    // The regular ladder, then hybrids you've bred, then any exotic seeds from the black market you're holding.
-    val list = Strains.all.filter { if (it.exotic) (f.seeds[it.id] ?: 0) > 0 else !it.hybrid || it.id in f.bred }
+    var tab by remember { mutableIntStateOf(SHELVES.indexOfFirst { (_, l) -> l.any { it.id == ui.seed } }.coerceAtLeast(0)) }
+    Tabs(SHELVES.mapIndexed { i, (name, l) ->
+        when (i) {
+            4 -> "$name ${l.count { it.id in f.bred }}"
+            5 -> "$name ${l.count { (f.seeds[it.id] ?: 0) > 0 }}"
+            else -> "$name ${l.count { f.unlocked(it) }}/${l.size}"
+        }
+    }, tab) { tab = it }
+    val (_, shelf) = SHELVES[tab]
+    val edge = SHELF_EDGE[tab]
+    // Lab and exotic shelves only show what you can plant; the ladder shows what's coming too.
+    val list = when (tab) {
+        4 -> shelf.filter { it.id in f.bred }
+        5 -> shelf.filter { (f.seeds[it.id] ?: 0) > 0 }
+        else -> shelf
+    }
+    if (list.isEmpty()) {
+        T(if (tab == 4) "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
+            else "No exotic seeds. The back-alley dealer in Town sells them now and then.", 12.sp, Dim, bold = false)
+        return
+    }
     LazyVerticalGrid(GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(list) { s ->
             Store.rev
@@ -157,7 +187,7 @@ internal fun SeedPanel(ui: UiState) {
             val chosen = ui.seed == s.id
             Column(
                 Modifier.clickable(enabled = open) { ui.seed = s.id; ui.panel = Panel.NONE }
-                    .frame(if (chosen) Color(0xFF4A3A22) else WoodIn, if (chosen) Gold else if (s.exotic) Color(0xFFD86AF0) else if (s.hybrid) Color(0xFF5CD0E0) else WoodEdge)
+                    .frame(if (chosen) Color(0xFF4A3A22) else WoodIn, if (chosen) Gold else edge)
                     .padding(3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -171,6 +201,7 @@ internal fun SeedPanel(ui: UiState) {
                     if (s.exotic) T("${f.seeds[s.id] ?: 0} seeds", 11.sp, Color(0xFFD86AF0))
                     else T(money(s.seed), 11.sp, Gold)
                     T("${s.yield}g × ${money(s.price)}", 9.sp, Dim, bold = false)
+                    s.parents?.let { (a, b) -> T("${Strains[a]?.name} × ${Strains[b]?.name}", 8.sp, Color(0xFF5CD0E0), bold = false, align = TextAlign.Center) }
                 } else T("Lv ${s.level}", 11.sp, Bad)
             }
         }

@@ -71,9 +71,11 @@ object Sprites {
         return px.bitmap()
     }
 
-    private val grassCache = HashMap<Int, Bitmap>()
-    fun grass(v: Int, wild: Boolean): Bitmap = grassCache.getOrPut(v * 2 + if (wild) 1 else 0) {
-        val base = if (wild) 0xFF3E7D3C.toInt() else 0xFF62AE45.toInt()
+    private val grassCache = HashMap<Long, Bitmap>()
+    /** A square of ground; [color] tints it for each farm (grass, sand, snow, ash…). */
+    fun grass(v: Int, wild: Boolean, color: Int = if (wild) 0xFF3E7D3C.toInt() else 0xFF62AE45.toInt()): Bitmap =
+        grassCache.getOrPut((color.toLong() shl 8) or (v * 2L + if (wild) 1 else 0)) {
+        val base = color
         val flowers = intArrayOf(0xFFF4E36B.toInt(), 0xFFF2F2F2.toInt(), 0xFFE58AB8.toInt(), 0xFFA8B8F8.toInt())
         block({ px, x, y, r ->
             val n = r.nextInt(100)
@@ -107,6 +109,53 @@ object Sprites {
                 px.dot(fx, fy, 0xFFF2C440.toInt()); px.dot(fx, fy + 2, shade(base, 0.7f))
             }
         }
+    }
+
+    const val WATER_FRAMES = 4
+    private val waterCache = HashMap<Int, Bitmap>()
+    /** A square of water sunk a little below the ground, with ripples that drift over [WATER_FRAMES] frames. */
+    fun water(frame: Int, deep: Boolean): Bitmap = waterCache.getOrPut(frame * 2 + if (deep) 1 else 0) {
+        val base = if (deep) 0xFF2C6CA8.toInt() else 0xFF3E8CC8.toInt()
+        val bank = 0xFF6B5034.toInt()
+        block({ px, x, y, _ -> px.set(x, y, if (y == top(x)) shade(base, 0.7f) else base) }, bank, shade(bank, 0.8f), shade(base, 0.6f), 900 + frame) { px, r ->
+            val s = px.s
+            for (fy in 0 until (TH + 1) * s) for (fx in 0 until px.fw) {
+                if (!onTop(fx / s, fy / s)) continue
+                // Diagonal ripple bands that slide along with the frame.
+                val ph = ((fx + fy * 2 + frame * 4) % 24 + 24) % 24
+                when {
+                    ph < 2 -> px.dot(fx, fy, shade(base, 1.22f))
+                    ph in 12..13 -> px.dot(fx, fy, shade(base, 0.88f))
+                }
+            }
+            repeat(3) {
+                val fx = (r.nextInt(6, px.fw - 6) + frame * 3) % (px.fw - 6) + 3; val fy = r.nextInt(6, TH * s - 4)
+                if (onTop(fx / s, fy / s)) { px.dot(fx, fy, 0xFFE8F4FF.toInt()); px.dot(fx + 1, fy, 0xFFB8DCF8.toInt()) }
+            }
+        }
+    }
+
+    private val rockCache = HashMap<Int, Bitmap>()
+    /** A boulder sitting on the grass. */
+    fun rock(v: Int): Bitmap = rockCache.getOrPut(v) {
+        val px = Px(20, 16)
+        val f = px.s.toFloat()
+        val g = intArrayOf(0xFF8C8A84.toInt(), 0xFF9A8E7C.toInt(), 0xFF7E848C.toInt())[v % 3]
+        val r = Random(v + 77)
+        val lumps = listOf(Triple(10f, 9.5f, 5.6f), Triple(6f, 11f, 3.6f + v % 2), Triple(14f, 11.2f, 3.4f))
+        for ((cx, cy, rad) in lumps) {
+            for (fy in ((cy - rad - 1) * f).toInt()..((cy + rad) * f).toInt()) for (fx in ((cx - rad - 1) * f).toInt()..((cx + rad + 1) * f).toInt()) {
+                val dx = ((fx + 0.5f) / f - cx) / rad; val dy = ((fy + 0.5f) / f - cy) / (rad * 0.85f)
+                if (dx * dx + dy * dy > 1 || (fy + 0.5f) / f > 14.5f) continue
+                val lv = -0.6f * dx - 0.7f * dy + (r.nextFloat() - 0.5f) * 0.25f
+                px.dot(fx, fy, when { lv > 0.55f -> shade(g, 1.3f); lv > 0.1f -> shade(g, 1.1f); lv > -0.4f -> g; else -> shade(g, 0.72f) })
+            }
+        }
+        // A crack and a bit of moss.
+        for (k in 0 until 6) px.dot(((9 + k * 0.5f) * f).toInt(), ((7 + k) * f / 1.6f + 4 * f).toInt(), shade(g, 0.6f))
+        if (v % 2 == 0) for (k in 0 until 5) px.dot(((7 + k) * f).toInt(), (6.2f * f).toInt() + k % 2, 0xFF5E8A3A.toInt())
+        px.outline(OUT)
+        px.bitmap()
     }
 
     private val plotCache = HashMap<Boolean, Bitmap>()

@@ -1,0 +1,157 @@
+package dev.m4s4t0.kushacres.model
+
+import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.random.Random
+
+/** Lay of the land on a site's map, carved out when the site is bought. */
+sealed class Feature {
+    /** A pond or lake around a point given as fractions of the map, [r] squares across (give or take). */
+    class Lake(val x: Float, val y: Float, val r: Float) : Feature()
+    /** A winding river crossing the map, [at] a fraction of the way across. */
+    class River(val vertical: Boolean, val at: Float, val width: Float) : Feature()
+    /** Sea along one side: 0 = low x, 1 = high x, 2 = low y, 3 = high y. */
+    class Coast(val side: Int, val depth: Int) : Feature()
+    /** Boulders scattered over [share] of the map. */
+    class Rocks(val share: Float) : Feature()
+    /** A rocky rim [r] squares out from the middle, like the edge of a crater. */
+    class Rim(val r: Float) : Feature()
+}
+
+/**
+ * A place you can farm. [ax]/[ay] say where the owned square sits on the 40×40 map (0 = top/left edge, 1 = far
+ * edge); it grows around that point. Colours: [ground]/[wild] grass, and the menus' wood ([wood], [woodIn], [edge]).
+ */
+class SiteDef(
+    val id: String, val name: String, val blurb: String, val level: Int, val price: Long,
+    val ax: Float, val ay: Float,
+    val ground: Int, val wild: Int,
+    val wood: Int, val woodIn: Int, val edge: Int,
+    /** Out of 7: how much of the wild is trees ([pines] for conifers only). */
+    val trees: Int, val pines: Boolean = false,
+    val roof: Int = 0, val wall: Int = 0,
+    val features: List<Feature> = emptyList(),
+) {
+    companion object {
+        /** How big a newly bought site starts. */
+        const val START_LAND = 8
+        const val REALTOR_LEVEL = 20
+    }
+}
+
+object Sites {
+    val HOME = SiteDef("home", "Home Acres", "Where it all started.", 1, 0, 0f, 0f,
+        0xFF62AE45.toInt(), 0xFF3E7D3C.toInt(), 0xFF2B2118.toInt(), 0xFF3B2D20.toInt(), 0xFF8A6238.toInt(), 3)
+
+    val all: List<SiteDef> = listOf(
+        HOME,
+        SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 20, 200_000, 0.5f, 0.5f,
+            0xFF4F9A3E.toInt(), 0xFF2F6236.toInt(), 0xFF16241A.toInt(), 0xFF213624.toInt(), 0xFF5E8A4E.toInt(), 5, pines = true,
+            roof = 2, wall = 5, features = listOf(Feature.Lake(0.18f, 0.2f, 4f), Feature.Lake(0.85f, 0.75f, 3f), Feature.Rocks(0.03f))),
+        SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 24, 600_000, 1f, 0f,
+            0xFFCFAE6A.toInt(), 0xFFAE8A4E.toInt(), 0xFF3A1E14.toInt(), 0xFF52291B.toInt(), 0xFFC0703E.toInt(), 0,
+            roof = 0, wall = 0, features = listOf(Feature.Lake(0.3f, 0.75f, 3f), Feature.Rocks(0.09f))),
+        SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 28, 2_000_000, 0f, 1f,
+            0xFF5C8C3A.toInt(), 0xFF3C6630.toInt(), 0xFF102624.toInt(), 0xFF173A36.toInt(), 0xFF3E8C7E.toInt(), 4,
+            roof = 4, wall = 4, features = listOf(Feature.River(true, 0.62f, 2.5f), Feature.Lake(0.2f, 0.25f, 3.5f),
+                Feature.Lake(0.8f, 0.2f, 2.5f), Feature.Lake(0.9f, 0.9f, 3f))),
+        SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 32, 6_000_000, 1f, 1f,
+            0xFF86BE52.toInt(), 0xFF5E9440.toInt(), 0xFF3A1A22.toInt(), 0xFF52242E.toInt(), 0xFFE07A5A.toInt(), 2,
+            roof = 1, wall = 1, features = listOf(Feature.Coast(0, 7), Feature.Coast(2, 6), Feature.Rocks(0.02f))),
+        SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 36, 15_000_000, 0.5f, 0f,
+            0xFFDCE6EC.toInt(), 0xFFB4C4D0.toInt(), 0xFF141E2C.toInt(), 0xFF1E2C40.toInt(), 0xFF7AA8D0.toInt(), 4, pines = true,
+            roof = 1, wall = 2, features = listOf(Feature.Lake(0.2f, 0.85f, 3.5f), Feature.Rocks(0.06f))),
+        SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 40, 40_000_000, 0f, 0.5f,
+            0xFF3FA84A.toInt(), 0xFF2A7436.toInt(), 0xFF0E2418.toInt(), 0xFF153626.toInt(), 0xFF3CC07A.toInt(), 3,
+            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.25f, 2f), Feature.Lake(0.8f, 0.7f, 2.5f))),
+        SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 45, 100_000_000, 0.5f, 0.5f,
+            0xFF6E645A.toInt(), 0xFF4A423E.toInt(), 0xFF2A0E0C.toInt(), 0xFF3E1612.toInt(), 0xFFD04A2A.toInt(), 1,
+            roof = 4, wall = 5, features = listOf(Feature.Coast(0, 4), Feature.Coast(1, 4), Feature.Coast(2, 4), Feature.Coast(3, 4),
+                Feature.Rocks(0.08f))),
+        SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 50, 250_000_000, 1f, 0.5f,
+            0xFF5FA87A.toInt(), 0xFF3A6E5A.toInt(), 0xFF1E1028.toInt(), 0xFF2C1840.toInt(), 0xFFC060E8.toInt(), 2,
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.15f, 0.2f, 3f), Feature.Lake(0.25f, 0.8f, 3.5f),
+                Feature.Lake(0.75f, 0.1f, 2.5f))),
+        SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 56, 700_000_000, 0.5f, 1f,
+            0xFF8AB04E.toInt(), 0xFF5E7E3A.toInt(), 0xFF1A1E24.toInt(), 0xFF262C36.toInt(), 0xFF8A9AB0.toInt(), 3, pines = true,
+            roof = 4, wall = 2, features = listOf(Feature.River(true, 0.15f, 1.5f), Feature.Rocks(0.1f))),
+        SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 64, 2_000_000_000, 0.5f, 0.5f,
+            0xFF7A70A8.toInt(), 0xFF4E4878.toInt(), 0xFF0E1030.toInt(), 0xFF181C48.toInt(), 0xFF7A88F0.toInt(), 1,
+            roof = 3, wall = 2, features = listOf(Feature.Rim(13f), Feature.Lake(0.08f, 0.1f, 2.5f), Feature.Lake(0.92f, 0.9f, 2.5f))),
+    )
+
+    private val byId = all.associateBy { it.id }
+    operator fun get(id: String): SiteDef? = byId[id]
+
+    /** Smooth noise in 0..1, about one bump every 4 squares. */
+    private fun noise(x: Float, y: Float, seed: Int): Float {
+        fun h(i: Int, j: Int): Float {
+            var n = i * 374761393 + j * 668265263 + seed * 2246822519L.toInt()
+            n = (n xor (n ushr 13)) * 1274126177
+            return ((n xor (n ushr 16)) and 0xFFFF) / 65535f
+        }
+        val x0 = floor(x).toInt(); val y0 = floor(y).toInt()
+        val fx = x - x0; val fy = y - y0
+        val sx = fx * fx * (3 - 2 * fx); val sy = fy * fy * (3 - 2 * fy)
+        val a = h(x0, y0) + (h(x0 + 1, y0) - h(x0, y0)) * sx
+        val b = h(x0, y0 + 1) + (h(x0 + 1, y0 + 1) - h(x0, y0 + 1)) * sx
+        return a + (b - a) * sy
+    }
+
+    /** Carves [def]'s features into [tiles]; the starting square at [ox],[oy] and the ring round it stay clear. */
+    fun carve(def: SiteDef, tiles: Array<Tile>, ox: Int, oy: Int, land: Int) {
+        val m = Farm.MAX
+        val seed = def.id.hashCode()
+        val r = Random(seed)
+        fun set(x: Int, y: Int, k: Kind) { if (x in 0 until m && y in 0 until m) tiles[y * m + x].kind = k }
+        for (f in def.features) when (f) {
+            is Feature.Lake -> {
+                val cx = f.x * (m - 1); val cy = f.y * (m - 1)
+                for (y in 0 until m) for (x in 0 until m) {
+                    val d = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy))
+                    if (d < f.r + (noise(x / 3f, y / 3f, seed + 11) - 0.5f) * 2.5f) set(x, y, Kind.WATER)
+                }
+            }
+            is Feature.River -> for (a in 0 until m) for (b in 0 until m) {
+                val mid = f.at * (m - 1) + sin(a * 0.28f) * 2.2f + (noise(a / 4f, 0.5f, seed + 3) - 0.5f) * 4f
+                if (abs(b - mid) < f.width / 2) { if (f.vertical) set(b, a, Kind.WATER) else set(a, b, Kind.WATER) }
+            }
+            is Feature.Coast -> for (a in 0 until m) {
+                val d = (f.depth + (noise(a / 3f, f.side * 7f, seed + 5) - 0.5f) * 3f).roundToInt()
+                for (b in 0 until d) when (f.side) {
+                    0 -> set(b, a, Kind.WATER); 1 -> set(m - 1 - b, a, Kind.WATER)
+                    2 -> set(a, b, Kind.WATER); else -> set(a, m - 1 - b, Kind.WATER)
+                }
+            }
+            is Feature.Rocks -> for (y in 0 until m) for (x in 0 until m) {
+                val t = tiles[y * m + x]
+                if (t.kind == Kind.GRASS && r.nextFloat() < f.share) t.kind = Kind.ROCK
+            }
+            is Feature.Rim -> for (y in 0 until m) for (x in 0 until m) {
+                val c = (m - 1) / 2f
+                val d = sqrt((x - c) * (x - c) + (y - c) * (y - c))
+                val t = tiles[y * m + x]
+                if (t.kind == Kind.GRASS && abs(d - f.r) < 1f && r.nextFloat() < 0.75f) t.kind = Kind.ROCK
+            }
+        }
+        for (y in oy - 1..oy + land) for (x in ox - 1..ox + land) {
+            if (x !in 0 until m || y !in 0 until m) continue
+            val t = tiles[y * m + x]
+            if (t.kind == Kind.WATER || t.kind == Kind.ROCK) t.kind = Kind.GRASS
+        }
+    }
+}
+
+/** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
+class Site(val def: SiteDef) {
+    val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
+    var land = 6
+    var roof = def.roof
+    var wall = def.wall
+    /** Top-left corner of the owned square. */
+    val ox get() = ((Farm.MAX - land) * def.ax).roundToInt()
+    val oy get() = ((Farm.MAX - land) * def.ay).roundToInt()
+}

@@ -37,6 +37,7 @@ import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Town
+import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Helper
@@ -322,6 +323,11 @@ private fun MonaShop(ui: UiState) {
             }
         }
         item { Btn("Paint & move the shack", Modifier.fillMaxWidth(), color = WoodEdge) { ui.shop = null; ui.panel = Panel.SHACK } }
+        item {
+            T(if (f.level < SiteDef.REALTOR_LEVEL) "Farms elsewhere: come back at Lv ${SiteDef.REALTOR_LEVEL}, honey. I know some places."
+                else "Farms elsewhere. Every one's got its own ground, its own weather in the wood.", 12.sp, Gold)
+        }
+        farmCards(ui)
     }
 }
 

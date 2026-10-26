@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.withFrameMillis
 import android.text.format.DateFormat
+import dev.m4s4t0.kushacres.model.Result
+import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.Sky as Clock
 import dev.m4s4t0.kushacres.model.Weather
 import dev.m4s4t0.kushacres.model.Season
@@ -34,6 +36,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -86,7 +89,7 @@ sealed class Mode {
     data object Demolish : Mode()
 }
 
-enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU }
+enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS }
 
 class UiState {
     var mode by mutableStateOf<Mode>(Mode.Farm)
@@ -103,10 +106,10 @@ class UiState {
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
 }
 
-// Wood-and-parchment pixel palette.
-val Wood = Color(0xFF2B2118)
-val WoodEdge = Color(0xFF8A6238)
-val WoodIn = Color(0xFF3B2D20)
+// Wood-and-parchment pixel palette. The wood follows the farm you're on (see Theme).
+val Wood get() = Color(Theme.site.wood)
+val WoodEdge get() = Color(Theme.site.edge)
+val WoodIn get() = Color(Theme.site.woodIn)
 val Cream = Color(0xFFF5E6C8)
 val Dim = Color(0xFFB8A687)
 val Leaf = Color(0xFF7BD34B)
@@ -226,6 +229,7 @@ fun App() {
 private fun Hud(ui: UiState) {
     val f = Store.farm
     Store.rev
+    SideEffect { Theme.site = f.site.def }
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         // Level and XP.
         // A red dot when there's a daily reward or a quest to claim in the Farm Book.
@@ -281,12 +285,12 @@ private fun Hud(ui: UiState) {
             T("$used/${cap}g", 13.sp, if (used >= cap) Bad else if (used > cap * 0.8) Gold else Cream)
         }
     }
-    SkyChip()
+    SkyChip(ui)
 }
 
 /** The weather and the farm's clock, under the cash. */
 @Composable
-private fun SkyChip() {
+private fun SkyChip(ui: UiState) {
     val now = Store.now()
     val ctx = LocalContext.current
     val w = Clock.weather(now)
@@ -303,7 +307,17 @@ private fun SkyChip() {
     val hh = h.toInt(); val mm = ((h - hh) * 60).toInt()
     val clock = if (DateFormat.is24HourFormat(ctx)) "%d:%02d".format(hh, mm)
         else "%d:%02d %s".format(if (hh % 12 == 0) 12 else hh % 12, mm, if (hh < 12) "am" else "pm")
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Which farm you're on; tap to switch (or to see what Mona sells from Lv 20).
+        val f = Store.farm
+        if (f.sites.size > 1 || f.level >= SiteDef.REALTOR_LEVEL) {
+            Row(Modifier.woodBox().clickable { ui.panel = Panel.FARMS }.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(10.dp).background(Color(f.site.def.ground)))
+                Spacer(Modifier.width(4.dp))
+                T(f.site.def.name + " ▾", 11.sp, Cream)
+            }
+        }
+        Spacer(Modifier.weight(1f))
         Row(
             Modifier.background(Color(0xAA1C1A14)).clickable {
                 Store.toast("${season.title}: ${season.desc}. " + when (w) {
@@ -419,6 +433,8 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.SPRINKLER -> "Sprinkler"
                 Kind.LAMP -> "Grow lamp"
                 Kind.GRASS -> "Grass"
+                Kind.ROCK -> "Boulder"
+                Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
                 else -> ""
             }
@@ -448,6 +464,15 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
             Kind.SPRINKLER -> T("Keeps the 8 squares around it watered forever.", 12.sp, Dim)
             Kind.LAMP -> T("Plants on the 8 squares around it grow 25% faster (2 lamps max).", 12.sp, Dim)
             Kind.DECOR, Kind.PATH -> T(Decor.of(tile.item)?.desc ?: "", 12.sp, Dim)
+            Kind.ROCK -> {
+                T("Too big to build on. Break it up to free the square.", 12.sp, Dim)
+                Spacer(Modifier.height(6.dp))
+                Btn("Break it up · ${money(f.rockCost())}", Modifier.fillMaxWidth(), enabled = f.cash >= f.rockCost(), color = Gold) {
+                    val r = f.clearRock(x, y); report(r)
+                    if (r == Result.OK) { ui.selected = null; Store.changed() }
+                }
+            }
+            Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
             else -> {}
         }
     }

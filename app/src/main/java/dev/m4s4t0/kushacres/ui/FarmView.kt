@@ -227,11 +227,11 @@ class World {
         fun spot(h: Helper, seg: Int): Pair<Int, Int> {
             for (k in 0 until 6) {
                 val v = hash(h.ordinal * 31 + seg, k * 17 + 5)
-                val x = v % land; val y = (v / land) % land
+                val x = f.ox + v % land; val y = f.oy + (v / land) % land
                 val kind = f.tile(x, y).kind
                 if (kind == Kind.GRASS || kind == Kind.PATH || kind == Kind.PLOT) return x to y
             }
-            return 0 to 0
+            return f.ox to f.oy
         }
         return Helper.entries.filter { f.has(it) }.map { h ->
             val tt = t + h.ordinal * 1.7f
@@ -265,18 +265,26 @@ class World {
         val dt = if (lastT < 0) 0f else (t - lastT).coerceIn(0f, 0.1f)
         lastT = t
         val land = f.land
+        val ox = f.ox; val oy = f.oy
+        val def = f.site.def
         val buildMode = placing
+        val wave = (t * 2.5f).toInt()
         // Ground, back to front.
         for (s in 0..(Farm.MAX - 1) * 2) for (u in 0..s) {
             if (u >= Farm.MAX || s - u >= Farm.MAX) continue
             val (x, y) = tileOf(u, s - u)
             if (!seen(centerX(x, y), centerY(x, y))) continue
             val tile = f.tile(x, y)
-            val inside = x < land && y < land
+            val inside = f.inLand(x, y)
             val bmp = when {
                 tile.kind == Kind.PLOT -> Sprites.plot(f.wet(x, y, now))
-                tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false)
-                else -> Sprites.grass(hash(x, y) % 4, !inside)
+                tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false, def.ground)
+                tile.kind == Kind.WATER -> {
+                    fun w(a: Int, b: Int) = a !in 0 until Farm.MAX || b !in 0 until Farm.MAX || f.tile(a, b).kind == Kind.WATER
+                    val deep = w(x - 1, y) && w(x + 1, y) && w(x, y - 1) && w(x, y + 1)
+                    Sprites.water((wave + hash(x, y) % 2) % Sprites.WATER_FRAMES, deep)
+                }
+                else -> Sprites.grass(hash(x, y) % 4, !inside, if (inside) def.ground else def.wild)
             }
             blit(bmp, tileX(x, y).toFloat(), tileY(x, y).toFloat())
             if (buildMode && inside && tile.kind == Kind.GRASS) {
@@ -292,7 +300,13 @@ class World {
                 val px = cornerX(a, b); val py = cornerY(a, b)
                 canvas.drawRect(px.toFloat(), py - 5f, px + 1f, py.toFloat(), fill)
             }
-            for (j in 0..land) { post(land, j); if (j < land) post(j, land) }
+            // Only the sides that face the wild; a side on the edge of the map needs no fence.
+            for (j in 0..land) {
+                if (ox + land < Farm.MAX) post(ox + land, oy + j)
+                if (oy + land < Farm.MAX) post(ox + j, oy + land)
+                if (ox > 0) post(ox, oy + j)
+                if (oy > 0) post(ox + j, oy)
+            }
         }
         selected?.let { (x, y) ->
             blit(Sprites.cursor(0xFFFFE27A.toInt()), tileX(x, y).toFloat(), tileY(x, y).toFloat())
@@ -307,7 +321,7 @@ class World {
         }
         // Lamp light pools under everything standing.
         fill.color = 0x30FFE27A
-        for (y in 0 until land) for (x in 0 until land) if (f.tile(x, y).kind == Kind.LAMP && seen(centerX(x, y), centerY(x, y))) {
+        for (y in oy until oy + land) for (x in ox until ox + land) if (f.tile(x, y).kind == Kind.LAMP && seen(centerX(x, y), centerY(x, y))) {
             val cx = centerX(x, y).toFloat(); val cy = centerY(x, y).toFloat()
             canvas.drawOval(cx - TW * 1.5f, cy - TH * 1.5f, cx + TW * 1.5f, cy + TH * 1.5f, fill)
         }
@@ -349,15 +363,17 @@ class World {
             val (x, y) = tileOf(u, s - u)
             val cx = centerX(x, y); val cy = centerY(x, y)
             if (!seen(cx, cy)) continue
-            val inside = x < land && y < land
-            if (!inside) {
+            val tile = f.tile(x, y)
+            if (!f.inLand(x, y)) {
+                if (tile.kind == Kind.ROCK) { put(Sprites.rock(hash(y, x) % 6), cx, cx - 10, cy - 13); continue }
+                if (tile.kind != Kind.GRASS) continue
                 val h = hash(x, y) % 7
-                val edge = x <= land && y <= land // the ring right around the farm stays clear
-                if (h < 3 && !edge) put(Sprites.tree(hash(y, x) % 6), cx, cx - 13, cy - 36)
-                else if (h == 3) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
+                // The ring right around the farm stays clear.
+                val edge = x in ox - 1..ox + land && y in oy - 1..oy + land
+                if (h < def.trees && !edge) put(Sprites.tree(if (def.pines) 2 + 3 * (hash(y, x) % 2) else hash(y, x) % 6), cx, cx - 13, cy - 36)
+                else if (h == def.trees && def.trees > 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 continue
             }
-            val tile = f.tile(x, y)
             when (tile.kind) {
                 Kind.PLOT -> {
                     val st = tile.strain?.let { Strains[it] } ?: continue
@@ -400,7 +416,8 @@ class World {
                     light(cx.toFloat(), cy - 30f, 9f, 0xFFE8A0, 1f)
                     light(cx.toFloat(), cy.toFloat(), TW * 1.6f, 0xFFC860, 0.55f)
                 }
-                Kind.GRASS -> if (hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
+                Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
+                Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
                 Kind.DECOR -> Decor.of(tile.item)?.let {
                     stand(x, y, DecorArt.sprite(it), cx - DecorArt.AX, cy - DecorArt.AY)
@@ -425,7 +442,7 @@ class World {
 
         // Rain splashing on the farm.
         if (light.rain > 0) repeat((light.rain * 60 * dt + rnd.nextFloat()).toInt()) {
-            val x = rnd.nextInt(land); val y = rnd.nextInt(land)
+            val x = ox + rnd.nextInt(land); val y = oy + rnd.nextInt(land)
             fx.burst(Burst.SPLASH, centerX(x, y) + (rnd.nextFloat() - 0.5f) * TW * 0.7f, centerY(x, y) + (rnd.nextFloat() - 0.5f) * TH * 0.6f)
         }
         fx.step(dt)
@@ -447,7 +464,7 @@ class World {
             // Fireflies drift over the land on clear nights.
             val ff = minOf(1f, glow) * (1f - light.rain) * (1f - light.fog * 0.5f)
             if (ff > 0.05f) for (i in 0 until 6 + land) {
-                val bx = hash(i, 11) % land; val by = hash(i, 23) % land
+                val bx = ox + hash(i, 11) % land; val by = oy + hash(i, 23) % land
                 val fxp = centerX(bx, by) + sin(t * 0.37f + i * 1.9f) * 18f + sin(t * 1.1f + i) * 3f
                 val fyp = centerY(bx, by) - 10f + sin(t * 0.29f + i * 2.7f) * 9f + sin(t * 1.7f + i * 0.5f) * 2f
                 val blink = ((sin(t * 1.3f + i * 2.1f) - 0.2f) / 0.8f).coerceIn(0f, 1f)
@@ -543,8 +560,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         }
         fun centerOnLand() {
             scale = fit()
-            val c = (f.land - 1) / 2f
-            val wx = world.centerX(c, c); val wy = world.centerY(c, c)
+            val cx = f.ox + (f.land - 1) / 2f; val cy = f.oy + (f.land - 1) / 2f
+            val wx = world.centerX(cx, cy); val wy = world.centerY(cx, cy)
             offset = Offset(wPx / 2 - wx * scale, hPx * 0.5f - wy * scale)
         }
         if (ui.rot < 0) ui.rot = prefs.getInt("rot", 0)
@@ -668,6 +685,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 }
                 Mode.Demolish -> when {
                     tile.kind == Kind.GRASS -> ui.selected = null
+                    // Boulders are broken up from their card; water stays.
+                    tile.kind == Kind.ROCK || tile.kind == Kind.WATER -> ui.selected = x to y
                     ui.selected == (x to y) -> {
                         val r = f.demolish(x, y)
                         if (r == Result.OK) { buzz(); Store.changed() } else complain(r)
@@ -679,6 +698,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val from = m.from
                     if (from == null) {
                         if (tile.kind == Kind.GRASS) Store.toast("Tap something to pick it up")
+                        else if (tile.kind == Kind.ROCK || tile.kind == Kind.WATER) Store.toast("That stays where nature put it")
                         else if (tile.kind == Kind.PLOT && tile.strain != null) Store.toast("Harvest that plot before moving it")
                         else ui.mode = Mode.Move(x to y)
                     } else if (from == (x to y)) ui.mode = Mode.Move()

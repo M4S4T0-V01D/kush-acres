@@ -32,8 +32,8 @@ object Buildings {
 
     private val shackCache = HashMap<String, Bitmap>()
 
-    /** Centres of the shack's front windows and door, in sprite (art) pixels: where light spills out at night. */
-    fun shackLights(lvl: Int): List<Pair<Int, Int>> {
+    /** Centres of the shack's front windows and door, in sprite (art) pixels: where light spills out at night. [back]: no door. */
+    fun shackLights(lvl: Int, back: Boolean = false): List<Pair<Int, Int>> {
         val L = lvl.coerceIn(0, SPECS.size - 1)
         val hw = SPECS[L].hw; val h = SPECS[L].h
         val bx = SHACK_AX; val by = SHACK_AY - 16 + hw / 2
@@ -49,11 +49,12 @@ object Buildings {
             else -> listOf(lx + hw / 7 to 5, lx + hw * 8 / 10 to 5, lx + hw / 7 to 16, dx to 16, lx + hw * 8 / 10 to 16)
         }
         val out = wins.map { (x, z) -> (x + 2) to (ly + (x + 2 - lx) / 2 - z - 2) }.toMutableList()
-        out += (dx + 2) to (ly + (dx + 2 - lx) / 2 - minOf(9, h - 3) / 2) // the door's gap
+        if (!back) out += (dx + 2) to (ly + (dx + 2 - lx) / 2 - minOf(9, h - 3) / 2) // the door's gap
         return out
     }
 
-    fun shack(lvl: Int, roof: Int, wall: Int): Bitmap = shackCache.getOrPut("$lvl/$roof/$wall") {
+    /** The shack seen from the front, or with [back] from behind: the long wall without its door and porch. */
+    fun shack(lvl: Int, roof: Int, wall: Int, back: Boolean = false): Bitmap = shackCache.getOrPut("$lvl/$roof/$wall/$back") {
         val L = lvl.coerceIn(0, SPECS.size - 1)
         val sp = SPECS[L]
         val px = Px(SHACK_W, SHACK_H)
@@ -111,7 +112,7 @@ object Buildings {
         val door = 0xFF6A4325.toInt()
         val dh = minOf(9, h - 3)
         val dx = lx + hw * 55 / 100
-        onLeft(dx, 0, 5, dh) { i, j -> if (i == 0 || i == 4 || j == dh - 1) shade(door, 0.7f) else if (i == 3 && j == dh / 2) 0xFFF2C440.toInt() else door }
+        if (!back) onLeft(dx, 0, 5, dh) { i, j -> if (i == 0 || i == 4 || j == dh - 1) shade(door, 0.7f) else if (i == 3 && j == dh / 2) 0xFFF2C440.toInt() else door }
 
         val wins = when (L) {
             0 -> listOf(lx + hw / 5 to 5)
@@ -166,7 +167,7 @@ object Buildings {
         if (L >= 2) px.disc(m2x, (m2y + bty) / 2 + 2, 1, glass)
 
         // Porches.
-        if (L == 1 || L in 4..6 || L == 9) {
+        if (!back && (L == 1 || L in 4..6 || L == 9)) {
             val t0 = if (L == 1) dx - 4 else lx + 2
             val t1 = if (L == 1) dx + 9 else bx - 2
             val d = 6; val zp = minOf(h - 4, 11)

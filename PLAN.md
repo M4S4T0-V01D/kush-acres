@@ -36,10 +36,11 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
       1 bitmap px per art px when zoomed out
 - [ ] Check on a real phone: smooth panning/zooming at full zoom-out
 
-## Phase 3 — 4-way rotation
-- [ ] View transform in `World` (tile/centre/hit/pick through rotation)
-- [ ] Mirrored sprites on odd rotations; shack front/back art
-- [ ] Rotate buttons in the farm HUD, recentre on rotate, remember choice
+## Phase 3 — 4-way rotation (0.5.0)
+- [x] View transform in `World` (tile/centre/hit/pick through rotation)
+- [x] Mirrored sprites on odd rotations; shack front/back art
+- [x] Rotate buttons in the farm HUD, recentre on rotate, remember choice
+- [ ] Check on a real phone: shack/decor/helpers look right from all 4 sides
 
 ## Phase 4 — Multiple farms
 - [ ] Split per-farm state (tiles, land, shack, paint, layout) from player state (cash, level, stash…)
@@ -67,3 +68,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
 - 0.4.0 — map 40×40 with land tiers up to 40×40; only the visible part of the farm is drawn
+- 0.5.0 — rotate the farm 4 ways (↺ ↻ in the top bar)

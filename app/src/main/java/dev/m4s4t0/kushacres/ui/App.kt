@@ -98,6 +98,9 @@ class UiState {
     /** The facility whose sheet is open. */
     var fac by mutableStateOf<Pair<Int, Int>?>(null)
     var recenter by mutableIntStateOf(0)
+    /** Quarter turns of the farm view (-1 until the saved one is loaded). */
+    var rot by mutableIntStateOf(-1)
+    fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
 }
 
 // Wood-and-parchment pixel palette.
@@ -265,6 +268,12 @@ private fun Hud(ui: UiState) {
             T(money(shown), 16.sp, Gold, Modifier.scale(bounce))
         }
         Spacer(Modifier.width(6.dp))
+        // Turn the farm a quarter round either way.
+        for ((d, label) in listOf(-1 to "↺", 1 to "↻")) {
+            Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 7.dp, vertical = 4.dp)) { T(label, 16.sp, Cream) }
+            Spacer(Modifier.width(4.dp))
+        }
+        Spacer(Modifier.width(2.dp))
         val used = f.stashUsed(); val cap = f.stashCap()
         Row(Modifier.woodBox().clickable { ui.shop = Keeper.DEX; ui.panel = Panel.TOWN }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.jar, 20.dp)

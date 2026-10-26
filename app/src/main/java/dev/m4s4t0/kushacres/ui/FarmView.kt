@@ -131,29 +131,75 @@ class World {
         lights[i] = x; lights[i + 1] = y; lights[i + 2] = radius; lights[i + 3] = Float.fromBits(color); lights[i + 4] = strength
     }
 
+    /**
+     * Quarter turns the farm is seen from. Tiles keep their farm coordinates x,y; the screen lays them out
+     * by view coordinates u,v (u runs down-right, v down-left), which the turn maps them to.
+     */
+    var rot = 0
+        set(v) { field = Math.floorMod(v, 4) }
+    /** Odd turns show everything from the other side: sprites are mirrored. */
+    private val flip get() = rot % 2 == 1
+    private val M = Farm.MAX
+
+    fun viewU(x: Int, y: Int) = when (rot) { 1 -> M - 1 - y; 2 -> M - 1 - x; 3 -> y; else -> x }
+    fun viewV(x: Int, y: Int) = when (rot) { 1 -> x; 2 -> M - 1 - y; 3 -> M - 1 - x; else -> y }
+    private fun viewU(x: Float, y: Float) = when (rot) { 1 -> M - 1 - y; 2 -> M - 1 - x; 3 -> y; else -> x }
+    private fun viewV(x: Float, y: Float) = when (rot) { 1 -> x; 2 -> M - 1 - y; 3 -> M - 1 - x; else -> y }
+    /** The farm tile at view square u,v. */
+    fun tileOf(u: Int, v: Int): Pair<Int, Int> = when (rot) { 1 -> v to M - 1 - u; 2 -> M - 1 - u to M - 1 - v; 3 -> M - 1 - v to u; else -> u to v }
+
     /** Top-left pixel of the tile sprite at x,y. */
-    fun tileX(x: Int, y: Int) = OX + (x - y) * (TW / 2) - TW / 2
-    fun tileY(x: Int, y: Int) = OY + (x + y) * (TH / 2)
+    fun tileX(x: Int, y: Int) = OX + (viewU(x, y) - viewV(x, y)) * (TW / 2) - TW / 2
+    fun tileY(x: Int, y: Int) = OY + (viewU(x, y) + viewV(x, y)) * (TH / 2)
     /** The tile's centre, where things stand. */
-    fun centerX(x: Int, y: Int) = OX + (x - y) * (TW / 2)
-    fun centerY(x: Int, y: Int) = OY + (x + y) * (TH / 2) + TH / 2
+    fun centerX(x: Int, y: Int) = OX + (viewU(x, y) - viewV(x, y)) * (TW / 2)
+    fun centerY(x: Int, y: Int) = OY + (viewU(x, y) + viewV(x, y)) * (TH / 2) + TH / 2
+    /** The centre of a fractional tile position (tile centres at whole numbers). */
+    fun centerX(x: Float, y: Float) = OX + (viewU(x, y) - viewV(x, y)) * (TW / 2)
+    fun centerY(x: Float, y: Float) = OY + (viewU(x, y) + viewV(x, y)) * (TH / 2) + TH / 2
+    /** The fractional farm position (tile centres at whole numbers) under world pixel wx,wy on the ground. */
+    fun groundAt(wx: Float, wy: Float): Pair<Float, Float> {
+        val a = (wx - OX) / (TW / 2f); val b = (wy - OY - TH / 2f) / (TH / 2f)
+        val u = (a + b) / 2; val v = (b - a) / 2
+        return when (rot) { 1 -> v to M - 1 - u; 2 -> M - 1 - u to M - 1 - v; 3 -> M - 1 - v to u; else -> u to v }
+    }
+    /** A corner of the tile grid (tile x,y spans corners x..x+1, y..y+1). */
+    private fun cornerX(a: Int, b: Int) = OX + (cornerU(a, b) - cornerV(a, b)) * (TW / 2)
+    private fun cornerY(a: Int, b: Int) = OY + (cornerU(a, b) + cornerV(a, b)) * (TH / 2)
+    private fun cornerU(a: Int, b: Int) = when (rot) { 1 -> M - b; 2 -> M - a; 3 -> b; else -> a }
+    private fun cornerV(a: Int, b: Int) = when (rot) { 1 -> a; 2 -> M - b; 3 -> M - a; else -> b }
 
     /** Which tile a world pixel falls on (its top face), or null off the land. */
     fun hit(wx: Float, wy: Float): Pair<Int, Int>? {
-        val u = (wx - OX) / (TW / 2f)
-        val v = (wy - OY) / (TH / 2f)
-        val x = floor((v + u) / 2).toInt()
-        val y = floor((v - u) / 2).toInt()
-        return if (x in 0 until Farm.MAX && y in 0 until Farm.MAX) x to y else null
+        val a = (wx - OX) / (TW / 2f)
+        val b = (wy - OY) / (TH / 2f)
+        val u = floor((b + a) / 2).toInt()
+        val v = floor((b - a) / 2).toInt()
+        return if (u in 0 until M && v in 0 until M) tileOf(u, v) else null
+    }
+
+    /** Sprites as seen from the other side, made once each. */
+    private val mirrors = object : LinkedHashMap<Bitmap, Bitmap>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Bitmap, Bitmap>?) = size > 800
+    }
+    private fun mirrored(b: Bitmap): Bitmap = mirrors.getOrPut(b) {
+        Bitmap.createBitmap(b, 0, 0, b.width, b.height, android.graphics.Matrix().apply { setScale(-1f, 1f) }, false)
+    }
+    /** Draws a sprite placed for the front view at left,top; on odd turns mirrored about the line x = [cx]. Returns where it went. */
+    private fun put(b: Bitmap, cx: Int, left: Int, top: Int): Pair<Bitmap, Int> {
+        val (bmp, l) = if (flip) mirrored(b) to 2 * cx - left - b.width / S else b to left
+        blit(bmp, l.toFloat(), top.toFloat())
+        return bmp to l
     }
 
     /** A sprite standing on tile x,y, as last drawn: what a touch on its pixels means. */
     private class Hit(val x: Int, val y: Int, val bmp: Bitmap, val left: Int, val top: Int)
     private val hits = ArrayList<Hit>()
 
+    /** Draws a sprite standing on tile x,y (mirrored about the tile's centre on odd turns) and remembers it for touches. */
     private fun stand(x: Int, y: Int, bmp: Bitmap, left: Int, top: Int) {
-        hits += Hit(x, y, bmp, left, top)
-        blit(bmp, left.toFloat(), top.toFloat())
+        val (b, l) = put(bmp, centerX(x, y), left, top)
+        hits += Hit(x, y, b, l, top)
     }
 
     private fun solid(b: Bitmap, px: Int, py: Int) = px in 0 until b.width && py in 0 until b.height && (b.getPixel(px, py) ushr 24) > 40
@@ -197,8 +243,8 @@ class World {
     }
 
     private fun drawWalker(w: Walker, t: Float) {
-        val sx = OX + (w.fx - w.fy) * (TW / 2)
-        val sy = OY + (w.fx + w.fy) * (TH / 2) + TH / 2
+        val sx = centerX(w.fx, w.fy)
+        val sy = centerY(w.fx, w.fy)
         val frame = if (w.moving) ((t * 6).toInt() and 1) else 0
         fill.color = 0x40000000
         canvas.drawOval(sx - 4, sy - 1, sx + 4, sy + 2, fill)
@@ -221,9 +267,10 @@ class World {
         val land = f.land
         val buildMode = placing
         // Ground, back to front.
-        for (s in 0..(Farm.MAX - 1) * 2) for (x in 0..s) {
-            val y = s - x
-            if (x >= Farm.MAX || y >= Farm.MAX || !seen(centerX(x, y), centerY(x, y))) continue
+        for (s in 0..(Farm.MAX - 1) * 2) for (u in 0..s) {
+            if (u >= Farm.MAX || s - u >= Farm.MAX) continue
+            val (x, y) = tileOf(u, s - u)
+            if (!seen(centerX(x, y), centerY(x, y))) continue
             val tile = f.tile(x, y)
             val inside = x < land && y < land
             val bmp = when {
@@ -241,12 +288,11 @@ class World {
         // A fence along the edge of what you own.
         if (land < Farm.MAX) {
             fill.color = 0xFF8B6A44.toInt()
-            for (i in 0 until land) {
-                val ax = centerX(land, i) - TW / 2; val ay = centerY(land, i) - TH / 2 // far corner of tile (land, i)
-                canvas.drawRect(ax.toFloat(), ay - 5f, ax + 1f, ay.toFloat(), fill)
-                val bx = centerX(i, land) + TW / 2; val by = centerY(i, land) - TH / 2
-                canvas.drawRect(bx - 1f, by - 5f, bx.toFloat(), by.toFloat(), fill)
+            fun post(a: Int, b: Int) {
+                val px = cornerX(a, b); val py = cornerY(a, b)
+                canvas.drawRect(px.toFloat(), py - 5f, px + 1f, py.toFloat(), fill)
             }
+            for (j in 0..land) { post(land, j); if (j < land) post(j, land) }
         }
         selected?.let { (x, y) ->
             blit(Sprites.cursor(0xFFFFE27A.toInt()), tileX(x, y).toFloat(), tileY(x, y).toFloat())
@@ -268,14 +314,22 @@ class World {
         // Things standing on the land, back to front. The shack is drawn once its whole footprint is behind us,
         // helpers once the diagonal they stand on is done.
         val shackAt = f.shackAt()
-        val walkers = walkers(f, t).groupBy { Math.round(it.fx + it.fy) }
+        val walkers = walkers(f, t).groupBy { Math.round(viewU(it.fx, it.fy) + viewV(it.fx, it.fy)) }
+        // The shack's 2×2 footprint starts, in view squares, at its corner nearest the back of the screen.
+        val shackU = shackAt?.let { (ax, ay) -> minOf(viewU(ax, ay), viewU(ax + 1, ay + 1)) } ?: 0
+        val shackV = shackAt?.let { (ax, ay) -> minOf(viewV(ax, ay), viewV(ax + 1, ay + 1)) } ?: 0
+        // Turned a half or quarter round the other way, the door (+y side) faces away: show the back.
+        val shackBack = rot == 1 || rot == 2
         for (s in 0..(Farm.MAX - 1) * 2) {
-          if (shackAt != null && s == shackAt.first + shackAt.second + 2) {
+          if (shackAt != null && s == shackU + shackV + 2) {
               val (ax, ay) = shackAt
-              val sl = centerX(ax, ay) - Buildings.SHACK_AX; val st = tileY(ax, ay) + 32 - Buildings.SHACK_AY
-              stand(ax, ay, Buildings.shack(f.shack, f.roof, f.wall), sl, st)
-              for ((wx, wy) in Buildings.shackLights(f.shack)) {
-                  val flick = 0.9f + 0.1f * sin(t * 7 + wx)
+              val bx = OX + (shackU - shackV) * (TW / 2); val by = OY + (shackU + shackV) * (TH / 2) + 32
+              val (art, sl) = put(Buildings.shack(f.shack, f.roof, f.wall, shackBack), bx, bx - Buildings.SHACK_AX, by - Buildings.SHACK_AY)
+              val st = by - Buildings.SHACK_AY
+              hits += Hit(ax, ay, art, sl, st)
+              for ((wx0, wy) in Buildings.shackLights(f.shack, shackBack)) {
+                  val wx = if (flip) Buildings.SHACK_W - 1 - wx0 else wx0
+                  val flick = 0.9f + 0.1f * sin(t * 7 + wx0)
                   light(sl + wx + 0.5f, st + wy + 0.5f, 9f, 0xFFB050, 0.85f * flick)
               }
               if (f.shack >= 1) {
@@ -283,24 +337,24 @@ class World {
                   fill.color = 0x90E8E8E8.toInt()
                   for (k in 0 until 3) {
                       val life = (t * 0.6f + k / 3f) % 1f
-                      val px = centerX(ax, ay) + 10 + life * 6 + sin(t * 2 + k) * 1.5f
-                      val py = tileY(ax, ay) + 32 - Buildings.SHACK_AY + 4 - life * 14
+                      val px = bx + (if (flip) -1 else 1) * (10 + life * 6) + sin(t * 2 + k) * 1.5f
+                      val py = by - Buildings.SHACK_AY + 4 - life * 14
                       val r = 1 + life * 2
                       canvas.drawRect(px - r, py - r, px + r, py + r, fill)
                   }
               }
           }
-          for (x in 0..s) {
-            val y = s - x
-            if (x >= Farm.MAX || y >= Farm.MAX) continue
+          for (u in 0..s) {
+            if (u >= Farm.MAX || s - u >= Farm.MAX) continue
+            val (x, y) = tileOf(u, s - u)
             val cx = centerX(x, y); val cy = centerY(x, y)
             if (!seen(cx, cy)) continue
             val inside = x < land && y < land
             if (!inside) {
                 val h = hash(x, y) % 7
                 val edge = x <= land && y <= land // the ring right around the farm stays clear
-                if (h < 3 && !edge) blit(Sprites.tree(hash(y, x) % 6), cx - 13f, cy - 36f)
-                else if (h == 3) blit(Sprites.bush(hash(y, x) % 4), cx - 7f, cy - 8f)
+                if (h < 3 && !edge) put(Sprites.tree(hash(y, x) % 6), cx, cx - 13, cy - 36)
+                else if (h == 3) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 continue
             }
             val tile = f.tile(x, y)
@@ -346,7 +400,7 @@ class World {
                     light(cx.toFloat(), cy - 30f, 9f, 0xFFE8A0, 1f)
                     light(cx.toFloat(), cy.toFloat(), TW * 1.6f, 0xFFC860, 0.55f)
                 }
-                Kind.GRASS -> if (hash(x, y) % 11 == 0) blit(Sprites.bush(hash(y, x) % 4), cx - 7f, cy - 8f)
+                Kind.GRASS -> if (hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
                 Kind.DECOR -> Decor.of(tile.item)?.let {
                     stand(x, y, DecorArt.sprite(it), cx - DecorArt.AX, cy - DecorArt.AY)
@@ -457,6 +511,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
     val world = remember { World() }
     val image = remember { arrayOfNulls<ImageBitmap>(1) }
     val view = LocalView.current
+    val prefs = remember { view.context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE) }
     var frame by remember { mutableLongStateOf(0L) }
     var scale by remember { mutableFloatStateOf(0f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -489,8 +544,17 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         fun centerOnLand() {
             scale = fit()
             val c = (f.land - 1) / 2f
-            val wx = World.OX.toFloat(); val wy = World.OY + c * TH + TH / 2f
+            val wx = world.centerX(c, c); val wy = world.centerY(c, c)
             offset = Offset(wPx / 2 - wx * scale, hPx * 0.5f - wy * scale)
+        }
+        if (ui.rot < 0) ui.rot = prefs.getInt("rot", 0)
+        if (world.rot != ui.rot) {
+            // Turn about whatever is in the middle of the screen.
+            val mid = (Offset(wPx / 2, hPx / 2) - offset) / scale
+            val (gx, gy) = world.groundAt(mid.x, mid.y)
+            world.rot = ui.rot
+            if (scale != 0f) offset = Offset(wPx / 2 - world.centerX(gx, gy) * scale, hPx / 2 - world.centerY(gx, gy) * scale)
+            prefs.edit().putInt("rot", ui.rot).apply()
         }
         if (scale == 0f) centerOnLand()
         if (ui.recenter != 0) { centerOnLand(); ui.recenter = 0 }

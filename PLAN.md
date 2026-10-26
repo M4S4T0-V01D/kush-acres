@@ -75,5 +75,6 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
 - 0.4.0 — map 40×40 with land tiers up to 40×40; only the visible part of the farm is drawn
-- 0.5.0 — rotate the farm 4 ways (↺ ↻ in the top bar)
+- 0.5.0 — rotate the farm 4 ways (↺ ↻ in the top bar, moved under it in 0.6.1)
 - 0.6.0 — 10 more farms to buy from Mona at Lv 20+, each with its own land, colours and terrain; tiered seed menu
+- 0.6.1 — rotate buttons moved under the top bar so the cash has room

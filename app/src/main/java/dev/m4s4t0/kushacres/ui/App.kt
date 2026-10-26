@@ -272,12 +272,6 @@ private fun Hud(ui: UiState) {
             T(money(shown), 16.sp, Gold, Modifier.scale(bounce))
         }
         Spacer(Modifier.width(6.dp))
-        // Turn the farm a quarter round either way.
-        for ((d, label) in listOf(-1 to "↺", 1 to "↻")) {
-            Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 7.dp, vertical = 4.dp)) { T(label, 16.sp, Cream) }
-            Spacer(Modifier.width(4.dp))
-        }
-        Spacer(Modifier.width(2.dp))
         val used = f.stashUsed(); val cap = f.stashCap()
         Row(Modifier.woodBox().clickable { ui.shop = Keeper.DEX; ui.panel = Panel.TOWN }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.jar, 20.dp)
@@ -288,7 +282,7 @@ private fun Hud(ui: UiState) {
     SkyChip(ui)
 }
 
-/** The weather and the farm's clock, under the cash. */
+/** The farm you're on, the turn buttons, and the weather and clock, under the cash. */
 @Composable
 private fun SkyChip(ui: UiState) {
     val now = Store.now()
@@ -316,6 +310,12 @@ private fun SkyChip(ui: UiState) {
                 Spacer(Modifier.width(4.dp))
                 T(f.site.def.name + " ▾", 11.sp, Cream)
             }
+            Spacer(Modifier.width(4.dp))
+        }
+        // Turn the farm a quarter round either way.
+        for ((d, label) in listOf(-1 to "↺", 1 to "↻")) {
+            Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 8.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
+            Spacer(Modifier.width(4.dp))
         }
         Spacer(Modifier.weight(1f))
         Row(

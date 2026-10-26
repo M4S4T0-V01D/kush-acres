@@ -20,3 +20,9 @@ if [[ " ${args[*]} " == *" assembleRelease "* && -f $apk ]]; then
     cp "$apk" KushAcres.apk
     echo "KushAcres.apk ($(du -h KushAcres.apk | cut -f1)), signature verified"
 fi
+# A finished desktop build: pack it as the tarball the desktop updater and desktop/install.sh unpack.
+app=desktop/build/compose/binaries/main/app
+if [[ " ${args[*]} " == *":desktop:createDistributable "* && -d $app/KushAcres ]]; then
+    tar -czf KushAcres-linux.tar.gz -C "$app" KushAcres
+    echo "KushAcres-linux.tar.gz ($(du -h KushAcres-linux.tar.gz | cut -f1))"
+fi

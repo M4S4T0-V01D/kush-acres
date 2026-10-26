@@ -55,6 +55,15 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [ ] Check on a real phone: terrain look, farm switching, menu colours
 - Note: roads were left out; per-site strains and towns come in phase 5.
 
+## Desktop version (Linux / KDE)
+- [x] `desktop/` module: Compose for Desktop compiles the shared model/art/ui sources as they are; the few Android
+      classes they use are stand-ins in `desktop/src/main/kotlin/android*` (graphics on Skia, prefs as properties files)
+- [x] Own sound mixer (Java sound), Esc = back, mouse wheel zooms, window minimise = app in background
+- [x] Updater takes `KushAcres-linux.tar.gz` from the same GitHub releases and swaps the installed folder
+- [x] `desktop/install.sh`: installs to `~/.local/lib/kush-acres`, icon + start-menu entry (Games)
+- [x] `release.sh` attaches the Linux tarball too
+- Note: the desktop farm is its own save (`~/.local/share/kush-acres`), separate from the phone's.
+
 ## Phase 5 — Per-farm towns
 - [ ] Each site: town name, keepers (names/looks), back-alley dealer + stock
 - [ ] Strain sets per site (site-exclusive strains, like levels)

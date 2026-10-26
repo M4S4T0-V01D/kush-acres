@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -66,6 +67,7 @@ import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 
 /** What a touch does to the squares it crosses. */
@@ -721,6 +723,20 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
 
         ComposeCanvas(
             Modifier.fillMaxSize().pointerInput(Unit) {
+                // A mouse wheel zooms around the pointer, for the desktop build (and mice on phones).
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type != PointerEventType.Scroll) continue
+                        val ch = event.changes.firstOrNull() ?: continue
+                        val ns = (scale * 1.15f.pow(-ch.scrollDelta.y)).coerceIn(minScale(), 12f)
+                        offset = ch.position - (ch.position - offset) * (ns / scale)
+                        scale = ns
+                        clamp()
+                        ch.consume()
+                    }
+                }
+            }.pointerInput(Unit) {
                 // A quick touch is a tap. Moving straight off is a pan. Resting a moment first, then moving, paints the
                 // action over every square the finger crosses (harvest, plant, water...). Two fingers: zoom, never an action.
                 val slop = viewConfiguration.touchSlop

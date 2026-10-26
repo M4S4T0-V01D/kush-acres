@@ -6,6 +6,7 @@ keystore.properties
 *.jks
 *.keystore
 *.apk
+KushAcres-linux.tar.gz
 !docs/*.apk
 .idea/
 .android-home/

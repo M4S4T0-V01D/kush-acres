@@ -24,6 +24,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.m4s4t0.kushacres.Store
+import dev.m4s4t0.kushacres.art.People
+import dev.m4s4t0.kushacres.art.Sprites
+import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.Sites
@@ -39,9 +42,9 @@ private fun go(ui: UiState, def: SiteDef) {
     Theme.site = def
 }
 
-/** One card per farm: switch to the ones you own, buy the rest from Mona once you're Lv 20. */
+/** One card per farm: switch to the ones you own, buy the rest from Mona once you're Lv 15. */
 internal fun LazyListScope.farmCards(ui: UiState) {
-    items(Sites.all) { def ->
+    items(Sites.all + Sites.holidays.filter { Store.farm.owns(it.id) }) { def ->
         Store.rev
         val f = Store.farm
         val owned = f.owns(def.id)
@@ -83,6 +86,29 @@ internal fun FarmsPanel(ui: UiState) {
             T(if (f.level < SiteDef.REALTOR_LEVEL) "Mona starts selling farms in other places at Lv ${SiteDef.REALTOR_LEVEL}."
                 else "Cash, stash and helpers go with you. Every farm keeps growing while you're away.", 11.sp, Dim, bold = false)
         }
+        item { FarmActions(ui) }
         farmCards(ui)
+    }
+}
+
+/** What you can do with the farm you're on: throw a hippie festival, or move it somewhere else on its map. */
+@Composable
+private fun FarmActions(ui: UiState) {
+    val f = Store.farm
+    Store.rev
+    val now = Store.now()
+    androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Card(People.hippie(0, 0), "Hippie festival", "Tents and hippies take over ${f.site.def.name} for ${Farm.FESTIVAL_HOURS} hours. Prices ×1.5 everywhere.",
+            when {
+                f.festivalOn(now) -> "On now · ${dur((f.festivalUntil - now) / 1000)} left"
+                !f.canFestival() -> "Needs a ${Farm.FESTIVAL_LAND}×${Farm.FESTIVAL_LAND} farm"
+                else -> null
+            },
+            money(f.festivalCost()), enabled = f.canFestival() && !f.festivalOn(now) && f.cash >= f.festivalCost()) {
+            val r = f.festival(now); report(r)
+            if (r == Result.OK) { go(ui, f.site.def); Store.toast("The hippies have arrived! Peace, love and higher prices.") }
+        }
+        Card(Sprites.hat, "Move this farm", "Sell the land under ${f.site.def.name} and buy the same size somewhere else on its map. Everything comes along.", null,
+            money(f.relocateCost()), enabled = f.cash >= f.relocateCost()) { ui.mover = true; ui.panel = Panel.NONE }
     }
 }

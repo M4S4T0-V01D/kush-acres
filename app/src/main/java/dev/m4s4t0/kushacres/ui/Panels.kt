@@ -53,14 +53,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.m4s4t0.kushacres.Store
+import dev.m4s4t0.kushacres.SavePic
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
 import dev.m4s4t0.kushacres.Updater
 import dev.m4s4t0.kushacres.art.Buildings
+import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Holiday
+import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Kind
@@ -117,6 +125,8 @@ fun PanelHost(ui: UiState) {
                 Panel.FACILITY -> ui.fac?.let { (x, y) -> f.facility(x, y)?.title } ?: ""
                 Panel.MENU -> "Farm Book"
                 Panel.FARMS -> "Your farms"
+                Panel.HOLIDAY -> Holiday.at(Store.now())?.let { "${it.title} shop" } ?: "Holidays"
+                Panel.BUCKS -> "Pot Bucks"
                 Panel.NONE -> ""
             }
             Row(Modifier.fillMaxWidth().frame(Color(0xFF3F2C1A), Color(0xFFB08440)).padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -141,6 +151,8 @@ fun PanelHost(ui: UiState) {
                 Panel.FACILITY -> FacilityPanel(ui)
                 Panel.MENU -> MenuPanel(ui)
                 Panel.FARMS -> FarmsPanel(ui)
+                Panel.HOLIDAY -> HolidayPanel(ui)
+                Panel.BUCKS -> BucksPanel(ui)
                 Panel.NONE -> {}
             }
         }
@@ -151,9 +163,9 @@ fun PanelHost(ui: UiState) {
 private val SHELVES: List<Pair<String, List<Strain>>> = run {
     val per = (Strains.ladder.size + 3) / 4
     val ladder = Strains.ladder.chunked(per)
-    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics)
+    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics, "Holiday" to Strains.holidays)
 }
-private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0).map { Color(it) }
+private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0, 0xFFFF8A1E).map { Color(it) }
 
 @Composable
 internal fun SeedPanel(ui: UiState) {
@@ -164,6 +176,7 @@ internal fun SeedPanel(ui: UiState) {
         when (i) {
             4 -> "$name ${l.count { it.id in f.bred }}"
             5 -> "$name ${l.count { (f.seeds[it.id] ?: 0) > 0 }}"
+            6 -> "$name ${l.count { f.unlocked(it) }}"
             else -> "$name ${l.count { f.unlocked(it) }}/${l.size}"
         }
     }, tab) { tab = it }
@@ -173,10 +186,12 @@ internal fun SeedPanel(ui: UiState) {
     val list = when (tab) {
         4 -> shelf.filter { it.id in f.bred }
         5 -> shelf.filter { (f.seeds[it.id] ?: 0) > 0 }
+        6 -> shelf.filter { f.unlocked(it) }
         else -> shelf
     }
     if (list.isEmpty()) {
-        T(if (tab == 4) "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
+        T(if (tab == 6) "No holiday strains yet. Each holiday's shop sells two, and they stay yours for good."
+            else if (tab == 4) "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
             else "No exotic seeds. The back-alley dealer in Town sells them now and then.", 12.sp, Dim, bold = false)
         return
     }
@@ -263,7 +278,7 @@ internal fun Orders() {
 }
 
 @Composable
-internal fun Card(icon: android.graphics.Bitmap, title: String, desc: String, sub: String?, action: String, enabled: Boolean, locked: Int? = null, onClick: () -> Unit) {
+internal fun Card(icon: android.graphics.Bitmap, title: String, desc: String, sub: String?, action: String, enabled: Boolean, locked: Int? = null, actionIcon: android.graphics.Bitmap? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(contentAlignment = Alignment.Center) {
             Px(icon, 30.dp)
@@ -277,7 +292,7 @@ internal fun Card(icon: android.graphics.Bitmap, title: String, desc: String, su
         }
         Spacer(Modifier.width(6.dp))
         if (locked != null) T("Lv $locked", 12.sp, Bad)
-        else Btn(action, Modifier.widthIn(min = 76.dp), enabled = enabled, color = Gold, onClick = onClick)
+        else Btn(action, Modifier.widthIn(min = 76.dp), enabled = enabled, color = Gold, icon = actionIcon, onClick = onClick)
     }
 }
 
@@ -303,11 +318,12 @@ internal fun startPlacing(ui: UiState, m: Mode) { ui.mode = m; ui.panel = Panel.
 @Composable
 private fun BuildPanel(ui: UiState) {
     var tab by remember { mutableIntStateOf(0) }
-    Tabs(listOf("Farm", "Make", "Decor", "Tools"), tab) { tab = it }
+    Tabs(listOf("Farm", "Work", "Make", "Decor", "Tools"), tab) { tab = it }
     when (tab) {
         0 -> FarmBuilds(ui)
-        1 -> FacilityList(ui)
-        2 -> DecorList(ui, owned = true)
+        1 -> WorkList(ui)
+        2 -> FacilityList(ui)
+        3 -> DecorList(ui, owned = true)
         else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
                 Store.rev
@@ -344,6 +360,37 @@ internal fun FarmBuilds(ui: UiState) {
             Store.rev
             Card(Sprites.lamp, "Grow lamp", "+25% growth on the 8 squares around it. Stacks twice.", "You have ${f.count(Kind.LAMP)}",
                 money(f.lampCost()), f.cash >= f.lampCost(), if (f.level < Farm.LAMP_LEVEL) Farm.LAMP_LEVEL else null) { startPlacing(ui, Mode.Build(Kind.LAMP)) }
+        }
+    }
+}
+
+/** Work buildings and the workers who staff them. */
+@Composable
+internal fun WorkList(ui: UiState) {
+    val f = Store.farm
+    Store.rev
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item {
+            Store.rev
+            Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Px(People.worker(0, 0), 30.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        T("Workers", 13.sp, if (f.level >= Farm.WORKER_LEVEL) Cream else Dim)
+                        T("Each farm hires its own. A worker staffs a building to double what it does; spare ones water dry plots.", 10.sp, Dim, bold = false)
+                    }
+                    if (f.level < Farm.WORKER_LEVEL) T("Lv ${Farm.WORKER_LEVEL}", 12.sp, Bad)
+                }
+                if (f.level >= Farm.WORKER_LEVEL) { Spacer(Modifier.height(4.dp)); WorkerButton(Modifier.fillMaxWidth()) }
+            }
+        }
+        items(WorkHouse.entries) { h ->
+            Store.rev
+            val c = f.houseCost(h)
+            val n = f.count(h)
+            Card(Buildings.house(h), h.title, h.desc + ". Staffed: " + h.staffed.lowercase() + ".", "You have $n here" + if (n >= WorkHouse.MAX_EACH) " (max)" else "",
+                money(c), f.cash >= c && n < WorkHouse.MAX_EACH, if (f.level < h.level) h.level else null) { startPlacing(ui, Mode.PlaceHouse(h)) }
         }
     }
 }
@@ -572,12 +619,25 @@ fun Dialogs() {
                 EventKind.STRANGER -> "A shady stranger" to "\"Psst. ${ev.grams} $sName seeds, ${money(ev.amount)}. Today only.\""
                 EventKind.CELEB -> "Celebrity order!" to "A famous face wants a big order worth ${money(ev.amount)}. Check Orders."
                 EventKind.TRADER -> "Travelling trader" to "Offers ${money(ev.amount)} for ${ev.grams}g of $sName. That's double!"
+                EventKind.METEOR -> "Meteor strike!" to "A space rock landed out back. You sold the bits for ${money(ev.amount)} and found ${ev.grams} Pot Bucks inside."
+                EventKind.TOURISTS -> "Tourist bus" to "A busload of tourists rolled in. Orders pay ×1.5 for ${ev.amount} min."
+                EventKind.HEATWAVE -> "Heatwave" to "It's scorching. Water dries out twice as fast for ${ev.amount} min. Keep those plants wet!"
+                EventKind.MOON -> "Harvest moon" to "The moon's huge tonight. Harvests yield ×1.5 for ${ev.amount} min."
+                EventKind.GRANDMA -> "Grandma's glaucoma" to "\"Sweetie, could you spare ${ev.grams}g of $sName? I'll pay ${money(ev.amount)}.\" That's triple!"
+                EventKind.STORM -> "Thunderstorm" to ("Every plot got a long soak." + if (ev.plots > 0) " The wind blew the bugs off ${ev.plots} plot${if (ev.plots > 1) "s" else ""}." else "")
+                EventKind.POTBUCKS -> "Lucky find" to "You found ${ev.amount} Pot Buck${if (ev.amount > 1) "s" else ""} in the couch cushions."
+                EventKind.HOLIDAY -> (f.holiday()?.let { h ->
+                    if (ev.strain == null) "${h.title} visitor" to "A neighbour dropped by and left you ${ev.amount} ${h.token}."
+                    else "${h.title} visitor" to "A neighbour in costume trades ${ev.amount} ${h.token} for ${ev.grams}g of $sName."
+                } ?: ("Visitor" to "They left."))
             }
-            val ask = ev.kind == EventKind.RAID || ev.kind == EventKind.STRANGER || ev.kind == EventKind.TRADER
+            val ask = ev.kind == EventKind.RAID || ev.kind == EventKind.STRANGER || ev.kind == EventKind.TRADER ||
+                ev.kind == EventKind.GRANDMA || (ev.kind == EventKind.HOLIDAY && ev.strain != null)
             Modal(onClose = { answer(false) }) {
                 Px(when (ev.kind) {
                     EventKind.RAID -> Sprites.lock; EventKind.RAIN -> Sprites.drop; EventKind.PESTS -> Sprites.trash
-                    EventKind.STRANGER, EventKind.TRADER -> Sprites.bag; EventKind.CELEB -> Sprites.star; else -> Sprites.arrow
+                    EventKind.STRANGER, EventKind.TRADER -> Sprites.bag; EventKind.CELEB, EventKind.METEOR, EventKind.POTBUCKS, EventKind.HOLIDAY -> Sprites.star
+                    EventKind.STORM -> Sprites.drop; EventKind.GRANDMA -> Sprites.bag; else -> Sprites.arrow
                 }, 40.dp)
                 T(title, 18.sp, Gold, align = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
@@ -587,6 +647,7 @@ fun Dialogs() {
                     val yes = when (ev.kind) {
                         EventKind.RAID -> if (f.envelopes > 0) "Envelope" else "Pay ${money(ev.amount)}"
                         EventKind.STRANGER -> "Buy"
+                        EventKind.HOLIDAY -> "Trade"
                         else -> "Sell"
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -596,7 +657,26 @@ fun Dialogs() {
                 } else Btn("OK", Modifier.fillMaxWidth(), color = Gold) { answer(false) }
             }
         }
+        Store.shareCard != null -> ShareDialog(Store.shareCard!!)
         else -> UpdateDialog()
+    }
+}
+
+/** The share card, big, with a button to save it as a picture. */
+@Composable
+private fun ShareDialog(card: android.graphics.Bitmap) {
+    val f = Store.farm
+    Modal(onClose = { Store.shareCard = null }) {
+        Image(card.asImageBitmap(), null, Modifier.fillMaxWidth().aspectRatio(ShareCard.W / ShareCard.H.toFloat()), filterQuality = FilterQuality.Medium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Btn("Save", Modifier.weight(1f), color = Gold) {
+                val at = SavePic.save(card, ShareCard.fileName(f))
+                Store.toast(if (at != null) "Saved to $at" else "Couldn't save the card")
+                if (at != null) Store.shareCard = null
+            }
+            Btn("Close", Modifier.weight(1f), color = WoodEdge) { Store.shareCard = null }
+        }
     }
 }
 

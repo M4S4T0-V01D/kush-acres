@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -52,10 +53,12 @@ import dev.m4s4t0.kushacres.art.Sprites.TW
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.FarmEvent
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.Pet
 import dev.m4s4t0.kushacres.model.Tile
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
@@ -220,28 +223,61 @@ class World {
 
     private fun hash(x: Int, y: Int) = ((x * 73856093) xor (y * 19349663)).let { if (it < 0) -it else it }
 
-    /** Where a helper is standing, in fractional tile coordinates. */
-    private class Walker(val h: Helper, val fx: Float, val fy: Float, val moving: Boolean)
+    /** Someone walking the farm, in fractional tile coordinates; [look] gives their sprite for a step frame. */
+    private class Walker(
+        val look: (Int) -> Bitmap, val fx: Float, val fy: Float, val moving: Boolean,
+        val ax: Int = People.P_AX, val ay: Int = People.P_AY, val shadow: Float = 4f,
+    )
 
-    /** Helpers stroll between squares: a few seconds walking, then a breather. */
+    /**
+     * Helpers stroll near the shack, a few seconds walking, then a breather. Workers keep close to the building they
+     * staff; spare workers wander the plots with their watering cans.
+     */
     private fun walkers(f: Farm, t: Float): List<Walker> {
         val land = f.land
-        fun spot(h: Helper, seg: Int): Pair<Int, Int> {
-            for (k in 0 until 6) {
-                val v = hash(h.ordinal * 31 + seg, k * 17 + 5)
-                val x = f.ox + v % land; val y = f.oy + (v / land) % land
-                val kind = f.tile(x, y).kind
-                if (kind == Kind.GRASS || kind == Kind.PATH || kind == Kind.PLOT) return x to y
+        fun ok(x: Int, y: Int) = f.inLand(x, y) && f.tile(x, y).kind.let { it == Kind.GRASS || it == Kind.PATH || it == Kind.PLOT }
+        /** A spot within [r] squares of [cx],[cy] (the whole farm if [r] is 0) for walker [id] in time segment [seg]. */
+        fun spot(id: Int, seg: Int, cx: Int, cy: Int, r: Int, plots: Boolean = false): Pair<Int, Int> {
+            for (k in 0 until 10) {
+                val v = hash(id * 31 + seg, k * 17 + 5)
+                val x: Int; val y: Int
+                if (r == 0) { x = f.ox + v % land; y = f.oy + (v / land) % land }
+                else { x = cx - r + v % (2 * r + 1); y = cy - r + (v / 97) % (2 * r + 1) }
+                if (ok(x, y) && (!plots || k > 6 || f.tile(x, y).kind == Kind.PLOT)) return x to y
             }
-            return f.ox to f.oy
+            return if (ok(cx, cy)) cx to cy else f.ox to f.oy
         }
-        return Helper.entries.filter { f.has(it) }.map { h ->
-            val tt = t + h.ordinal * 1.7f
+        fun walk(id: Int, look: (Int) -> Bitmap, pet: Boolean = false, at: (Int) -> Pair<Int, Int>): Walker {
+            val tt = t + id * 1.7f
             val seg = (tt / 6f).toInt()
-            val a = spot(h, seg); val b = spot(h, seg + 1)
+            val a = at(seg); val b = at(seg + 1)
             val k = ((tt / 6f - seg) * 6f / 3.5f).coerceIn(0f, 1f)
-            Walker(h, a.first + (b.first - a.first) * k, a.second + (b.second - a.second) * k, k < 1f && a != b)
+            val fx = a.first + (b.first - a.first) * k; val fy = a.second + (b.second - a.second) * k
+            return if (pet) Walker(look, fx, fy, k < 1f && a != b, People.PET_AX, People.PET_AY, 5f)
+            else Walker(look, fx, fy, k < 1f && a != b)
         }
+        val home = f.shackAt()?.let { (x, y) -> x + 1 to y + 2 } ?: (f.ox + land / 2 to f.oy + land / 2)
+        val out = Helper.entries.filter { f.has(it) }.map { h ->
+            walk(h.ordinal, { People.helper(h, it) }) { seg -> spot(h.ordinal, seg, home.first, home.second, 5) }
+        }.toMutableList()
+        f.farmer?.let { me -> out += walk(50, { People.farmer(me, it) }) { seg -> spot(50, seg, home.first, home.second, 3, plots = true) } }
+        // Pets roam the whole farm.
+        f.pets.mapNotNull { n -> Pet.entries.firstOrNull { it.name == n } }.forEachIndexed { i, p ->
+            out += walk(200 + i, { People.pet(p, it) }, pet = true) { seg -> spot(200 + i, seg, 0, 0, 0) }
+        }
+        // A festival: hippies dancing around the tents.
+        if (f.festivalOn() && f.festivalSite == f.site.def.id) {
+            for (i in 0 until minOf(4 + land / 3, 14)) out += walk(300 + i, { People.hippie(i, it) }) { seg -> spot(300 + i, seg, 0, 0, 0) }
+            for ((i, s) in tents(f).withIndex()) out += Walker({ People.tent(i) }, s.first + 0.5f, s.second + 0.5f, false, People.TENT_AX, People.TENT_AY, 9f)
+        }
+        val posts = f.houses().filter { it.staffed }
+        for (i in 0 until f.site.workers) {
+            val post = posts.getOrNull(i)
+            out += walk(100 + i, { People.worker(i, it) }) { seg ->
+                if (post != null) spot(100 + i, seg, post.x, post.y, 2) else spot(100 + i, seg, 0, 0, 0, plots = true)
+            }
+        }
+        return out
     }
 
     private fun drawWalker(w: Walker, t: Float) {
@@ -249,8 +285,21 @@ class World {
         val sy = centerY(w.fx, w.fy)
         val frame = if (w.moving) ((t * 6).toInt() and 1) else 0
         fill.color = 0x40000000
-        canvas.drawOval(sx - 4, sy - 1, sx + 4, sy + 2, fill)
-        blit(People.helper(w.h, frame), (sx - People.P_AX).toInt().toFloat(), (sy - People.P_AY).toInt().toFloat())
+        canvas.drawOval(sx - w.shadow, sy - 1, sx + w.shadow, sy + 2, fill)
+        blit(w.look(frame), (sx - w.ax).toInt().toFloat(), (sy - w.ay).toInt().toFloat())
+    }
+
+    /** Where festival tents pitch: a few open grass squares, the same ones every frame. */
+    private fun tents(f: Farm): List<Pair<Int, Int>> {
+        val out = ArrayList<Pair<Int, Int>>()
+        val n = minOf(2 + f.land / 6, 6)
+        for (k in 0 until 200) {
+            if (out.size >= n) break
+            val v = hash(k * 13 + 7, f.land)
+            val x = f.ox + v % f.land; val y = f.oy + (v / 31) % f.land
+            if (f.tile(x, y).kind == Kind.GRASS && out.none { abs(it.first - x) + abs(it.second - y) < 3 }) out += x to y
+        }
+        return out
     }
 
     fun render(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>? = null) {
@@ -330,6 +379,7 @@ class World {
         // Things standing on the land, back to front. The shack is drawn once its whole footprint is behind us,
         // helpers once the diagonal they stand on is done.
         val shackAt = f.shackAt()
+        val staffed = f.houses().filter { it.staffed }.map { it.x to it.y }.toSet().ifEmpty { null }
         val walkers = walkers(f, t).groupBy { Math.round(viewU(it.fx, it.fy) + viewV(it.fx, it.fy)) }
         // The shack's 2×2 footprint starts, in view squares, at its corner nearest the back of the screen.
         val shackU = shackAt?.let { (ax, ay) -> minOf(viewU(ax, ay), viewU(ax + 1, ay + 1)) } ?: 0
@@ -421,6 +471,11 @@ class World {
                 Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
                 Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
+                Kind.HOUSE -> WorkHouse.of(tile.item)?.let { h ->
+                    stand(x, y, Buildings.house(h), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
+                    // A staffed building keeps a light on.
+                    if (staffed?.contains(x to y) == true) light(cx.toFloat(), cy - 14f, 8f, 0xFFC060, 0.7f + 0.1f * sin(t * 5 + x))
+                }
                 Kind.DECOR -> Decor.of(tile.item)?.let {
                     stand(x, y, DecorArt.sprite(it), cx - DecorArt.AX, cy - DecorArt.AY)
                     if (it == Decor.TIKI || it == Decor.LAVA || it == Decor.NEON || it == Decor.DISCO || it == Decor.UFO || it == Decor.CRYSTAL) {
@@ -492,7 +547,7 @@ class World {
             stand(x, y, Town.goods(fac), cx - 6, top - 11 - bob)
             return
         }
-        val total = fac.millis(tile.lvl).toFloat()
+        val total = (fac.millis(tile.lvl) / (1 + 0.25 * f.houseNear(x, y, WorkHouse.DRYING))).toFloat()
         val frac = (1f - (tile.doneAt - now) / total).coerceIn(0f, 1f)
         fill.color = 0xFF1C1A14.toInt(); canvas.drawRect(cx - 9f, top - 1f, cx + 9f, top + 3f, fill)
         fill.color = 0xFF7BD34B.toInt(); canvas.drawRect(cx - 8f, top.toFloat(), cx - 8f + 16 * frac, top + 2f, fill)
@@ -522,6 +577,8 @@ class World {
 }
 
 private const val HOLD_MS = 140L
+/** A still hold this long opens the tile menu (the phone's right click). */
+private const val MENU_MS = 520L
 
 private class Floater(val wx: Float, val wy: Float, val text: String, val color: Int, val born: Long, val big: Boolean = false)
 
@@ -604,7 +661,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (!f.inLand(x, y)) return null
             return when (ui.mode) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
-                is Mode.PlaceFacility -> null
+                is Mode.PlaceFacility, is Mode.PlaceHouse -> null
                 is Mode.Move -> null
                 Mode.Demolish -> null
                 Mode.Farm -> when {
@@ -680,6 +737,16 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         fun tap(x: Int, y: Int) {
             val tile = f.tile(x, y)
             when (val m = ui.mode) {
+                is Mode.PlaceHouse -> {
+                    val r = f.buildHouse(x, y, m.h)
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f)
+                        Store.toast(if (m.h == WorkHouse.BUNK) "Bunkhouse built: room for 2 more workers" else "${m.h.title} built! Hire a worker to staff it")
+                        ui.mode = Mode.Farm; Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square")
+                    else if (r == Result.LIMIT) Store.toast("That's the most of those one farm can hold")
+                    else complain(r)
+                }
                 is Mode.PlaceFacility -> {
                     val r = f.buildFacility(x, y, m.f)
                     if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
@@ -701,8 +768,10 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     if (from == null) {
                         if (tile.kind == Kind.GRASS) Store.toast("Tap something to pick it up")
                         else if (tile.kind == Kind.ROCK || tile.kind == Kind.WATER) Store.toast("That stays where nature put it")
-                        else if (tile.kind == Kind.PLOT && tile.strain != null) Store.toast("Harvest that plot before moving it")
-                        else ui.mode = Mode.Move(x to y)
+                        else {
+                            ui.mode = Mode.Move(x to y)
+                            f.stuntSeconds(x, y).takeIf { it > 0 }?.let { Store.toast("Moving it stunts it: +${dur(it.toLong())} to grow") }
+                        }
                     } else if (from == (x to y)) ui.mode = Mode.Move()
                     else {
                         val r = f.move(from.first, from.second, x, y)
@@ -742,7 +811,22 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 val slop = viewConfiguration.touchSlop
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    val downAt = System.nanoTime()
                     val start = tileAt(down.position)
+                    fun openMenu(): Boolean {
+                        if (ui.mode != Mode.Farm || start == null || !f.inLand(start.first, start.second)) return false
+                        if (f.tile(start.first, start.second).kind == Kind.GRASS) return false
+                        ui.selected = null; ui.menuAt = down.position; ui.menu = start
+                        buzz(); Audio.play(Sfx.TAP)
+                        return true
+                    }
+                    // A right click opens the tile menu straight away.
+                    if (currentEvent.buttons.isSecondaryPressed) {
+                        if (!openMenu()) ui.menu = null
+                        do { val e = awaitPointerEvent(); e.changes.forEach { it.consume() } } while (e.changes.any { it.pressed })
+                        return@awaitEachGesture
+                    }
+                    ui.menu = null
                     var multi = false
                     var moved = false
                     var ended = false
@@ -771,10 +855,22 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         painting?.let { acted = true; if (apply(it, start.first, start.second, true)) ui.selected = null else painting = null }
                     }
                     var panned = moved
+                    // A still hold on the first square (with nothing to paint) opens the tile menu.
+                    var waiting = held && !multi && painting == null
+                    var opened = false
                     while (true) {
-                        val event = awaitPointerEvent()
+                        val event = if (waiting && !panned && !multi) {
+                            val left = MENU_MS - (System.nanoTime() - downAt) / 1_000_000
+                            (if (left > 0) withTimeoutOrNull(left) { awaitPointerEvent() } else null) ?: run {
+                                waiting = false
+                                if (openMenu()) { opened = true; acted = true }
+                                null
+                            }
+                        } else awaitPointerEvent()
+                        if (event == null) continue
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) break
+                        if (opened) { event.changes.forEach { it.consume() }; continue }
                         if (pressed.size >= 2) {
                             multi = true; painting = null
                             val zoom = event.calculateZoom()

@@ -72,6 +72,8 @@ import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Strains
 import kotlinx.coroutines.delay
@@ -84,12 +86,13 @@ sealed class Mode {
     data class Build(val kind: Kind) : Mode()
     data class PlaceFacility(val f: Facility) : Mode()
     data class PlaceDecor(val d: Decor) : Mode()
+    data class PlaceHouse(val h: WorkHouse) : Mode()
     /** Pick something up, then tap where it goes. */
     data class Move(val from: Pair<Int, Int>? = null) : Mode()
     data object Demolish : Mode()
 }
 
-enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS }
+enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS }
 
 class UiState {
     var mode by mutableStateOf<Mode>(Mode.Farm)
@@ -103,6 +106,12 @@ class UiState {
     var recenter by mutableIntStateOf(0)
     /** Quarter turns of the farm view (-1 until the saved one is loaded). */
     var rot by mutableIntStateOf(-1)
+    /** The square whose right-click / long-hold menu is open, and where on screen (px) it was opened. */
+    var menu by mutableStateOf<Pair<Int, Int>?>(null)
+    /** The farmer creator open to restyle, and the farm-moving map open. */
+    var creator by mutableStateOf(false)
+    var mover by mutableStateOf(false)
+    var menuAt by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
 }
 
@@ -219,9 +228,12 @@ fun App() {
             ui.selected?.let { InfoCard(ui, it) }
             BottomBar(ui)
         }
+        ui.menu?.let { TileMenu(ui, it) }
         Toast()
         if (ui.panel != Panel.NONE) PanelHost(ui)
         Dialogs()
+        Mover(ui)
+        Creator(ui)
     }
 }
 
@@ -280,6 +292,7 @@ private fun Hud(ui: UiState) {
         }
     }
     SkyChip(ui)
+    Currencies(ui)
 }
 
 /** The farm you're on, the turn buttons, and the weather and clock, under the cash. */
@@ -302,7 +315,7 @@ private fun SkyChip(ui: UiState) {
     val clock = if (DateFormat.is24HourFormat(ctx)) "%d:%02d".format(hh, mm)
         else "%d:%02d %s".format(if (hh % 12 == 0) 12 else hh % 12, mm, if (hh < 12) "am" else "pm")
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        // Which farm you're on; tap to switch (or to see what Mona sells from Lv 20).
+        // Which farm you're on; tap to switch (or to see what Mona sells from Lv 15).
         val f = Store.farm
         if (f.sites.size > 1 || f.level >= SiteDef.REALTOR_LEVEL) {
             Row(Modifier.woodBox().clickable { ui.panel = Panel.FARMS }.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -382,6 +395,7 @@ private fun BottomBar(ui: UiState) {
                     else -> ""
                 }
                 is Mode.PlaceFacility -> "Tap grass to build the ${m.f.title}: ${money(f.facilityCost(m.f))}"
+                is Mode.PlaceHouse -> "Tap grass to build the ${m.h.title}: ${money(f.houseCost(m.h))}"
                 is Mode.PlaceDecor -> {
                     val n = f.decorInv[m.d.name] ?: 0
                     "Placing ${m.d.title}: " + if (n > 0) "$n in shed" else money(m.d.cost)
@@ -436,6 +450,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.ROCK -> "Boulder"
                 Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
+                Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: ""
                 else -> ""
             }
             T(title, 15.sp, Gold, Modifier.weight(1f))
@@ -473,7 +488,36 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 }
             }
             Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
+            Kind.HOUSE -> WorkHouse.of(tile.item)?.let { HouseInfo(ui, x, y, it) }
             else -> {}
         }
+    }
+}
+
+/** A work building's card: what it does, whether it's staffed, and hiring workers for this farm. */
+@Composable
+private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
+    val f = Store.farm
+    T(h.desc + ".", 12.sp, Dim)
+    val spot = f.houses().firstOrNull { it.x == x && it.y == y }
+    when {
+        h == WorkHouse.BUNK -> T("Beds for ${f.workerCap()} workers on this farm.", 11.sp, Sky)
+        spot?.staffed == true -> T("Staffed: ${h.staffed.lowercase()}.", 11.sp, Leaf)
+        else -> T("No worker yet. Staffed: ${h.staffed.lowercase()}.", 11.sp, Gold)
+    }
+    Spacer(Modifier.height(6.dp))
+    WorkerButton(Modifier.fillMaxWidth())
+}
+
+/** Hires one more worker for the farm on screen, or says why not. */
+@Composable
+internal fun WorkerButton(modifier: Modifier) {
+    val f = Store.farm
+    val full = f.site.workers >= f.workerCap()
+    val c = f.workerCost()
+    T("Workers here: ${f.site.workers} / ${f.workerCap()}" + if (full) " · build a Bunkhouse for more beds" else "", 11.sp, Cream)
+    if (!full) Btn("Hire a worker · ${money(c)}", modifier, enabled = f.cash >= c && f.level >= Farm.WORKER_LEVEL, color = Gold) {
+        val r = f.hireWorker()
+        if (r == Result.OK) { Store.toast("A worker moved in! They staff a building or water plots."); Store.changed() } else report(r)
     }
 }

@@ -227,10 +227,184 @@ object DecorArt {
                 shard(16, 28, 4, 17, 0xFFC890FF.toInt())
                 px.set(14, 16, 0xFFFFFFFF.toInt()); px.set(14, 17, 0xFFF0E0FF.toInt())
             }
-            else -> {}
+            else -> holiday(px, d)
         }
         px.outline(OUT)
         px.bitmap()
+    }
+
+    /** The holiday shop pieces. */
+    private fun holiday(px: Px, d: Decor) {
+        val white = 0xFFF4F4F0.toInt(); val gold = 0xFFF2C440.toInt(); val dirt = 0xFF5A4A36.toInt()
+        val grassC = 0xFF4F9A3A.toInt(); val leaf = 0xFF3E8A3A.toInt()
+        fun base(c: Int = dirt) = px.poly(c, 6, 27, 16, 22, 26, 27, 16, 31)
+        fun ball(cx: Int, cy: Int, r: Int, c: Int) {
+            px.disc(cx, cy, r, c); px.disc(cx + r / 3, cy + r / 3, r - 1, shade(c, 0.8f)); px.disc(cx - r / 4, cy - r / 4, r - 2, c)
+            px.set(cx - r / 2, cy - r / 2, mix(c, white, 0.6f))
+        }
+        when (d) {
+            Decor.PUMPKIN -> {
+                base()
+                val o = 0xFFF0801E.toInt()
+                for (k in -1..1) oval(px, 16 + k * 4, 22, 5, 6, if (k == 0) o else shade(o, if (k < 0) 1.1f else 0.8f))
+                px.rect(15, 14, 2, 3, 0xFF4F7A2A.toInt())
+                val glow = 0xFFFFE04A.toInt()
+                px.poly(glow, 11, 21, 14, 21, 12, 18); px.poly(glow, 18, 21, 21, 21, 20, 18)
+                px.poly(glow, 11, 24, 21, 24, 19, 27, 13, 27); px.set(14, 24, shade(o, 0.8f)); px.set(18, 26, shade(o, 0.8f))
+            }
+            Decor.TOMBSTONE -> {
+                base(0xFF4A5A36.toInt())
+                val s = 0xFF8A8A94.toInt()
+                px.rect(10, 12, 12, 16, s); px.disc(16, 12, 6, s); px.rect(20, 10, 2, 18, shade(s, 0.75f))
+                px.rect(10, 12, 2, 16, shade(s, 1.15f))
+                px.rect(15, 13, 2, 8, shade(s, 0.6f)); px.rect(13, 15, 6, 2, shade(s, 0.6f))
+                px.rect(9, 27, 14, 2, shade(s, 0.7f)); px.set(12, 24, 0xFF6A9A4A.toInt()); px.set(19, 26, 0xFF6A9A4A.toInt())
+            }
+            Decor.CAULDRON -> {
+                base()
+                px.rect(10, 27, 12, 2, 0xFFE0602A.toInt()); px.set(13, 26, 0xFFFFC040.toInt()); px.set(18, 26, 0xFFFFC040.toInt())
+                oval(px, 16, 21, 8, 6, 0xFF2A2A30.toInt()); oval(px, 14, 19, 5, 3, 0xFF3A3A44.toInt())
+                oval(px, 16, 15, 7, 2, 0xFF7AE04A.toInt()); px.rect(8, 15, 16, 1, 0xFF3A3A44.toInt())
+                px.disc(13, 11, 1, 0xFF9AF06A.toInt()); px.disc(18, 8, 2, 0xAA9AF06A.toInt()); px.set(20, 13, 0xFFC0FF90.toInt())
+            }
+            Decor.XMASTREE -> {
+                base()
+                px.rect(14, 26, 4, 3, 0xFF6A4325.toInt())
+                for ((k, y) in intArrayOf(26, 20, 14).withIndex()) {
+                    val w = 10 - k * 2
+                    px.poly(leaf, 16 - w, y, 16 + w, y, 16, y - 9)
+                    px.poly(shade(leaf, 0.75f), 16, y, 16 + w, y, 16, y - 9)
+                }
+                for ((x, y, c) in listOf(Triple(11, 24, 0xFFE03A3A.toInt()), Triple(19, 22, 0xFF4AA0F0.toInt()), Triple(14, 18, gold), Triple(18, 15, 0xFFE03A3A.toInt()), Triple(15, 11, 0xFF4AA0F0.toInt())))
+                    px.set(x, y, c)
+                px.poly(gold, 16, 0, 18, 4, 16, 6, 14, 4)
+            }
+            Decor.SNOWMAN -> {
+                px.poly(0xFFE8F0F8.toInt(), 6, 27, 16, 22, 26, 27, 16, 31)
+                ball(16, 24, 6, white); ball(16, 15, 4, white); ball(16, 8, 3, white)
+                px.set(15, 7, OUT); px.set(17, 7, OUT); px.rect(17, 8, 3, 1, 0xFFF08A2A.toInt())
+                px.rect(12, 11, 8, 2, 0xFFE03A3A.toInt()); px.rect(18, 12, 2, 4, 0xFFC02A2A.toInt())
+                px.set(16, 15, OUT); px.set(16, 17, OUT)
+                px.rect(13, 3, 6, 2, 0xFF2A2A30.toInt()); px.rect(12, 5, 8, 1, 0xFF2A2A30.toInt())
+                px.line(12, 15, 8, 12, 0xFF6A4325.toInt()); px.line(20, 15, 24, 12, 0xFF6A4325.toInt())
+            }
+            Decor.PRESENTS -> {
+                base()
+                fun box(x: Int, y: Int, w: Int, h: Int, c: Int, rib: Int) {
+                    px.rect(x, y, w, h, c); px.rect(x + w - 2, y, 2, h, shade(c, 0.75f))
+                    px.rect(x + w / 2 - 1, y, 2, h, rib); px.rect(x, y + h / 2, w, 1, rib)
+                    px.disc(x + w / 2 - 2, y - 1, 1, rib); px.disc(x + w / 2 + 1, y - 1, 1, rib)
+                }
+                box(7, 20, 9, 8, 0xFFE03A3A.toInt(), gold); box(17, 22, 8, 7, 0xFF3AA04A.toInt(), white); box(12, 11, 8, 8, 0xFF4A7AE0.toInt(), 0xFFF06AB0.toInt())
+            }
+            Decor.BALLDROP -> {
+                base(0xFF3A3A50.toInt())
+                px.rect(15, 8, 2, 20, 0xFF8A8A9A.toInt()); px.rect(11, 27, 10, 2, 0xFF5A5A6A.toInt())
+                for (j in -5..5) for (i in -5..5) if (i * i + j * j <= 25)
+                    px.set(16 + i, 9 + j, if ((i + j) % 2 == 0) 0xFFE0E8F8.toInt() else if (i < 0 && j < 0) 0xFFFFE07A.toInt() else 0xFF8AA0E0.toInt())
+                px.set(14, 7, white); px.set(22, 4, gold); px.set(9, 6, 0xFFFF6AB0.toInt())
+            }
+            Decor.CONFETTI -> {
+                base()
+                px.rect(10, 22, 12, 6, 0xFF4A4A58.toInt()); px.disc(11, 28, 2, 0xFF2A2A30.toInt()); px.disc(21, 28, 2, 0xFF2A2A30.toInt())
+                px.poly(0xFFE03A8A.toInt(), 12, 22, 18, 22, 24, 10, 20, 8); px.poly(shade(0xFFE03A8A.toInt(), 0.75f), 18, 22, 24, 10, 22, 9)
+                val cols = intArrayOf(gold, 0xFF4AA0F0.toInt(), 0xFF6AE04A.toInt(), 0xFFFF5A5A.toInt(), white)
+                val r = Random(7)
+                repeat(14) { px.set(16 + r.nextInt(15), r.nextInt(10), cols[it % cols.size]) }
+            }
+            Decor.HEARTARCH -> {
+                base(grassC)
+                val pink = 0xFFFF6A9A.toInt()
+                px.rect(7, 12, 2, 16, 0xFFE8E0E8.toInt()); px.rect(23, 12, 2, 16, 0xFFC8C0C8.toInt())
+                for (k in 0..6) { val x = 8 + k * 16 / 6; val y = 12 - (if (k in 2..4) 4 else if (k in 1..5) 2 else 0)
+                    px.disc(x - 1, y, 1, pink); px.disc(x + 1, y, 1, pink); px.poly(pink, x - 2, y + 1, x + 3, y + 1, x + 1, y + 4) }
+                px.disc(15, 18, 2, 0xFFE03A5A.toInt()); px.disc(18, 18, 2, 0xFFE03A5A.toInt()); px.poly(0xFFE03A5A.toInt(), 13, 19, 21, 19, 17, 24)
+            }
+            Decor.ROSES -> {
+                base(grassC)
+                oval(px, 16, 22, 9, 6, leaf); oval(px, 14, 20, 6, 4, shade(leaf, 1.15f))
+                val r = Random(11)
+                repeat(9) { val x = 9 + r.nextInt(15); val y = 17 + r.nextInt(9); px.disc(x, y, 1, 0xFFD02A4A.toInt()); px.set(x, y, 0xFFFF6A80.toInt()) }
+            }
+            Decor.RAINBOW -> {
+                base(grassC)
+                val cols = intArrayOf(0xFFE84A4A.toInt(), 0xFFF2A030.toInt(), 0xFFF2E04A.toInt(), 0xFF4AC04A.toInt(), 0xFF4A90F0.toInt(), 0xFF8A5AD0.toInt())
+                for ((k, c) in cols.withIndex()) for (a in 0..40) {
+                    val t = a / 40.0 * PI; val r = 12 - k
+                    px.set((16 - r * kotlin.math.cos(t)).toInt(), (24 - r * kotlin.math.sin(t)).toInt(), c)
+                }
+                oval(px, 26, 26, 3, 2, 0xFF2A2A30.toInt()); px.rect(24, 24, 5, 1, gold); px.set(25, 23, gold); px.set(27, 23, 0xFFFFF0A0.toInt())
+                oval(px, 5, 24, 3, 2, white)
+            }
+            Decor.CLOVER -> {
+                base(0xFF3A7A2A.toInt())
+                val c = 0xFF4AC04A.toInt()
+                px.line(16, 26, 18, 18, 0xFF2E7A2A.toInt())
+                fun heart(x: Int, y: Int, k: Float) { px.disc(x - 2, y, 3, shade(c, k)); px.disc(x + 2, y, 3, shade(c, k)); px.poly(shade(c, k), x - 5, y + 1, x + 5, y + 1, x, y + 6) }
+                heart(16, 7, 1.1f); heart(10, 13, 1f); heart(22, 13, 0.8f)
+                px.disc(16, 13, 2, shade(c, 0.9f)); px.set(14, 6, 0xFFA0F08A.toInt()); px.set(8, 12, 0xFFA0F08A.toInt())
+                px.set(9, 25, gold); px.set(23, 26, gold)
+            }
+            Decor.JOINT -> {
+                base()
+                px.poly(white, 6, 26, 9, 28, 26, 14, 23, 12); px.poly(0xFFD8D0C0.toInt(), 9, 28, 26, 14, 25, 13, 8, 27)
+                px.poly(0xFFC8A060.toInt(), 6, 26, 9, 28, 10, 27, 7, 25)
+                px.disc(25, 13, 2, 0xFFFF6A2A.toInt()); px.set(25, 12, 0xFFFFE04A.toInt())
+                px.disc(26, 8, 2, 0x99C8C8D0.toInt()); px.disc(24, 4, 3, 0x77C8C8D0.toInt())
+            }
+            Decor.BONG -> {
+                base()
+                val gl = 0xCC6AC8E8.toInt()
+                oval(px, 16, 25, 6, 4, gl); px.rect(13, 6, 6, 18, gl); px.rect(13, 6, 2, 18, 0xDDB8F0FF.toInt())
+                oval(px, 16, 26, 5, 2, 0xAA4AA05A.toInt()); px.rect(16, 5, 2, 1, 0xFF8AE0F8.toInt())
+                px.line(20, 22, 24, 18, 0xFF9AA0A8.toInt()); px.disc(24, 17, 1, 0xFF6A6A72.toInt()); px.set(24, 16, 0xFF4F9A3A.toInt())
+            }
+            Decor.EGG -> {
+                base(grassC)
+                oval(px, 16, 19, 7, 10, 0xFFC0A0FF.toInt())
+                px.rect(9, 15, 15, 2, 0xFFFFE07A.toInt()); px.rect(9, 22, 15, 2, 0xFF7AE0C0.toInt())
+                for (x in intArrayOf(11, 15, 19)) px.set(x, 19, 0xFFFF7AB0.toInt())
+                px.set(13, 12, white)
+            }
+            Decor.BUNNYSTATUE -> {
+                base(grassC)
+                px.rect(10, 26, 12, 3, 0xFF8A6A4A.toInt())
+                oval(px, 16, 21, 6, 5, leaf); oval(px, 17, 13, 4, 4, leaf)
+                px.rect(14, 3, 2, 8, leaf); px.rect(18, 2, 2, 9, shade(leaf, 0.8f))
+                px.disc(10, 22, 2, shade(leaf, 1.2f)); px.set(18, 13, OUT)
+            }
+            Decor.FLAGPOLE -> {
+                base(grassC)
+                px.rect(9, 2, 1, 26, 0xFFC8C8D0.toInt()); px.disc(9, 2, 1, gold); px.rect(7, 27, 5, 2, 0xFF8A8A94.toInt())
+                for (j in 0..6) px.rect(10, 3 + j, 14, 1, if (j % 2 == 0) 0xFFE03A3A.toInt() else white)
+                px.rect(10, 3, 6, 4, 0xFF3A4AA0.toInt()); px.set(11, 4, white); px.set(13, 4, white); px.set(12, 5, white); px.set(14, 5, white)
+            }
+            Decor.GRILL -> {
+                base()
+                px.line(11, 22, 9, 29, 0xFF3A3A40.toInt()); px.line(21, 22, 23, 29, 0xFF3A3A40.toInt())
+                oval(px, 16, 19, 8, 5, 0xFF2A2A30.toInt()); px.rect(8, 16, 17, 2, 0xFF6A6A72.toInt())
+                px.rect(10, 15, 4, 1, 0xFF8A4A2A.toInt()); px.rect(17, 15, 4, 1, 0xFFA05A2A.toInt()); px.set(15, 15, 0xFFE03A3A.toInt())
+                px.disc(14, 10, 2, 0x99C8C8D0.toInt()); px.disc(18, 6, 2, 0x66C8C8D0.toInt())
+            }
+            Decor.CORNUCOPIA -> {
+                base()
+                val w = 0xFFC8904A.toInt()
+                px.poly(w, 24, 12, 26, 22, 14, 26, 10, 20); px.poly(shade(w, 0.75f), 26, 22, 14, 26, 16, 22)
+                px.line(24, 12, 28, 8, w); px.set(28, 7, w)
+                px.disc(10, 22, 3, 0xFFE03A3A.toInt()); px.disc(8, 26, 2, 0xFFF2A030.toInt()); px.disc(13, 26, 2, 0xFF8A4AA0.toInt())
+                px.poly(0xFFF2D04A.toInt(), 5, 19, 10, 17, 6, 22); px.set(9, 20, white)
+            }
+            Decor.HAYBALE -> {
+                base()
+                val h = 0xFFE8C66A.toInt()
+                px.rect(7, 16, 18, 12, h); px.rect(19, 16, 6, 12, shade(h, 0.8f)); px.rect(7, 14, 18, 2, shade(h, 1.1f))
+                px.rect(7, 19, 18, 1, 0xFF8A5A30.toInt()); px.rect(7, 24, 18, 1, 0xFF8A5A30.toInt())
+                val r = Random(3)
+                repeat(10) { px.set(8 + r.nextInt(16), 15 + r.nextInt(12), shade(h, 0.7f)) }
+                px.set(12, 13, h); px.set(16, 12, h); px.set(21, 13, shade(h, 0.85f))
+            }
+            else -> {}
+        }
     }
 
     private fun top(x: Int) = 7 - (if (x < 16) x else 31 - x) / 2

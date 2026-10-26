@@ -28,6 +28,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
 import dev.m4s4t0.kushacres.Store
+import dev.m4s4t0.kushacres.art.People
+import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.Updater
 import androidx.compose.ui.platform.LocalContext
 import dev.m4s4t0.kushacres.art.Sprites
@@ -44,6 +46,7 @@ import dev.m4s4t0.kushacres.audio.Sfx
 /** The Farm Book: everything that isn't the farm itself. */
 @Composable
 internal fun MenuPanel(ui: UiState) {
+    Store.rev
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val f = Store.farm
     val now = Store.now()
@@ -58,7 +61,7 @@ internal fun MenuPanel(ui: UiState) {
             3 -> StrainBook()
             4 -> Trophies()
             5 -> Stats()
-            else -> Settings()
+            else -> Settings(ui)
         }
     }
 }
@@ -73,6 +76,7 @@ private fun Row2(left: String, right: String, color: Color = Cream) {
 
 @Composable
 private fun Daily() {
+    Store.rev
     val f = Store.farm
     val now = Store.now()
     val can = f.canClaimDaily(now)
@@ -112,6 +116,7 @@ private fun Daily() {
 
 @Composable
 private fun Quests() {
+    Store.rev
     val f = Store.farm
     val now = Store.now()
     T("Today's jobs", 14.sp, Gold)
@@ -154,6 +159,7 @@ private fun Bar(k: Float, color: Color) {
 
 @Composable
 private fun Lab() {
+    Store.rev
     val f = Store.farm
     if (f.level < Progress.BREED_LEVEL) {
         T("The Lab opens at level ${Progress.BREED_LEVEL}.", 14.sp, Dim)
@@ -199,6 +205,7 @@ private fun Lab() {
 
 @Composable
 private fun StrainBook() {
+    Store.rev
     val f = Store.farm
     val all = Strains.all
     val known = all.count { f.unlocked(it) || it.id in f.bred }
@@ -220,6 +227,7 @@ private fun StrainBook() {
 
 @Composable
 private fun Trophies() {
+    Store.rev
     val f = Store.farm
     T("${f.trophies.size} of ${Trophy.entries.size} trophies", 12.sp, Gold)
     Spacer(Modifier.height(6.dp))
@@ -243,6 +251,7 @@ private fun Trophies() {
 
 @Composable
 private fun Stats() {
+    Store.rev
     val f = Store.farm
     var confirm by remember { mutableStateOf(false) }
     T("Legacy", 14.sp, Gold)
@@ -271,12 +280,27 @@ private fun Stats() {
     } else T("Reach level ${Progress.LEGACY_LEVEL} to sell the farm and start over with a permanent bonus.", 10.sp, Dim, bold = false)
     Spacer(Modifier.height(12.dp))
     T("Lifetime", 14.sp, Gold)
-    for (st in Stat.entries) Row2(st.title, if (st == Stat.EARNED) money(f.stat(st)) else fmt(f.stat(st)))
+    for (st in Stat.entries) Row2(st.title, if (st == Stat.EARNED || st == Stat.SPENT) money(f.stat(st)) else fmt(f.stat(st)))
+    Spacer(Modifier.height(8.dp))
+    Btn("Share card", Modifier.fillMaxWidth(), color = Gold) { Store.shareCard = ShareCard.render(f) }
     Row2("Best streak", "${f.bestStreak} days")
 }
 
 @Composable
-private fun Settings() {
+private fun Settings(ui: UiState) {
+    val f = Store.farm
+    f.farmer?.let { me ->
+        Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Px(People.farmer(me, 0), 40.dp)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                T(me.name, 14.sp, Cream)
+                T("New look: ${money(Farmer.restyleCost(f.level))} or ${Farmer.RESTYLE_BUCKS} Pot Bucks", 10.sp, Dim, bold = false)
+            }
+            Btn("Restyle", color = Gold) { ui.creator = true; ui.panel = Panel.NONE }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
     Level("Music", Audio.music) { Audio.changeMusic(it) }
     Level("Sounds", Audio.sound) { Audio.changeSound(it); Audio.play(Sfx.COIN) }
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -303,6 +327,19 @@ private fun Settings() {
         }
         if (u is Updater.State.Available) Btn("Update", color = Gold) { (ctx as? android.app.Activity)?.let { Updater.install(it) } }
         else Btn("Check", enabled = u !is Updater.State.Checking && u !is Updater.State.Downloading) { Updater.check(ctx, manual = true) }
+    }
+    Spacer(Modifier.height(20.dp))
+    // Two taps, so a stray one can't wipe a farm.
+    var sure by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            T("Start over", 14.sp, Cream)
+            T(if (sure) "Everything goes: cash, farms, strains, trophies. Sure?" else "A brand-new game with a new farmer", 11.sp, if (sure) Bad else Dim, bold = false)
+        }
+        Btn(if (sure) "Wipe it" else "Restart", color = Bad) {
+            if (!sure) sure = true
+            else { f.restart(Store.now()); Store.changed(); ui.panel = Panel.NONE; ui.selected = null; ui.mode = Mode.Farm; ui.recenter++ }
+        }
     }
 }
 

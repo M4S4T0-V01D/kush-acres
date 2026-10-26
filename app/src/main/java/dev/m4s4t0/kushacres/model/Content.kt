@@ -59,7 +59,11 @@ enum class Facility(
  * Things to put around the farm. Neighbour effects reach the eight squares around and stack up to two of a kind;
  * farm-wide effects count once per kind. Paths are decor too, but don't count towards the shack's decor limit.
  */
-enum class Decor(val title: String, val desc: String, val level: Int, val cost: Long, val black: Boolean = false, val path: Boolean = false) {
+enum class Decor(
+    val title: String, val desc: String, val level: Int, val cost: Long, val black: Boolean = false, val path: Boolean = false,
+    /** Holiday decor: bought with that holiday's tokens, then kept like black-market decor. Its effect is [perk] × [amt]. */
+    val holiday: String? = null, val perk: Perk? = null, val amt: Double = 0.0,
+) {
     STONE("Stone Path", "Just looks nice", 1, 5, path = true),
     BRICK("Brick Path", "Just looks nice", 3, 15, path = true),
     FLOWERS("Flower Bed", "Just looks nice", 1, 40),
@@ -85,12 +89,37 @@ enum class Decor(val title: String, val desc: String, val level: Int, val cost: 
     ALIEN("Alien Statue", "Neighbours +6% golden chance", 6, 0, black = true),
     DISCO("Disco Ball", "+10% XP", 30, 0, black = true),
     UFO("Crashed UFO", "Neighbours grow 25% faster", 40, 0, black = true),
-    CRYSTAL("Grow Crystal", "Neighbours yield 25% more", 50, 0, black = true);
+    CRYSTAL("Grow Crystal", "Neighbours yield 25% more", 50, 0, black = true),
+    PUMPKIN("Jack-o'-Lantern", "Neighbours grow 15% faster", 1, 0, black = true, holiday = "halloween", perk = Perk.GROW, amt = 0.15),
+    TOMBSTONE("Spooky Tombstone", "+6% XP", 1, 0, black = true, holiday = "halloween", perk = Perk.XP, amt = 0.06),
+    CAULDRON("Witch's Cauldron", "Neighbours yield 15% more", 1, 0, black = true, holiday = "halloween", perk = Perk.YIELD, amt = 0.15),
+    XMASTREE("Christmas Tree", "Everything sells 5% higher", 1, 0, black = true, holiday = "christmas", perk = Perk.SELL, amt = 0.05),
+    SNOWMAN("Snowman", "Neighbours grow 15% faster", 1, 0, black = true, holiday = "christmas", perk = Perk.GROW, amt = 0.15),
+    PRESENTS("Pile of Presents", "Neighbours +5% golden chance", 1, 0, black = true, holiday = "christmas", perk = Perk.GOLD, amt = 0.05),
+    BALLDROP("Midnight Ball", "+6% XP", 1, 0, black = true, holiday = "newyear", perk = Perk.XP, amt = 0.06),
+    CONFETTI("Confetti Cannon", "Everything sells 4% higher", 1, 0, black = true, holiday = "newyear", perk = Perk.SELL, amt = 0.04),
+    HEARTARCH("Heart Arch", "Everything sells 5% higher", 1, 0, black = true, holiday = "valentine", perk = Perk.SELL, amt = 0.05),
+    ROSES("Rose Bush", "Neighbours +5% golden chance", 1, 0, black = true, holiday = "valentine", perk = Perk.GOLD, amt = 0.05),
+    RAINBOW("Rainbow Arch", "Neighbours +6% golden chance", 1, 0, black = true, holiday = "stpatrick", perk = Perk.GOLD, amt = 0.06),
+    CLOVER("Lucky Clover Patch", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "stpatrick", perk = Perk.GROW, amt = 0.12),
+    JOINT("Giant Joint", "+8% XP", 1, 0, black = true, holiday = "fourtwenty", perk = Perk.XP, amt = 0.08),
+    BONG("Bong Statue", "Neighbours yield 15% more", 1, 0, black = true, holiday = "fourtwenty", perk = Perk.YIELD, amt = 0.15),
+    EGG("Giant Easter Egg", "Neighbours +5% golden chance", 1, 0, black = true, holiday = "easter", perk = Perk.GOLD, amt = 0.05),
+    BUNNYSTATUE("Bunny Topiary", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "easter", perk = Perk.GROW, amt = 0.12),
+    FLAGPOLE("Flagpole", "Everything sells 5% higher", 1, 0, black = true, holiday = "july4", perk = Perk.SELL, amt = 0.05),
+    GRILL("BBQ Grill", "+6% XP", 1, 0, black = true, holiday = "july4", perk = Perk.XP, amt = 0.06),
+    CORNUCOPIA("Cornucopia", "Neighbours yield 15% more", 1, 0, black = true, holiday = "thanksgiving", perk = Perk.YIELD, amt = 0.15),
+    HAYBALE("Hay Bale", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "thanksgiving", perk = Perk.GROW, amt = 0.12);
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.name == id }
+        /** Holiday decor with neighbour or farm-wide effects of each kind. */
+        val perks: Map<Perk, List<Decor>> = entries.filter { it.perk != null }.groupBy { it.perk!! }
     }
 }
+
+/** What a holiday decoration does: GROW, YIELD and GOLD reach the neighbours; XP and SELL are farm-wide. */
+enum class Perk { GROW, YIELD, GOLD, XP, SELL }
 
 enum class Helper(val title: String, val job: String, val level: Int, val cost: Long, val shack: Int) {
     RUNNER("Runner", "Sells spare bud and goods in town every 6 minutes, even while you're away", 8, 2_500, 1),
@@ -99,6 +128,28 @@ enum class Helper(val title: String, val job: String, val level: Int, val cost: 
     COOK("Cook", "Collects facility batches and starts the same again", 16, 40_000, 2),
     LOOKOUT("Lookout", "Spots raids early so they never cost you a thing", 20, 120_000, 3),
     MANAGER("Grow Manager", "Replants the same strain the moment it's picked", 22, 150_000, 0),
+}
+
+/**
+ * Work buildings: one square each, they speed up the plots or facilities within [reach] squares. A worker staffing
+ * one doubles its effect ([staffed]); the bunkhouse makes room for two more workers on its farm instead.
+ */
+enum class WorkHouse(val title: String, val desc: String, val staffed: String, val level: Int, val cost: Long, val reach: Int) {
+    TOWER("Water Tower", "Keeps plots within 2 squares wet", "Reach 3 squares", 9, 8_000, 2),
+    GROW("Grow House", "Plots within 2 squares grow 20% faster", "40% faster", 11, 15_000, 2),
+    BUNK("Bunkhouse", "Room for 2 more workers on this farm", "No worker needed", 13, 20_000, 0),
+    TRIM("Trim Shed", "Plots within 2 squares yield 15% more", "30% more", 16, 60_000, 2),
+    DRYING("Drying Barn", "Facilities within 2 squares cook 25% faster", "50% faster", 20, 250_000, 2),
+    TOOLS("Tool Shed", "Runner goes every 4 minutes instead of 6", "Every 3 minutes", 24, 900_000, 0);
+
+    /** The effect strength: 1 unstaffed, 2 staffed. */
+    fun power(staffed: Boolean) = if (staffed) 2 else 1
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.name == id }
+        /** Each farm can hold this many of one kind. */
+        const val MAX_EACH = 6
+    }
 }
 
 /** Timed boosts from events and the black market. */
@@ -111,12 +162,31 @@ enum class Buff(val title: String) {
     DUST("Lucky Dust: +15% golden"),
     TIP("Street Tip: prices ×1.25"),
     FOCUS("Smart Brownie: XP ×1.5"),
+    FESTIVAL("Hippie festival: prices ×1.5"),
+    HARVEST_MOON("Harvest moon: yield ×1.5"),
+    TOURISTS("Tourist bus: orders pay ×1.5"),
+    HEATWAVE("Heatwave: water dries ×2 faster"),
 }
 
-enum class EventKind { RAID, PESTS, RAIN, RUSH, LUCKY, HIPPIES, VIBES, STRANGER, CELEB, TRADER }
+enum class EventKind {
+    RAID, PESTS, RAIN, RUSH, LUCKY, HIPPIES, VIBES, STRANGER, CELEB, TRADER,
+    /** Newer ones. */
+    METEOR, TOURISTS, HEATWAVE, MOON, GRANDMA, STORM, POTBUCKS, HOLIDAY,
+}
 
 /** A random event waiting on the player. [amount] is a bribe, a price or a payout depending on the kind. */
 class Happening(val kind: EventKind, val amount: Long = 0, val strain: String? = null, val grams: Int = 0, val plots: Int = 0)
+
+/** What Pot Bucks buy. */
+enum class BucksItem(val title: String, val desc: String, val price: Long, val buff: Buff? = null, val minutes: Int = 0) {
+    JUICE("Grow Juice", "Everything grows ×1.5 for 30 min", 5, buff = Buff.JUICE, minutes = 30),
+    FOCUS("Smart Brownie", "XP ×1.5 for 30 min", 10, buff = Buff.FOCUS, minutes = 30),
+    VIBES("Good Vibes", "Growth ×2 for 20 min", 15, buff = Buff.VIBES, minutes = 20),
+    RUSH("Rush Hour", "Prices ×1.5 for 20 min", 15, buff = Buff.RUSH, minutes = 20),
+    ENVELOPE("Bribe Envelope", "Makes the next raid go away", 8),
+    CASH("Cash bundle", "A stack of cash that grows with your level", 12),
+    SEEDS("Exotic seed pack", "5 of the best exotic seeds you can grow", 25),
+}
 
 /** Black-market goods. Seed packs give [EXOTIC_PACK] seeds; prices scale with your level except for seeds. */
 enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0) {

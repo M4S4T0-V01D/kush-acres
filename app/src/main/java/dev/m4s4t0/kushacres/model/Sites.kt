@@ -34,11 +34,13 @@ class SiteDef(
     val trees: Int, val pines: Boolean = false,
     val roof: Int = 0, val wall: Int = 0,
     val features: List<Feature> = emptyList(),
+    /** A holiday farm: bought from that holiday's shop for [price] tokens instead of cash. */
+    val holiday: String? = null,
 ) {
     companion object {
         /** How big a newly bought site starts. */
         const val START_LAND = 8
-        const val REALTOR_LEVEL = 20
+        const val REALTOR_LEVEL = 15
     }
 }
 
@@ -48,42 +50,73 @@ object Sites {
 
     val all: List<SiteDef> = listOf(
         HOME,
-        SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 20, 200_000, 0.5f, 0.5f,
+        SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 15, 120_000, 0.5f, 0.5f,
             0xFF4F9A3E.toInt(), 0xFF2F6236.toInt(), 0xFF16241A.toInt(), 0xFF213624.toInt(), 0xFF5E8A4E.toInt(), 5, pines = true,
             roof = 2, wall = 5, features = listOf(Feature.Lake(0.18f, 0.2f, 4f), Feature.Lake(0.85f, 0.75f, 3f), Feature.Rocks(0.03f))),
-        SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 24, 600_000, 1f, 0f,
+        SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 19, 400_000, 1f, 0f,
             0xFFCFAE6A.toInt(), 0xFFAE8A4E.toInt(), 0xFF3A1E14.toInt(), 0xFF52291B.toInt(), 0xFFC0703E.toInt(), 0,
             roof = 0, wall = 0, features = listOf(Feature.Lake(0.3f, 0.75f, 3f), Feature.Rocks(0.09f))),
-        SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 28, 2_000_000, 0f, 1f,
+        SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 23, 1_200_000, 0f, 1f,
             0xFF5C8C3A.toInt(), 0xFF3C6630.toInt(), 0xFF102624.toInt(), 0xFF173A36.toInt(), 0xFF3E8C7E.toInt(), 4,
             roof = 4, wall = 4, features = listOf(Feature.River(true, 0.62f, 2.5f), Feature.Lake(0.2f, 0.25f, 3.5f),
                 Feature.Lake(0.8f, 0.2f, 2.5f), Feature.Lake(0.9f, 0.9f, 3f))),
-        SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 32, 6_000_000, 1f, 1f,
+        SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 27, 4_000_000, 1f, 1f,
             0xFF86BE52.toInt(), 0xFF5E9440.toInt(), 0xFF3A1A22.toInt(), 0xFF52242E.toInt(), 0xFFE07A5A.toInt(), 2,
             roof = 1, wall = 1, features = listOf(Feature.Coast(0, 7), Feature.Coast(2, 6), Feature.Rocks(0.02f))),
-        SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 36, 15_000_000, 0.5f, 0f,
+        SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 31, 10_000_000, 0.5f, 0f,
             0xFFDCE6EC.toInt(), 0xFFB4C4D0.toInt(), 0xFF141E2C.toInt(), 0xFF1E2C40.toInt(), 0xFF7AA8D0.toInt(), 4, pines = true,
             roof = 1, wall = 2, features = listOf(Feature.Lake(0.2f, 0.85f, 3.5f), Feature.Rocks(0.06f))),
-        SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 40, 40_000_000, 0f, 0.5f,
+        SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 35, 30_000_000, 0f, 0.5f,
             0xFF3FA84A.toInt(), 0xFF2A7436.toInt(), 0xFF0E2418.toInt(), 0xFF153626.toInt(), 0xFF3CC07A.toInt(), 3,
             roof = 2, wall = 1, features = listOf(Feature.River(false, 0.25f, 2f), Feature.Lake(0.8f, 0.7f, 2.5f))),
-        SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 45, 100_000_000, 0.5f, 0.5f,
+        SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 40, 80_000_000, 0.5f, 0.5f,
             0xFF6E645A.toInt(), 0xFF4A423E.toInt(), 0xFF2A0E0C.toInt(), 0xFF3E1612.toInt(), 0xFFD04A2A.toInt(), 1,
             roof = 4, wall = 5, features = listOf(Feature.Coast(0, 4), Feature.Coast(1, 4), Feature.Coast(2, 4), Feature.Coast(3, 4),
                 Feature.Rocks(0.08f))),
-        SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 50, 250_000_000, 1f, 0.5f,
+        SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 45, 200_000_000, 1f, 0.5f,
             0xFF5FA87A.toInt(), 0xFF3A6E5A.toInt(), 0xFF1E1028.toInt(), 0xFF2C1840.toInt(), 0xFFC060E8.toInt(), 2,
             roof = 3, wall = 3, features = listOf(Feature.Lake(0.15f, 0.2f, 3f), Feature.Lake(0.25f, 0.8f, 3.5f),
                 Feature.Lake(0.75f, 0.1f, 2.5f))),
-        SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 56, 700_000_000, 0.5f, 1f,
+        SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 51, 600_000_000, 0.5f, 1f,
             0xFF8AB04E.toInt(), 0xFF5E7E3A.toInt(), 0xFF1A1E24.toInt(), 0xFF262C36.toInt(), 0xFF8A9AB0.toInt(), 3, pines = true,
             roof = 4, wall = 2, features = listOf(Feature.River(true, 0.15f, 1.5f), Feature.Rocks(0.1f))),
-        SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 64, 2_000_000_000, 0.5f, 0.5f,
+        SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 58, 1_800_000_000, 0.5f, 0.5f,
             0xFF7A70A8.toInt(), 0xFF4E4878.toInt(), 0xFF0E1030.toInt(), 0xFF181C48.toInt(), 0xFF7A88F0.toInt(), 1,
             roof = 3, wall = 2, features = listOf(Feature.Rim(13f), Feature.Lake(0.08f, 0.1f, 2.5f), Feature.Lake(0.92f, 0.9f, 2.5f))),
     )
 
-    private val byId = all.associateBy { it.id }
+    /** Holiday farms, one per holiday, priced in its tokens. They aren't on the realtor's list. */
+    val holidays: List<SiteDef> = listOf(
+        SiteDef("spooky", "Spooky Hollow", "Dead trees, a foggy pond and something moving in the pumpkins.", 1, 500, 0.5f, 0.5f,
+            0xFF5A6A3A.toInt(), 0xFF2E3A2A.toInt(), 0xFF1A1020.toInt(), 0xFF2A1A34.toInt(), 0xFFFF8A1E.toInt(), 4,
+            roof = 3, wall = 5, features = listOf(Feature.Lake(0.2f, 0.75f, 3f), Feature.Rocks(0.05f)), holiday = "halloween"),
+        SiteDef("northpole", "North Pole Acres", "Snow, candy-striped fences and an elf union.", 1, 500, 0.5f, 0f,
+            0xFFEAF2F6.toInt(), 0xFFC4D4DE.toInt(), 0xFF2A0E12.toInt(), 0xFF3E141A.toInt(), 0xFFE03A3A.toInt(), 5, pines = true,
+            roof = 0, wall = 1, features = listOf(Feature.Lake(0.8f, 0.8f, 3f)), holiday = "christmas"),
+        SiteDef("timesquare", "Midnight Square", "The party never ends. Neither does the confetti.", 1, 500, 0.5f, 0.5f,
+            0xFF5A8A6A.toInt(), 0xFF3A5A4A.toInt(), 0xFF101024.toInt(), 0xFF1A1A3A.toInt(), 0xFFFFD23A.toInt(), 1,
+            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.02f)), holiday = "newyear"),
+        SiteDef("lovers", "Lovers' Lane", "Pink blossoms over a heart-shaped pond.", 1, 500, 0f, 0.5f,
+            0xFF7ABE6A.toInt(), 0xFF5A9A5A.toInt(), 0xFF3A1024.toInt(), 0xFF521A34.toInt(), 0xFFFF6AA0.toInt(), 3,
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.8f, 0.3f, 3.5f)), holiday = "valentine"),
+        SiteDef("clover", "Clover Glen", "Forty shades of green and a rainbow most mornings.", 1, 500, 1f, 0.5f,
+            0xFF3AB04A.toInt(), 0xFF26803A.toInt(), 0xFF0E2A14.toInt(), 0xFF163A1E.toInt(), 0xFF5AFF6A.toInt(), 3,
+            roof = 2, wall = 1, features = listOf(Feature.River(true, 0.2f, 2f), Feature.Rocks(0.04f)), holiday = "stpatrick"),
+        SiteDef("highhill", "420 Hill", "The highest hill in the county, in every sense.", 1, 500, 0.5f, 1f,
+            0xFF6ABE3A.toInt(), 0xFF4A8A30.toInt(), 0xFF1A2A10.toInt(), 0xFF26401A.toInt(), 0xFF9AFF3A.toInt(), 3,
+            roof = 2, wall = 4, features = listOf(Feature.Lake(0.15f, 0.15f, 3f)), holiday = "fourtwenty"),
+        SiteDef("meadow", "Easter Meadow", "Pastel flowers, rabbit holes and eggs in odd places.", 1, 500, 0f, 0f,
+            0xFF9AD27A.toInt(), 0xFF7AB05A.toInt(), 0xFF3A2A4A.toInt(), 0xFF4E3A60.toInt(), 0xFFC0A0FF.toInt(), 3,
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.75f, 0.8f, 3f)), holiday = "easter"),
+        SiteDef("liberty", "Liberty Ranch", "Wide open prairie and fireworks every night.", 1, 500, 1f, 1f,
+            0xFFA8B05A.toInt(), 0xFF7E8A42.toInt(), 0xFF101A3A.toInt(), 0xFF1A2A52.toInt(), 0xFFE03A3A.toInt(), 1,
+            roof = 1, wall = 1, features = listOf(Feature.River(false, 0.15f, 2f)), holiday = "july4"),
+        SiteDef("harvest", "Harvest Homestead", "Golden fields, red barns, a big table.", 1, 500, 0f, 1f,
+            0xFFB8A050.toInt(), 0xFF8A7038.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFE0903A.toInt(), 3,
+            roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f)), holiday = "thanksgiving"),
+    )
+
+    private val byId = (all + holidays).associateBy { it.id }
     operator fun get(id: String): SiteDef? = byId[id]
 
     /** Smooth noise in 0..1, about one bump every 4 squares. */
@@ -145,13 +178,23 @@ object Sites {
     }
 }
 
+/** A work building on a farm, and whether a worker staffs it. */
+class HouseSpot(val x: Int, val y: Int, val house: WorkHouse, val staffed: Boolean)
+
 /** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
 class Site(val def: SiteDef) {
     val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
     var land = 6
     var roof = def.roof
     var wall = def.wall
+    /** Workers hired for this farm; they staff its work buildings in order and water plots when there's no building free. */
+    var workers = 0
+    /** The work buildings on this farm, worked out again whenever one is built, moved or staffed (see Farm.houses). */
+    var spots: List<HouseSpot>? = null
+    /** Where the player put the middle of the square, or null for the site's own spot ([SiteDef.ax], [SiteDef.ay]). */
+    var cx: Int? = null
+    var cy: Int? = null
     /** Top-left corner of the owned square. */
-    val ox get() = ((Farm.MAX - land) * def.ax).roundToInt()
-    val oy get() = ((Farm.MAX - land) * def.ay).roundToInt()
+    val ox get() = cx?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ax).roundToInt()
+    val oy get() = cy?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ay).roundToInt()
 }

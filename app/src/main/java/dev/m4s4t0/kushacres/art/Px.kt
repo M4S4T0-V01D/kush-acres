@@ -29,6 +29,12 @@ class Px(val w: Int, val h: Int, val s: Int = S) {
         for (j in 0 until s) for (i in 0 until s) p[(y * s + j) * fw + x * s + i] = c
     }
 
+    /** Makes one art pixel see-through again. */
+    fun clear(x: Int, y: Int) {
+        if (x !in 0 until w || y !in 0 until h) return
+        for (j in 0 until s) for (i in 0 until s) p[(y * s + j) * fw + x * s + i] = 0
+    }
+
     fun get(x: Int, y: Int): Int = if (x in 0 until w && y in 0 until h) p[y * s * fw + x * s] else 0
 
     fun rect(x: Int, y: Int, rw: Int, rh: Int, c: Int) {

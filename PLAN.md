@@ -9,7 +9,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - Expand everything; maps 2–3× bigger (starting farm too) for massive farms.
 - Rotate the view 4 ways to see the farm from every side.
 - GitHub repo with in-game updating from the GitHub release APK.
-- Realtor from level 20: buy farms in other places, 10 new farms (11 total), each with its own layout
+- Realtor from level 15: buy farms in other places, 10 new farms (11 total), each with its own layout
   and position on its map, its own cannabis types (like levels), switch back and forth freely.
 - Each place has its own town, its own people running it, its own back-alley stuff.
 - Vehicles (RV and others) to buy that sit on the lawn and do different things.
@@ -45,8 +45,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 ## Phase 4 — Multiple farms (0.6.0)
 - [x] Split per-farm state (`Site`: tiles, land, paint) from player state (cash, level, stash, shack level, helpers)
 - [x] 10 new farm sites (`Sites.kt`): own grass/wild colours, trees or pines, lakes/rivers/coast/boulders/crater rim,
-      land anchored at its own spot on the map (corner, edge or middle), price and level (20 → 64)
-- [x] Mona sells them from Lv 20 ("Your farms" list also in the farm chip under the HUD); switch any time;
+      land anchored at its own spot on the map (corner, edge or middle), price and level (15 → 58; lowered from 20 → 64 in 0.7.0)
+- [x] Mona sells them from Lv 15 ("Your farms" list also in the farm chip under the HUD); switch any time;
       every owned farm keeps growing and helpers pick/cook on all of them
 - [x] Boulders on your land can be broken up (cost scales with level); water keeps nearby plots wet
 - [x] Save format v5 with a list of sites (v4 saves migrate into Home Acres)
@@ -73,12 +73,31 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [ ] RV, food truck, tractor, delivery van, … each with an effect
 
 ## Phase 7 — Workers + activities
+- [x] Work buildings (Build → Work tab), up to 6 of each per farm, unlocked by level: Water Tower (Lv 9, keeps
+      nearby plots wet), Grow House (11, +20% growth nearby), Bunkhouse (13, +2 worker beds), Trim Shed (16, +15%
+      yield nearby), Drying Barn (20, facilities nearby 25% faster), Tool Shed (24, runner every 4 min instead of 6).
+      A worker staffing a building doubles its effect (Tower: reach 3); spare workers water dry plots
+- [x] Hire workers per farm (cap grows with Bunkhouses); they walk the farm, staying near the building they staff
+- [x] Share card (Menu → Share card): picture card themed by the current farm with lifetime stats; saves to
+      Pictures/KushAcres on the phone, ~/Pictures/KushAcres on desktop
 - [ ] More helper types / per-farm crews
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics
 - [ ] Redraw decor at higher detail
 - [ ] Overhaul ground, plants, buildings, lighting
+
+## Phase 9 — Holidays, farmers, Pot Bucks (0.8.0)
+- [x] Right-click / long-press tile menu: move (stunts growing plants, by strain) or destroy plants and decor
+- [x] Claim buttons in dailies and challenges update right away
+- [x] More random events
+- [x] Holiday events for 9 holidays: tokens from sales, dailies, challenges and events; a holiday farm, permanent strains, decor and a pet each (Halloween: candy corn, black cat)
+- [x] Pot Bucks currency (levels, dailies, challenges, lucky harvests) with its own shop
+- [x] Farmer creator (name and looks), start spot picker on a new game, restyle for cash or Pot Bucks, restart game
+- [x] Move a farm to a new spot of the same size for a fee
+- [x] Vivid per-farm strains and crosses; hippie festivals (big farms, 3 h, faster money)
+- [x] Share card shows a real render of the farm
+- [ ] Test the creator, map picker, holiday shop and Bucks shop by hand in the running app
 
 ## Release log
 - 0.2.1 — before this plan
@@ -87,3 +106,5 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.5.0 — rotate the farm 4 ways (↺ ↻ in the top bar, moved under it in 0.6.1)
 - 0.6.0 — 10 more farms to buy from Mona at Lv 20+, each with its own land, colours and terrain; tiered seed menu
 - 0.6.1 — rotate buttons moved under the top bar so the cash has room
+- 0.7.0 — never tagged; its work buildings, hireable workers, farms from Lv 15 and share card shipped in 0.8.0
+- 0.8.0 — holiday events (Halloween now), Pot Bucks, farmer creator, start spot and farm moving, restart, right-click / hold tile menu, hippie festivals, vivid strains and crosses, share card shows your farm

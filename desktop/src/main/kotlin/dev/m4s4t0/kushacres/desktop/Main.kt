@@ -26,6 +26,7 @@ import dev.m4s4t0.kushacres.ui.App
 
 /** The desktop game: one phone-shaped (but resizable) window running the same App() as the phone. */
 fun main() {
+    System.getenv("KUSH_SPRITES")?.let { dumpSprites(it); return }
     val act = Activity()
     val view = View(act)
     Audio.init(act)

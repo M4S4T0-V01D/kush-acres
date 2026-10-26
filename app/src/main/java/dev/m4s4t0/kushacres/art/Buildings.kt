@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.ROOF_COLORS
 import dev.m4s4t0.kushacres.model.WALL_COLORS
+import dev.m4s4t0.kushacres.model.WorkHouse
 import kotlin.random.Random
 
 /** Iso box: bottom corner at (cx, by), left face [wl] px wide, right face [wr] px wide, [h] px tall. */
@@ -271,6 +272,79 @@ object Buildings {
                 px.rect(14, 4, 5, 3, 0xFF1C1A20.toInt())
                 px.rect(14, 7, 5, 9, 0xFFC8CCD4.toInt()); px.rect(15, 8, 3, 7, 0xFFE8B040.toInt()); px.set(15, 8, 0xFFFFE89A.toInt())
                 px.rect(14, 16, 5, 4, 0xFFF2C440.toInt()); px.rect(18, 16, 1, 4, 0xFFB07A1C.toInt())
+            }
+        }
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    // ---- Work buildings (same frame as the facilities) ----
+
+    private val houseCache = HashMap<WorkHouse, Bitmap>()
+
+    /** A pyramid roof over a box of half-widths [w] and wall height [h] standing on (cx, by). */
+    private fun roof(px: Px, cx: Int, by: Int, w: Int, h: Int, rise: Int, c: Int) {
+        val top = by - h; val ax = cx; val ay = top - w / 2 - rise
+        px.poly(shade(c, 1.1f), cx - w - 1, top - w / 2, cx, top + 1, ax, ay)
+        px.poly(shade(c, 0.78f), cx, top + 1, cx + w + 1, top - w / 2, ax, ay)
+    }
+
+    fun house(h: WorkHouse): Bitmap = houseCache.getOrPut(h) {
+        val px = Px(FAC_W, FAC_H)
+        val cx = 16; val by = 37
+        when (h) {
+            WorkHouse.TOWER -> {
+                val wood = 0xFF8A5A34.toInt()
+                for (lx in intArrayOf(7, 25)) px.rect(lx, 16, 1, 17, shade(wood, 0.7f))
+                px.rect(16, 18, 1, 19, shade(wood, 0.6f))
+                px.line(7, 30, 16, 22, shade(wood, 0.8f)); px.line(25, 30, 16, 22, shade(wood, 0.6f))
+                val tank = 0xFF5A9AD8.toInt()
+                px.rect(6, 6, 21, 11, tank); px.rect(6, 6, 7, 11, shade(tank, 1.15f)); px.rect(20, 6, 7, 11, shade(tank, 0.8f))
+                for (y in intArrayOf(8, 12, 16)) px.rect(6, y, 21, 1, shade(tank, 0.65f))
+                px.poly(0xFFB8C4CC.toInt(), 5, 6, 16, 1, 27, 6)
+                px.rect(14, 33, 4, 2, 0xFF8FD4FF.toInt()); px.set(16, 30, 0xFF8FD4FF.toInt())
+            }
+            WorkHouse.GROW -> {
+                val glass = 0xFFB8ECDA.toInt()
+                box(px, cx, by, 12, 12, 10, 0, glass, shade(glass, 0.82f))
+                for (i in 0..3) { px.rect(6 + i * 3, 25 + i, 2, 3, 0xFF4FA03C.toInt()); px.rect(19 + i * 2, 28 - i, 2, 3, 0xFF3E8A30.toInt()) }
+                px.line(4, 22, 16, 28, 0xFFF4F4F0.toInt()); px.line(16, 28, 28, 22, 0xFFF4F4F0.toInt())
+                roof(px, cx, by, 12, 10, 3, 0xFFE8B8F0.toInt())
+                px.rect(12, 14, 8, 1, 0xFFFF7AE8.toInt())
+            }
+            WorkHouse.BUNK -> {
+                val logs = 0xFFB07A4A.toInt()
+                box(px, cx, by, 12, 12, 9, 0, logs, shade(logs, 0.75f))
+                for (k in 0..3) { px.line(4, 25 + k * 2, 16, 31 + k * 2, shade(logs, 0.8f)) }
+                px.rect(19, 25, 4, 7, 0xFF5A3A22.toInt()); px.set(22, 28, 0xFFF2C440.toInt())
+                px.rect(7, 24, 3, 3, 0xFFFFE08A.toInt())
+                roof(px, cx, by, 12, 9, 6, 0xFF3E6E4A.toInt())
+                px.rect(21, 8, 2, 5, 0xFF7A7A80.toInt())
+            }
+            WorkHouse.TRIM -> {
+                val board = 0xFFD8B87A.toInt()
+                box(px, cx, by, 12, 12, 8, 0, board, shade(board, 0.75f))
+                px.poly(0xFF3A2A1E.toInt(), 6, 28, 15, 33, 15, 26, 6, 21)
+                for (i in 0..2) px.rect(8 + i * 3, 23 + i, 1, 4, 0xFF6AB84A.toInt())
+                px.rect(19, 25, 6, 1, 0xFFC8CCD4.toInt()); px.rect(23, 24, 2, 3, 0xFFC8484A.toInt())
+                roof(px, cx, by, 12, 8, 4, 0xFF9AA0A8.toInt())
+            }
+            WorkHouse.DRYING -> {
+                val red = 0xFFB8443A.toInt()
+                box(px, cx, by, 12, 12, 14, 0, red, shade(red, 0.75f))
+                px.line(5, 20, 15, 25, 0xFFF4F0E8.toInt()); px.line(5, 30, 15, 35, 0xFFF4F0E8.toInt())
+                px.poly(0xFF3A2A1E.toInt(), 7, 22, 14, 26, 14, 34, 7, 30)
+                for (i in 0..2) { px.rect(8 + i * 2, 24 + i, 1, 3, 0xFF8A9A3A.toInt()) }
+                roof(px, cx, by, 12, 14, 5, 0xFF5C4A3E.toInt())
+                px.rect(14, 8, 4, 3, 0xFFF4F0E8.toInt())
+            }
+            WorkHouse.TOOLS -> {
+                val steel = 0xFF7A8088.toInt()
+                box(px, cx, by, 12, 12, 9, 0, 0xFF6A8A5A.toInt(), 0xFF4E6A42.toInt())
+                px.rect(9, 22, 1, 9, 0xFFA87A4A.toInt()); px.rect(7, 22, 5, 1, steel)
+                px.rect(12, 23, 1, 8, 0xFFA87A4A.toInt()); px.rect(11, 30, 3, 2, steel)
+                px.rect(19, 26, 5, 4, 0xFFE8B040.toInt()); px.rect(19, 26, 5, 1, 0xFFFFE08A.toInt())
+                roof(px, cx, by, 12, 9, 3, 0xFF8A3A2E.toInt())
             }
         }
         px.outline(OUT)

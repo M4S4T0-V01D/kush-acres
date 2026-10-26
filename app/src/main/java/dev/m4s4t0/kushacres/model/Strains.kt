@@ -26,9 +26,21 @@ class Strain(
     val exotic: Boolean = false,
     /** Bred in the lab from these two strains; planted like a ladder strain once you've made it. */
     val parents: Pair<String, String>? = null,
+    /** Native to this farm site: only grows there, once you've reached its level. */
+    val site: String? = null,
+    /** A holiday strain: unlocked for good from that holiday's shop. */
+    val holiday: String? = null,
 ) {
     val seconds: Long get() = minutes * 60L
     val hybrid: Boolean get() = parents != null
+    /** How long moving a growing plant of this strain sets it back, as a share of its grow time. */
+    val stunt: Double get() = when {
+        exotic -> 0.5
+        holiday != null -> 0.4
+        hybrid -> 0.35
+        site != null -> 0.3
+        else -> 0.15 + level * 0.004
+    }
 }
 
 object Strains {
@@ -121,6 +133,82 @@ object Strains {
             "Fell from the sky in a smoking crater.", exotic = true),
     )
 
+    /** Holiday strains, two per holiday: a quick one and a long one, bought with that holiday's tokens. */
+    private val festive = listOf(
+        Strain("pumpkinspice", "Pumpkin Spice Kush", 45, 1, 60, 8, 420, 60, 0xFF3A4A1E.toInt(), 0xFFFF8A1E.toInt(), 0xFFFFE04A.toInt(),
+            "Basic? Maybe. Delicious? Absolutely.", holiday = "halloween"),
+        Strain("witchbrew", "Witch's Brew", 360, 1, 400, 14, 9000, 700, 0xFF2A1E3A.toInt(), 0xFFA43AFF.toInt(), 0xFFFF8A1E.toInt(),
+            "Double, double, toil and bubble.", holiday = "halloween"),
+        Strain("candycane", "Candy Cane Kush", 45, 1, 60, 8, 420, 60, 0xFF2E6A3A.toInt(), 0xFFFFF4F4.toInt(), 0xFFFF2A3A.toInt(),
+            "Peppermint stripes on every bud.", holiday = "christmas"),
+        Strain("mistletoe", "Mistletoe", 360, 1, 400, 14, 9000, 700, 0xFF1E5A2E.toInt(), 0xFF4AE06A.toInt(), 0xFFFF3A4A.toInt(),
+            "Hang it high. Somebody might kiss you.", holiday = "christmas"),
+        Strain("champagne", "Champagne Haze", 45, 1, 60, 8, 420, 60, 0xFF4A5A2E.toInt(), 0xFFFFE89A.toInt(), 0xFFFFFFFF.toInt(),
+            "Pop it at midnight.", holiday = "newyear"),
+        Strain("countdown", "Countdown Kush", 360, 1, 400, 14, 9000, 700, 0xFF1E1E3A.toInt(), 0xFFC0C8FF.toInt(), 0xFFFFD23A.toInt(),
+            "Ten, nine, eight... wait, what year is it?", holiday = "newyear"),
+        Strain("cupid", "Cupid's Arrow", 45, 1, 60, 8, 420, 60, 0xFF3A5A3A.toInt(), 0xFFFF5AA0.toInt(), 0xFFFFF0F4.toInt(),
+            "Straight to the heart.", holiday = "valentine"),
+        Strain("heartbreaker", "Heartbreaker", 360, 1, 400, 14, 9000, 700, 0xFF3A1E2A.toInt(), 0xFFE0103A.toInt(), 0xFFFFB0D0.toInt(),
+            "It's not you. It's the terpenes.", holiday = "valentine"),
+        Strain("shamrock", "Shamrock Shake", 45, 1, 60, 8, 420, 60, 0xFF1E7A2E.toInt(), 0xFF5AFF6A.toInt(), 0xFFFFFFFF.toInt(),
+            "Minty green and gone by April.", holiday = "stpatrick"),
+        Strain("leprechaun", "Leprechaun Gold", 360, 1, 400, 14, 9000, 700, 0xFF1E5A1E.toInt(), 0xFFFFD21E.toInt(), 0xFF3AFF5A.toInt(),
+            "Found at the end of a rainbow.", holiday = "stpatrick"),
+        Strain("fourtwenty", "Four Twenty Classic", 45, 1, 60, 8, 420, 60, 0xFF2E7A2E.toInt(), 0xFF9AFF3A.toInt(), 0xFFFF9A2A.toInt(),
+            "The high holiday's house blend.", holiday = "fourtwenty"),
+        Strain("highholy", "High Holy Haze", 360, 1, 400, 14, 9000, 700, 0xFF2A4A3A.toInt(), 0xFF3AFFD0.toInt(), 0xFFFFE03A.toInt(),
+            "Blessed by every hippie in the county.", holiday = "fourtwenty"),
+        Strain("jellybean", "Jelly Bean", 45, 1, 60, 8, 420, 60, 0xFF4A7A3A.toInt(), 0xFFFFA0E0.toInt(), 0xFF7AE0FF.toInt(),
+            "Every bud a different flavour.", holiday = "easter"),
+        Strain("peeps", "Purple Peeps", 360, 1, 400, 14, 9000, 700, 0xFF3A3A5A.toInt(), 0xFFC07AFF.toInt(), 0xFFFFF07A.toInt(),
+            "Marshmallow sweet. Slightly alarming.", holiday = "easter"),
+        Strain("liberty", "Liberty Haze", 45, 1, 60, 8, 420, 60, 0xFF2A4A6A.toInt(), 0xFF4A8AFF.toInt(), 0xFFFF3A3A.toInt(),
+            "Red, white and dank.", holiday = "july4"),
+        Strain("bottlerocket", "Bottle Rocket", 360, 1, 400, 14, 9000, 700, 0xFF3A1E1E.toInt(), 0xFFFF3A2A.toInt(), 0xFFFFFFFF.toInt(),
+            "Light the fuse and stand back.", holiday = "july4"),
+        Strain("cranberry", "Cranberry Sauce", 45, 1, 60, 8, 420, 60, 0xFF4A3A1E.toInt(), 0xFFD01E4A.toInt(), 0xFFFFC04A.toInt(),
+            "Still has the can ridges.", holiday = "thanksgiving"),
+        Strain("gravy", "Grandma's Gravy", 360, 1, 400, 14, 9000, 700, 0xFF5A3A1E.toInt(), 0xFFE0A04A.toInt(), 0xFFFFE8A0.toInt(),
+            "Thick, rich and puts you to sleep at the table.", holiday = "thanksgiving"),
+    )
+
+    /** Each site's native strains, two per farm: vivid things that only grow on that land. */
+    private val native: List<Strain> = run {
+        class N(val site: String, val level: Int, val id: String, val name: String, val leaf: Long, val bud: Long, val hair: Long, val blurb: String, val quick: Boolean)
+        val ns = listOf(
+            N("redwood", 15, "redwoodrocket", "Redwood Rocket", 0xFF2E5A2A, 0xFFE0302A, 0xFFFFC04A, "Tall as the trees, red as the bark.", false),
+            N("redwood", 15, "ferngully", "Fern Gully Kush", 0xFF1E6A4A, 0xFF3AF0A0, 0xFFE0FF7A, "Curls up like a fiddlehead.", true),
+            N("mesa", 19, "mesasunset", "Mesa Sunset", 0xFF5A4A2A, 0xFFFF6A5A, 0xFFFFD23A, "Pink sky in a jar.", false),
+            N("mesa", 19, "cactuscooler", "Cactus Cooler", 0xFF3A6A2A, 0xFFB0FF3A, 0xFFFF7AC0, "Prickly outside, juicy inside.", true),
+            N("bayou", 23, "swampthing", "Swamp Thing", 0xFF2A4A1E, 0xFF7AFF1E, 0xFFC0FF5A, "Crawled out of the water on its own.", false),
+            N("bayou", 23, "voodoo", "Voodoo Violet", 0xFF2A2A3A, 0xFF8A2AFF, 0xFFFF5AE0, "Nobody plants it. It just shows up.", true),
+            N("coast", 27, "coralreef", "Coral Reef", 0xFF2A5A5A, 0xFFFF7A6A, 0xFFFFE0C0, "Salty, sunny, a little bit fishy.", false),
+            N("coast", 27, "tidalwave", "Tidal Wave", 0xFF1E4A6A, 0xFF2AE0FF, 0xFFFFFFFF, "Comes on in sets.", true),
+            N("frost", 31, "glacier", "Glacier Glow", 0xFF3A5A6A, 0xFF7AD8FF, 0xFFE8FFFF, "Grows a millimetre a year. Worth it.", false),
+            N("frost", 31, "yetibreath", "Yeti Breath", 0xFF4A4A6A, 0xFFE8E0FF, 0xFFA07AFF, "Big, white and hard to find.", true),
+            N("emerald", 35, "emeraldisle", "Emerald Isle", 0xFF1E5A3A, 0xFF1EFF8A, 0xFFFFE04A, "Greener than the hills.", false),
+            N("emerald", 35, "jade", "Jade Empress", 0xFF2A4A3A, 0xFF5AE0B0, 0xFFFF5A7A, "Carved from the valley itself.", true),
+            N("volcano", 40, "magma", "Magma Kush", 0xFF3A1E1E, 0xFFFF4A1E, 0xFFFFE01E, "Hot to the touch. Literally.", false),
+            N("volcano", 40, "obsidian", "Obsidian OG", 0xFF1E1E24, 0xFF3A3A4A, 0xFFFF2AA0, "Black glass buds with pink fire inside.", true),
+            N("neon", 45, "neonnights", "Neon Nights", 0xFF2A1E3A, 0xFFFF2AD0, 0xFF2AFFF0, "Buzzes like a sign at 3am.", false),
+            N("neon", 45, "laserlime", "Laser Lime", 0xFF1E3A2A, 0xFFC8FF1E, 0xFFFF3AFF, "Do not look directly at the buds.", true),
+            N("highland", 51, "heather", "Highland Heather", 0xFF3A4A3A, 0xFFC08AFF, 0xFFFFE0F0, "Purple hills, purple haze.", false),
+            N("highland", 51, "thistle", "Thistle Haze", 0xFF2A3A2A, 0xFFE04AFF, 0xFFFFFFFF, "Prickly and proud.", true),
+            N("crater", 58, "meteorite", "Meteorite", 0xFF1E2A3A, 0xFF1EE0FF, 0xFFFF9A1E, "Still warm from the fall.", false),
+            N("crater", 58, "stardust", "Stardust Diesel", 0xFF2A2A3A, 0xFFE8E8FF, 0xFF5AFFC0, "Sparkles like it came from space. It did.", true),
+        )
+        val ladder = base.filter { !it.exotic }
+        ns.map { n ->
+            val l = ladder.last { it.level <= n.level }
+            val minutes = if (n.quick) l.minutes / 3 else l.minutes
+            val k = minutes / l.minutes.toDouble()
+            // A quarter more per hour than the ladder strain of the same level, spread over one extra gram.
+            Strain(n.id, n.name, minutes, n.level, (l.seed * k * 1.1).toLong(), l.yield + 1, (l.price * 1.25 * k * l.yield / (l.yield + 1)).toLong().coerceAtLeast(1),
+                (l.xp * k * 1.2).toInt().coerceAtLeast(1), n.leaf.toInt(), n.bud.toInt(), n.hair.toInt(), n.blurb, site = n.site)
+        }
+    }
+
     private class Cross(val a: String, val b: String, val id: String, val name: String, val blurb: String)
 
     /** Lab recipes, in the order the parents unlock. Later crosses can use earlier hybrids. */
@@ -147,6 +235,35 @@ object Strains {
         Cross("cherrypie", "phoenix", "firecracker", "Firecracker Pie", "Pops when you break it up."),
         Cross("phoenix", "reserve", "goldphoenix", "Golden Phoenix", "Reborn in pure gold."),
         Cross("supernova", "darkroast", "bigbang", "Big Bang Kush", "Where everything started. And ended."),
+        Cross("nebula", "titan", "colossus", "Cosmic Colossus", "A giant made of starlight."),
+        Cross("elysium", "crown", "paradise", "Paradise Crown", "Heaven, wearing a crown."),
+        // Exotic crosses: the black-market seeds bred into something you can plant from the lab.
+        Cross("ghost", "northern", "phantom", "Phantom Lights", "Flickers in the dark field. Spooky."),
+        Cross("dragon", "phoenix", "wyrm", "Wyrmfire", "Two firebirds walk into a lab."),
+        Cross("unicorn", "zkittlez", "rainbowhorn", "Rainbow Horn", "Sparkles in every colour there is."),
+        Cross("moonshine", "nebula", "moonnectar", "Moon Nectar", "Sipped by astronauts."),
+        Cross("kosmic", "crown", "kosmicking", "Kosmic King", "Rules the galaxy from a jar."),
+        // Native crosses: a site's two strains together.
+        Cross("redwoodrocket", "ferngully", "forestfire", "Forest Fire", "Red and green, and spreading fast."),
+        Cross("mesasunset", "cactuscooler", "desertbloom", "Desert Bloom", "Flowers once a year. Today's the day."),
+        Cross("swampthing", "voodoo", "hoodoo", "Hoodoo Gumbo", "Stirred at midnight with a gator bone."),
+        Cross("coralreef", "tidalwave", "riptide", "Riptide", "Pulls you right out to sea."),
+        Cross("glacier", "yetibreath", "avalanche", "Avalanche", "Everything at once, from the top."),
+        Cross("emeraldisle", "jade", "jadeisle", "Jade Isle", "Green on green on green."),
+        Cross("magma", "obsidian", "eruption", "Eruption", "Black buds with lava running through them."),
+        Cross("neonnights", "laserlime", "synthwave", "Synthwave", "Sounds like 1986 looks."),
+        Cross("heather", "thistle", "bagpipe", "Bagpipe Haze", "Loud, purple and Scottish."),
+        Cross("meteorite", "stardust", "impact", "Impact Kush", "Hits like a space rock."),
+        // Holiday crosses: each holiday's pair together.
+        Cross("pumpkinspice", "witchbrew", "jackolantern", "Jack-o'-Lantern", "Glows orange with a purple grin."),
+        Cross("candycane", "mistletoe", "northpole", "North Pole", "Santa's personal stash."),
+        Cross("champagne", "countdown", "midnight", "Midnight Toast", "Happy new year, all year."),
+        Cross("cupid", "heartbreaker", "lovepotion", "Love Potion", "One puff and you're smitten."),
+        Cross("shamrock", "leprechaun", "potogold", "Pot o' Gold", "Lucky all the way down."),
+        Cross("fourtwenty", "highholy", "blazeit", "Blaze It", "Every day is 4/20 now."),
+        Cross("jellybean", "peeps", "eggstra", "Eggstra Dank", "Hidden in the grass. Found by noon."),
+        Cross("liberty", "bottlerocket", "fireworks", "Fireworks", "Ooh. Aah. Cough."),
+        Cross("cranberry", "gravy", "leftovers", "Leftovers", "Somehow better the next day."),
     )
 
     private fun mix(a: Int, b: Int, k: Float): Int {
@@ -155,7 +272,7 @@ object Strains {
     }
 
     private val hybrids: List<Strain> = run {
-        val known = base.associateBy { it.id }.toMutableMap()
+        val known = (base + native + festive).associateBy { it.id }.toMutableMap()
         crosses.map { c ->
             val a = known.getValue(c.a); val b = known.getValue(c.b)
             Strain(c.id, c.name,
@@ -171,10 +288,14 @@ object Strains {
         }
     }
 
-    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic }
+    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + native + festive
 
     /** The strains you buy seeds for with cash, in unlock order. */
-    val ladder = all.filter { !it.exotic && !it.hybrid }
+    val ladder = all.filter { !it.exotic && !it.hybrid && it.site == null && it.holiday == null }
+    /** Strains that only grow on their own farm site. */
+    val natives = native
+    /** Holiday strains, kept for good once bought. */
+    val holidays = festive
     /** Lab strains: unlocked by breeding them once. */
     val hybridList = all.filter { it.hybrid }
     /** Black-market strains: planted from seeds you own, never asked for in orders. */

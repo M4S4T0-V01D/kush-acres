@@ -6,8 +6,12 @@ import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
+import dev.m4s4t0.kushacres.model.Holiday
+import dev.m4s4t0.kushacres.model.BucksItem
 import dev.m4s4t0.kushacres.model.Hybrids
+import dev.m4s4t0.kushacres.model.Pet
 import dev.m4s4t0.kushacres.model.Progress
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Site
@@ -20,6 +24,7 @@ import dev.m4s4t0.kushacres.model.Save
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Supply
 import dev.m4s4t0.kushacres.model.Upgrade
+import dev.m4s4t0.kushacres.model.WorkHouse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -453,9 +458,9 @@ class FarmTest {
     @Test fun buyAndSwitchFarms() {
         val f = rich()
         val red = Sites["redwood"]!!
-        f.level = 19
+        f.level = 14
         assertEquals(Result.LOCKED, f.canBuy(red))
-        f.level = 20
+        f.level = 15
         assertEquals(Result.LOCKED, f.canBuy(Sites["mesa"]!!))
         val cash = f.cash
         assertEquals(Result.OK, f.buySite(red))
@@ -559,5 +564,117 @@ class FarmTest {
         assertEquals(1, f.sites.size)
         assertEquals("home", f.site.def.id)
         assertEquals(Kind.SHACK, f.tile(0, 0).kind)
+    }
+
+    @Test fun workBuildingsAndWorkers() {
+        val f = rich()
+        fun grass() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
+        val (x, y) = grass()
+        f.level = WorkHouse.GROW.level - 1
+        assertEquals(Result.LOCKED, f.buildHouse(x, y, WorkHouse.GROW))
+        f.level = 30
+        val spent = f.stat(Stat.SPENT)
+        assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.GROW))
+        assertEquals(spent + WorkHouse.GROW.cost, f.stat(Stat.SPENT))
+        assertEquals(Result.BLOCKED, f.buildHouse(x, y, WorkHouse.TOWER))
+        assertTrue(f.houseCost(WorkHouse.GROW) > WorkHouse.GROW.cost)
+        // Unstaffed it counts once; a worker doubles it.
+        assertEquals(1, f.houseNear(x + 2, y, WorkHouse.GROW))
+        assertEquals(0, f.houseNear(x + 3, y, WorkHouse.GROW))
+        assertEquals(Result.OK, f.hireWorker())
+        assertEquals(2, f.houseNear(x + 2, y, WorkHouse.GROW))
+        // One bed until there's a bunkhouse.
+        assertEquals(Result.LIMIT, f.hireWorker())
+        val (bx, by) = grass()
+        assertEquals(Result.OK, f.buildHouse(bx, by, WorkHouse.BUNK))
+        assertEquals(3, f.workerCap())
+        assertEquals(Result.OK, f.hireWorker())
+        // Workers are kept with the save.
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(2, g.site.workers)
+        assertEquals(2, g.houseNear(x + 2, y, WorkHouse.GROW))
+    }
+
+    @Test fun movingAGrowingPlantStuntsIt() {
+        val f = farm()
+        val x = f.ox + 3; val y = f.oy + 3
+        val s = Strains.ladder.first()
+        assertEquals(Result.OK, f.plant(x, y, s.id, t0))
+        f.tile(x, y).progress = s.seconds * 0.5
+        val stunt = f.stuntSeconds(x, y)
+        assertTrue(stunt > 0)
+        val tx = f.ox + 5; val ty = f.oy + 5
+        assertEquals(Kind.GRASS, f.tile(tx, ty).kind)
+        assertEquals(Result.OK, f.move(x, y, tx, ty))
+        assertEquals(s.seconds * 0.5 - stunt, f.tile(tx, ty).progress, 1e-6)
+        // Negative progress survives a save.
+        f.tile(tx, ty).progress = -12.0
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(-12.0, g.tile(tx, ty).progress, 1e-6)
+        assertEquals(Result.OK, f.uproot(tx, ty))
+        assertNull(f.tile(tx, ty).strain)
+        assertEquals(Kind.PLOT, f.tile(tx, ty).kind)
+    }
+
+    @Test fun holidayShopSpendsTokens() {
+        Holiday.force = Holiday.HALLOWEEN
+        try {
+            val f = farm()
+            val h = Holiday.HALLOWEEN
+            val s = h.strains.first()
+            assertFalse(f.unlocked(s))
+            assertEquals(Result.NO_CASH, f.buyHolidayStrain(h, s))
+            f.addTokens(h, 2000)
+            assertEquals(Result.OK, f.buyHolidayStrain(h, s))
+            assertTrue(f.unlocked(s))
+            assertEquals(Result.OK, f.buyPet(h))
+            assertEquals(Result.BLOCKED, f.buyPet(h))
+            assertEquals(Result.OK, f.buyHolidayDecor(h, h.decor.first()))
+            assertEquals(Result.BLOCKED, f.buySite(h.site))
+            assertEquals(Result.OK, f.buyHolidayFarm(h))
+            assertTrue(f.owns(h.site.id))
+            val g = farm(); Save.read(Save.write(f), g)
+            assertTrue(g.unlocked(s)); assertTrue(Pet.CAT.name in g.pets); assertTrue(g.owns(h.site.id))
+            assertEquals(f.tokens(h), g.tokens(h))
+        } finally { Holiday.force = null }
+    }
+
+    @Test fun holidaysFallOnTheirDays() {
+        fun at(y: Int, m: Int, d: Int) = java.util.Calendar.getInstance().apply { clear(); set(y, m - 1, d, 12, 0) }.timeInMillis
+        assertEquals(Holiday.HALLOWEEN, Holiday.at(at(2026, 10, 26)))
+        assertEquals(Holiday.CHRISTMAS, Holiday.at(at(2026, 12, 25)))
+        assertEquals(Holiday.NEWYEAR, Holiday.at(at(2027, 1, 1)))
+        assertEquals(4 to 5, Holiday.easter(2026))
+        assertEquals(26, Holiday.thanksgiving(2026))
+        assertNull(Holiday.at(at(2026, 6, 10)))
+    }
+
+    @Test fun relocateMovesTheFarm() {
+        val f = farm()
+        val sx = f.ox; val sy = f.oy
+        val shack = (0 until Farm.MAX * Farm.MAX).count { f.tiles[it].kind == Kind.SHACK || f.tiles[it].kind == Kind.PART }
+        f.cash = f.relocateCost()
+        assertEquals(Result.OK, f.relocate(20, 20))
+        assertEquals(0L, f.cash)
+        assertTrue(f.ox != sx || f.oy != sy)
+        assertEquals(shack, (0 until Farm.MAX * Farm.MAX).count { f.tiles[it].kind == Kind.SHACK || f.tiles[it].kind == Kind.PART })
+        assertEquals(Kind.PLOT, f.tile(f.ox + 3, f.oy + 3).kind)
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(f.ox, g.ox); assertEquals(f.oy, g.oy)
+    }
+
+    @Test fun restartWipesAndBucksBuy() {
+        val f = farm()
+        f.farmer = Farmer("Sage")
+        f.potBucks = 30; f.cash = 99_999; f.level = 12
+        assertEquals(Result.OK, f.buyWithBucks(BucksItem.JUICE, t0))
+        assertEquals(25L, f.potBucks)
+        assertTrue(f.on(Buff.JUICE))
+        f.restart(t0)
+        assertEquals(1, f.level); assertEquals(0L, f.potBucks); assertNull(f.farmer)
+        assertEquals("Sage", f.restartLook?.name)
+        assertEquals(Kind.PLOT, f.tile(f.ox + 3, f.oy + 3).kind)
+        val look = Farmer("Willow", hair = 3, hat = 7)
+        assertEquals(look, Farmer.decode(look.name, look.encode()))
     }
 }

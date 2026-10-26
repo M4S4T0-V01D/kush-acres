@@ -21,6 +21,7 @@ enum class Stat(val title: String) {
     QUESTS("Quests done"),
     DAYS("Daily rewards claimed"),
     EVENTS("Events seen"),
+    SPENT("Cash spent"),
 }
 
 /** The real-world seasons of the farm, a week each, the same for everyone. */
@@ -105,7 +106,11 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
 }
 
 /** What a day of the login streak pays out. */
-class DailyReward(val day: Int, val cash: Long, val buff: Buff? = null, val minutes: Int = 0, val seeds: String? = null, val seedCount: Int = 0)
+class DailyReward(val day: Int, val cash: Long, val buff: Buff? = null, val minutes: Int = 0, val seeds: String? = null, val seedCount: Int = 0) {
+    /** Pot Bucks, and holiday tokens when a holiday is on. */
+    var bucks = 0L
+    var tokens = 0L
+}
 
 /** Breeding recipes: two parents make a hybrid that grows faster and sells higher than either. */
 object Hybrids {
@@ -128,7 +133,7 @@ object Progress {
     fun reward(f: Farm, day: Int): DailyReward {
         val d = (day - 1) % 7 + 1
         val cash = nice((60.0 + 30.0 * f.level * f.level) * DAY_MULT[d - 1])
-        return when (d) {
+        val r = when (d) {
             3 -> DailyReward(d, cash, Buff.JUICE, 30)
             5 -> DailyReward(d, cash, Buff.DUST, 20)
             7 -> {
@@ -137,6 +142,9 @@ object Progress {
             }
             else -> DailyReward(d, cash)
         }
+        r.bucks = if (d == 7) 10 else 2
+        r.tokens = if (Holiday.at(f.lastTick) != null) 10L + 2 * d else 0
+        return r
     }
 
     fun newQuests(f: Farm, day: Long): List<Quest> {

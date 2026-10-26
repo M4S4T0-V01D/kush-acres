@@ -27,11 +27,14 @@ object Store {
     var toast by mutableStateOf<Pair<String, Long>?>(null)
     val levelUps = mutableStateListOf<FarmEvent.LevelUp>()
     var awayReport by mutableStateOf<Away?>(null)
+    /** The share card on screen, if it's open. */
+    var shareCard by mutableStateOf<android.graphics.Bitmap?>(null)
     var cashPop by mutableStateOf<Pair<Long, Long>?>(null)
     /** Harvests and such for the farm view to float numbers over. */
     val pending = ArrayList<FarmEvent>()
 
-    private lateinit var app: Context
+    lateinit var app: Context
+        private set
     private var dirty = false
     private var lastSave = 0L
     private var rainSaid = false
@@ -89,6 +92,8 @@ object Store {
             is FarmEvent.Cash -> { cashPop = e.amount to now(); Audio.play(Sfx.CASH) }
             is FarmEvent.Harvest -> { pending += e; if (e.golden) Audio.play(Sfx.GOLDEN) else Audio.vary(Sfx.HARVEST) }
             is FarmEvent.Award -> { toast("Trophy: ${e.trophy.title}  +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
+            is FarmEvent.Bucks -> if (e.token == null) { toast("+${e.amount} Pot Buck${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
+                else if (e.amount > 1) toast("+${e.amount} ${dev.m4s4t0.kushacres.model.Holiday[e.token]?.tokens?.lowercase() ?: e.token}")
         }
         if (farm.events.isNotEmpty()) dirty = true
         farm.events.clear()

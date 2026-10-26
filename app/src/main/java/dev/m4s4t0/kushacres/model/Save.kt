@@ -19,7 +19,7 @@ object Save {
             put(JSONObject().apply {
                 put("i", i); put("k", t.kind.name)
                 t.strain?.let { put("s", it) }
-                if (t.progress > 0) put("p", t.progress)
+                if (t.progress != 0.0) put("p", t.progress)
                 if (t.wetUntil > 0) put("w", t.wetUntil)
                 t.last?.let { put("l", it) }
                 t.item?.let { put("it", it) }
@@ -54,6 +54,7 @@ object Save {
             tile.pest = t.optBoolean("pe"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
             val bad = when (tile.kind) {
                 Kind.FACILITY -> Facility.of(tile.item) == null
+                Kind.HOUSE -> WorkHouse.of(tile.item) == null
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item) == null
                 else -> false
             }
@@ -81,7 +82,8 @@ object Save {
         o.put("sites", JSONArray().apply {
             f.sites.forEach { st ->
                 put(JSONObject().put("id", st.def.id).put("land", st.land).put("roof", st.roof).put("wall", st.wall)
-                    .put("tiles", writeTiles(st.tiles)))
+                    .put("workers", st.workers).put("tiles", writeTiles(st.tiles))
+                    .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) } })
             }
         })
         val orders = JSONArray()
@@ -106,6 +108,11 @@ object Save {
                 put(JSONObject().put("k", q.kind.name).put("t", q.target).put("b", q.base).put("c", q.cash).put("x", q.xp).put("done", q.claimed))
             }
         })
+        o.put("potBucks", f.potBucks)
+        o.put("tokens", JSONObject().apply { f.tokens.forEach { (k, v) -> put(k, v) } })
+        o.put("holidayStrains", JSONArray(f.unlockedStrains.toList())); o.put("pets", JSONArray(f.pets.toList()))
+        f.farmer?.let { o.put("farmerName", it.name); o.put("farmer", it.encode()) }
+        o.put("festivalUntil", f.festivalUntil); f.festivalSite?.let { o.put("festivalSite", it) }
         return o.toString()
     }
 
@@ -139,6 +146,13 @@ object Save {
         }
         strings("trophies", f.trophies) { Trophy.of(it) != null }
         strings("bred", f.bred) { Strains[it]?.hybrid == true }
+        strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
+        strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
+        f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
+        f.tokens.clear()
+        o.optJSONObject("tokens")?.let { t -> t.keys().forEach { k -> if (Holiday[k] != null) f.tokens[k] = t.optLong(k).coerceAtLeast(0) } }
+        f.farmer = if (o.has("farmer")) Farmer.decode(o.optString("farmerName", "Farmer").take(Farmer.NAME_MAX), o.optString("farmer")) else null
+        f.festivalUntil = o.optLong("festivalUntil"); f.festivalSite = o.optString("festivalSite", "").takeIf { it.isNotEmpty() }
         f.legacy = o.optInt("legacy").coerceAtLeast(0)
         f.bestLevel = maxOf(o.optInt("bestLevel", 1), f.level)
         f.streak = o.optInt("streak"); f.bestStreak = o.optInt("bestStreak"); f.lastDay = o.optLong("lastDay", -1)
@@ -175,6 +189,8 @@ object Save {
             if (f.owns(def.id)) continue
             val st = if (def === Sites.HOME) home else Site(def)
             st.land = land(so.optInt("land", 6)); st.roof = so.optInt("roof", def.roof); st.wall = so.optInt("wall", def.wall)
+            st.workers = so.optInt("workers").coerceIn(0, 99)
+            if (so.has("cx") && so.has("cy")) { st.cx = so.optInt("cx").coerceIn(0, Farm.MAX - 1); st.cy = so.optInt("cy").coerceIn(0, Farm.MAX - 1) }
             readTiles(so.optJSONArray("tiles"), st.tiles, stride)
             f.sites += st
         }

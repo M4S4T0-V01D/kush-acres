@@ -427,6 +427,15 @@ class FarmTest {
         assertEquals(2 to 2, g.shackAt())
     }
 
+    @Test fun landTiersGrowToTheWholeMap() {
+        val l = Farm.LAND
+        assertEquals(Farm.MAX, l.last().first)
+        for (i in 1 until l.size) {
+            assertTrue(l[i].first > l[i - 1].first && l[i].second >= l[i - 1].second && l[i].third > l[i - 1].third)
+        }
+        assertTrue(l.last().second <= Farm.MAX_LEVEL)
+    }
+
     @Test fun updaterComparesVersions() {
         assertTrue(Updater.newer("v0.3.0", "0.2.1"))
         assertTrue(Updater.newer("0.10.0", "0.9.9"))

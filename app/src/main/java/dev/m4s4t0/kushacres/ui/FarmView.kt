@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -58,6 +60,8 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -67,7 +71,7 @@ import kotlin.math.sin
 /** What a touch does to the squares it crosses. */
 enum class Act { HARVEST, PLANT, WATER, BUILD, DEMOLISH, SHOO, COLLECT }
 
-/** The whole farm, drawn at 1× into a small bitmap each frame, then scaled up with crisp pixels. */
+/** The farm, drawn each frame into a bitmap that covers just the part on screen, then scaled up with crisp pixels. */
 class World {
     companion object {
         const val PAD_X = 28
@@ -78,9 +82,33 @@ class World {
         const val OY = PAD_TOP
     }
 
-    /** Drawn [S]× finer than the art grid; everything below works in art pixels. */
-    val bitmap: Bitmap = Bitmap.createBitmap(W * S, H * S, Bitmap.Config.ARGB_8888)
-    private val canvas = Canvas(bitmap).apply { scale(S.toFloat(), S.toFloat()) }
+    /** The part of the world being drawn, in art pixels, and how many bitmap pixels each art pixel gets. */
+    var vx = 0; private set
+    var vy = 0; private set
+    var vw = W; private set
+    var vh = H; private set
+    var k = S; private set
+    /** Holds art pixels [vx, vx+vw) × [vy, vy+vh), [k]× finer than the art grid; everything below works in art pixels. */
+    var bitmap: Bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888); private set
+    private var canvas = Canvas(bitmap)
+
+    /** Aims the next render at art pixels [x0, x1) × [y0, y1), drawn at [density] bitmap pixels each. */
+    fun view(x0: Int, y0: Int, x1: Int, y1: Int, density: Int) {
+        vx = x0.coerceIn(0, W - 1); vy = y0.coerceIn(0, H - 1)
+        vw = (x1.coerceAtMost(W) - vx).coerceAtLeast(1); vh = (y1.coerceAtMost(H) - vy).coerceAtLeast(1)
+        k = density
+        val bw = vw * k; val bh = vh * k
+        if (bitmap.width == bw && bitmap.height == bh) return
+        if (bw.toLong() * bh * 4 > bitmap.allocationByteCount) {
+            // Some room to spare, so zooming out a little doesn't allocate every frame.
+            bitmap = Bitmap.createBitmap(bw, bh + bh / 3, Bitmap.Config.ARGB_8888)
+        }
+        bitmap.reconfigure(bw, bh, Bitmap.Config.ARGB_8888)
+        canvas = Canvas(bitmap)
+    }
+
+    /** Whether something standing on the tile centred at cx,cy can show inside the view. */
+    private fun seen(cx: Int, cy: Int) = cx + 40 > vx && cx - 40 < vx + vw && cy + 24 > vy && cy - 84 < vy + vh
     private val dst = RectF()
 
     /** Draws a sprite (S× finer than the art grid) with its top-left at art pixel x,y. */
@@ -179,6 +207,13 @@ class World {
 
     fun render(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>? = null) {
         bitmap.eraseColor(0)
+        canvas.save()
+        canvas.scale(k.toFloat(), k.toFloat())
+        canvas.translate(-vx.toFloat(), -vy.toFloat())
+        try { draw(f, now, t, light, selected, placing, moveFrom) } finally { canvas.restore() }
+    }
+
+    private fun draw(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>?) {
         hits.clear()
         nLights = 0
         val dt = if (lastT < 0) 0f else (t - lastT).coerceIn(0f, 0.1f)
@@ -188,7 +223,7 @@ class World {
         // Ground, back to front.
         for (s in 0..(Farm.MAX - 1) * 2) for (x in 0..s) {
             val y = s - x
-            if (x >= Farm.MAX || y >= Farm.MAX) continue
+            if (x >= Farm.MAX || y >= Farm.MAX || !seen(centerX(x, y), centerY(x, y))) continue
             val tile = f.tile(x, y)
             val inside = x < land && y < land
             val bmp = when {
@@ -226,7 +261,7 @@ class World {
         }
         // Lamp light pools under everything standing.
         fill.color = 0x30FFE27A
-        for (y in 0 until land) for (x in 0 until land) if (f.tile(x, y).kind == Kind.LAMP) {
+        for (y in 0 until land) for (x in 0 until land) if (f.tile(x, y).kind == Kind.LAMP && seen(centerX(x, y), centerY(x, y))) {
             val cx = centerX(x, y).toFloat(); val cy = centerY(x, y).toFloat()
             canvas.drawOval(cx - TW * 1.5f, cy - TH * 1.5f, cx + TW * 1.5f, cy + TH * 1.5f, fill)
         }
@@ -259,6 +294,7 @@ class World {
             val y = s - x
             if (x >= Farm.MAX || y >= Farm.MAX) continue
             val cx = centerX(x, y); val cy = centerY(x, y)
+            if (!seen(cx, cy)) continue
             val inside = x < land && y < land
             if (!inside) {
                 val h = hash(x, y) % 7
@@ -419,7 +455,7 @@ private class Floater(val wx: Float, val wy: Float, val text: String, val color:
 @Composable
 fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
     val world = remember { World() }
-    val image = remember { world.bitmap.asImageBitmap() }
+    val image = remember { arrayOfNulls<ImageBitmap>(1) }
     val view = LocalView.current
     var frame by remember { mutableLongStateOf(0L) }
     var scale by remember { mutableFloatStateOf(0f) }
@@ -685,10 +721,17 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             val m = ui.mode
             val light = Light.at(now)
             drawRect(Color(backdrop(light.tint)))
+            // Only what's on screen gets drawn: finely when zoomed in, one bitmap pixel per art pixel when zoomed out.
+            val d = if (scale >= S) S else 1
+            val x0 = floor(-offset.x / scale).toInt(); val y0 = floor(-offset.y / scale).toInt()
+            world.view(x0, y0, x0 + ceil(size.width / scale).toInt() + 1, y0 + ceil(size.height / scale).toInt() + 1, d)
             world.render(f, now, t, light, ui.selected, m is Mode.Build || m is Mode.PlaceFacility || m is Mode.PlaceDecor || (m is Mode.Move && m.from != null),
                 (m as? Mode.Move)?.from)
-            drawImage(image, dstOffset = IntOffset(offset.x.toInt(), offset.y.toInt()),
-                dstSize = IntSize((World.W * scale).toInt(), (World.H * scale).toInt()), filterQuality = FilterQuality.None)
+            val img = image[0]?.takeIf { it.asAndroidBitmap() === world.bitmap } ?: world.bitmap.asImageBitmap().also { image[0] = it }
+            val l = (offset.x + world.vx * scale).roundToInt(); val tp = (offset.y + world.vy * scale).roundToInt()
+            val r = (offset.x + (world.vx + world.vw) * scale).roundToInt(); val b = (offset.y + (world.vy + world.vh) * scale).roundToInt()
+            drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(world.vw * world.k, world.vh * world.k),
+                dstOffset = IntOffset(l, tp), dstSize = IntSize(r - l, b - tp), filterQuality = FilterQuality.None)
             drawIntoCanvas { world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light) }
 
             textPaint.textSize = max(28f, scale * 6f)

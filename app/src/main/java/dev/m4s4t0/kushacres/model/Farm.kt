@@ -91,7 +91,7 @@ class Away(var millis: Long = 0, var harvests: Int = 0, var grams: Int = 0, var 
  */
 class Farm(var rng: Random = Random.Default) {
     companion object {
-        const val MAX = 24
+        const val MAX = 40
         const val MAX_LEVEL = 80
         const val MAX_ORDERS = 6
         /** Wet soil grows this much faster. */
@@ -112,8 +112,11 @@ class Farm(var rng: Random = Random.Default) {
 
         /** Land sizes, with the level and cash each expansion needs. */
         val LAND = listOf(Triple(6, 1, 0L), Triple(8, 5, 2_000L), Triple(10, 12, 25_000L), Triple(12, 20, 250_000L),
-            Triple(14, 30, 2_500_000L), Triple(16, 40, 25_000_000L), Triple(18, 48, 100_000_000L),
-            Triple(20, 56, 400_000_000L), Triple(22, 64, 1_500_000_000L), Triple(24, 72, 6_000_000_000L))
+            Triple(14, 30, 2_500_000L), Triple(16, 40, 25_000_000L), Triple(18, 44, 60_000_000L),
+            Triple(20, 48, 150_000_000L), Triple(22, 52, 400_000_000L), Triple(24, 56, 1_000_000_000L),
+            Triple(26, 60, 2_500_000_000L), Triple(28, 63, 6_000_000_000L), Triple(30, 66, 15_000_000_000L),
+            Triple(32, 69, 35_000_000_000L), Triple(34, 72, 80_000_000_000L), Triple(36, 75, 180_000_000_000L),
+            Triple(38, 78, 400_000_000_000L), Triple(40, 80, 1_000_000_000_000L))
 
         fun xpNeed(level: Int): Long = (8.0 * level * level + 0.6 * level.toDouble().pow(3.2)).roundToLong()
 

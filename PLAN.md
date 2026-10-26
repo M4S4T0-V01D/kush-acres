@@ -29,10 +29,12 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] First release
 - Note: updates must be signed with the same key (this PC's `.android-home` debug key). Keep it backed up.
 
-## Phase 2 — Bigger maps
-- [~] Farm.MAX 16 → 24 done, with save migration (`stride` field, Save v4). Target now 40 (2.5×).
-- [ ] More LAND tiers up to the new max; trophy follows Farm.MAX
-- [ ] Performance check of full-map redraw (cull to visible region if needed)
+## Phase 2 — Bigger maps (0.4.0)
+- [x] Farm.MAX 16 → 40 (2.5×), with save migration (`stride` field, Save v4)
+- [x] LAND tiers up to 40×40 (level 80); trophy follows Farm.MAX; test keeps tiers in line with MAX
+- [x] Viewport rendering: World draws only the on-screen part (`World.view`), tiles culled with `seen()`,
+      1 bitmap px per art px when zoomed out
+- [ ] Check on a real phone: smooth panning/zooming at full zoom-out
 
 ## Phase 3 — 4-way rotation
 - [ ] View transform in `World` (tile/centre/hit/pick through rotation)
@@ -64,3 +66,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 ## Release log
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
+- 0.4.0 — map 40×40 with land tiers up to 40×40; only the visible part of the farm is drawn

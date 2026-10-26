@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 # Installs the desktop game for this user: the app in ~/.local/lib/kush-acres (where its updater swaps in new
 # versions), the icon, and a start-menu entry. Builds first unless given a tarball.
-# Usage: desktop/install.sh [KushAcres-linux.tar.gz]
+# Usage: desktop/install.sh [KushAcres-linux.tar.gz] | --uninstall   (PREFIX, default ~/.local, picks where it goes)
+# Saves live in ~/.local/share/kush-acres and are kept by reinstalls and by --uninstall.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+PREFIX=${PREFIX:-$HOME/.local}
+data=$PREFIX/share
+dest=$PREFIX/lib/kush-acres
+if [[ ${1:-} == --uninstall ]]; then
+  rm -rf "$dest"
+  rm -f "$data/applications/kush-acres.desktop" "$data/icons/hicolor/256x256/apps/kush-acres.png"
+  update-desktop-database -q "$data/applications" 2>/dev/null || true
+  kbuildsycoca6 >/dev/null 2>&1 || true
+  echo "Kush Acres removed; saves are kept."
+  exit 0
+fi
 tarball=${1:-}
 if [[ -z $tarball ]]; then ./build.sh :desktop:createDistributable -q; tarball=KushAcres-linux.tar.gz; fi
 tarball=$(realpath "$tarball")
 
-data=${XDG_DATA_HOME:-$HOME/.local/share}
-dest=$HOME/.local/lib/kush-acres
-stage=$(mktemp -d "$HOME/.local/lib/.kush-acres-XXXXXX")
+mkdir -p "$PREFIX/lib"
+stage=$(mktemp -d "$PREFIX/lib/.kush-acres-XXXXXX")
 tar -xzf "$tarball" -C "$stage"
 rm -rf "$dest"
 mv "$stage/KushAcres" "$dest"

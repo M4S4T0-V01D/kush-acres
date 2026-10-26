@@ -1,0 +1,436 @@
+package dev.m4s4t0.kushacres
+
+import dev.m4s4t0.kushacres.model.BmItem
+import dev.m4s4t0.kushacres.model.Buff
+import dev.m4s4t0.kushacres.model.Decor
+import dev.m4s4t0.kushacres.model.EventKind
+import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Helper
+import dev.m4s4t0.kushacres.model.Hybrids
+import dev.m4s4t0.kushacres.model.Progress
+import dev.m4s4t0.kushacres.model.Season
+import dev.m4s4t0.kushacres.model.Stat
+import dev.m4s4t0.kushacres.model.Trophy
+import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.Result
+import dev.m4s4t0.kushacres.model.Save
+import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.Supply
+import dev.m4s4t0.kushacres.model.Upgrade
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.random.Random
+
+class FarmTest {
+    private val t0 = 1_700_000_000_000L
+    private fun farm() = Farm(Random(7)).apply { newGame(t0) }
+
+    @Test fun strainTimesStayInBounds() {
+        val first = Strains.ladder.first()
+        assertEquals(5, first.minutes)
+        assertTrue(Strains.all.all { it.minutes in 5..960 })
+        assertTrue(Strains.ladder.size >= 30 && Strains.exotics.isNotEmpty())
+        assertTrue(Strains.ladder.all { it.seed >= first.seed })
+        // Each strain earns more per hour than the last and is unlocked no earlier.
+        Strains.ladder.zipWithNext().forEach { (a, b) ->
+            val pa = (a.price * a.yield - a.seed) / a.minutes.toDouble()
+            val pb = (b.price * b.yield - b.seed) / b.minutes.toDouble()
+            assertTrue("${b.name} should beat ${a.name}", pb > pa && b.level >= a.level && (b.minutes > a.minutes || b.minutes == 960))
+        }
+    }
+
+    @Test fun starterPlantsAreReady() {
+        val f = farm()
+        assertEquals(Result.OK, f.harvest(2, 2, t0))
+        assertTrue((f.stash["ditch"] ?: 0) > 0)
+    }
+
+    @Test fun growsInFiveMinutesDryAndFasterWet() {
+        val f = farm()
+        assertEquals(Result.OK, f.plant(2, 3, "ditch", t0))
+        f.tick(t0 + 4 * 60_000L)
+        assertEquals(Result.NOT_READY, f.harvest(2, 3, t0))
+        f.tick(t0 + 5 * 60_000L)
+        assertTrue(f.tile(2, 3).ready())
+
+        val g = farm()
+        g.plant(2, 3, "ditch", t0); g.water(2, 3, t0)
+        g.tick(t0 + 200_000L) // 300 s / 1.5
+        assertTrue(g.tile(2, 3).ready())
+    }
+
+    @Test fun waterRunsOutPartWay() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 7
+        f.plant(2, 3, "bluedream", t0); f.water(2, 3, t0)
+        // 20 min wet = 30 min of growth, then 30 more dry minutes.
+        assertEquals(50 * 60L, f.eta(2, 3, t0))
+        f.tick(t0 + 49 * 60_000L)
+        assertTrue(!f.tile(2, 3).ready())
+        f.tick(t0 + 50 * 60_000L)
+        assertTrue(f.tile(2, 3).ready())
+    }
+
+    @Test fun sprinklerKeepsNeighboursWet() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = Farm.SPRINKLER_LEVEL
+        assertEquals(Result.OK, f.build(1, 3, Kind.SPRINKLER))
+        assertTrue(f.wet(2, 3, t0 + 10 * 3_600_000L))
+        assertTrue(!f.wet(3, 3, t0 + 10 * 3_600_000L))
+    }
+
+    @Test fun levelGatesAndLevelUps() {
+        val f = farm()
+        assertEquals(Result.LOCKED, f.plant(2, 3, "voidkush", t0))
+        f.addXp(Farm.xpNeed(1) + Farm.xpNeed(2))
+        assertEquals(3, f.level)
+        assertTrue(f.cash > 30)
+    }
+
+    @Test fun stashCapBlocksHarvest() {
+        val f = farm()
+        f.stash["mids"] = f.stashCap()
+        assertEquals(Result.STASH_FULL, f.harvest(2, 2, t0))
+        assertTrue(f.tile(2, 2).ready())
+    }
+
+    @Test fun sellingFloodsTheMarketAndItRecovers() {
+        val f = farm()
+        f.stash["ditch"] = 60
+        val first = f.price("ditch")
+        f.sell("ditch", 60)
+        assertTrue(f.price("ditch") < first)
+        f.tick(t0 + 6 * 3_600_000L)
+        assertTrue(f.price("ditch") > first * 0.99)
+    }
+
+    @Test fun ordersArriveAndPay() {
+        val f = farm()
+        f.tick(t0 + 60_000L)
+        val o = f.orders[0]!!
+        o.items.forEach { f.stash[it.strain] = it.grams }
+        val before = f.cash
+        assertEquals(Result.OK, f.fill(0, t0 + 60_000L))
+        assertEquals(before + o.reward, f.cash)
+    }
+
+    @Test fun farmhandWorksOffline() {
+        val f = farm()
+        f.cash = 10_000_000; f.level = Farm.MANAGER_LEVEL
+        f.upgrades[Upgrade.STASH.ordinal] = 10
+        f.hireFarmhand(); f.hireManager()
+        f.tick(t0 + 8 * 3_600_000L)
+        // Two starter ditch plants, replanted all night: dozens of harvests.
+        assertTrue(f.away.harvests > 50)
+        assertTrue(f.away.replants > 50)
+    }
+
+    @Test fun expansionAndPlotCostsClimb() {
+        val f = farm()
+        f.cash = 1_000_000
+        val c1 = f.plotCost()
+        assertEquals(Result.OK, f.build(4, 4, Kind.PLOT))
+        assertTrue(f.plotCost() > c1)
+        assertEquals(Result.LOCKED, f.expand())
+        f.level = 5
+        assertEquals(Result.OK, f.expand())
+        assertEquals(8, f.land)
+    }
+
+    @Test fun saveRoundTrips() {
+        val f = farm()
+        f.cash = 1234; f.level = 9; f.upgrades[Upgrade.MULCH.ordinal] = 3
+        f.plant(2, 3, "ditch", t0); f.water(2, 3, t0)
+        f.stash["mids"] = 12; f.tick(t0 + 60_000L)
+        val g = Farm()
+        Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals("ditch", g.tile(2, 3).strain)
+        assertEquals(3, g.up(Upgrade.MULCH))
+    }
+
+    @Test fun shackSitsOnTwoByTwoAndUpgrades() {
+        val f = farm()
+        assertEquals(Kind.SHACK, f.tile(0, 0).kind)
+        assertEquals(Kind.PART, f.tile(1, 1).kind)
+        assertEquals(Result.BLOCKED, f.build(1, 0, Kind.PLOT))
+        assertEquals(Result.BLOCKED, f.demolish(1, 1))
+        val cap = f.stashCap()
+        f.cash = 10_000; f.level = 5
+        assertEquals(Result.OK, f.upgradeShack())
+        assertTrue(f.stashCap() > cap)
+        assertEquals(Result.OK, f.move(1, 1, 4, 4))
+        assertEquals(Kind.SHACK, f.tile(4, 4).kind)
+        assertEquals(Kind.GRASS, f.tile(0, 0).kind)
+        // Doesn't fit over the plots: stays put.
+        assertEquals(Result.BLOCKED, f.move(4, 4, 2, 2))
+        assertEquals(Kind.SHACK, f.tile(4, 4).kind)
+    }
+
+    @Test fun exoticsNeedSeeds() {
+        val f = farm()
+        f.harvest(2, 2, t0)
+        assertEquals(Result.NO_SEEDS, f.plant(2, 2, "ghost", t0))
+        f.seeds["ghost"] = 1
+        assertEquals(Result.OK, f.plant(2, 2, "ghost", t0))
+        assertTrue(f.seeds["ghost"] == null)
+    }
+
+    @Test fun facilityTurnsBudIntoGoods() {
+        val f = farm()
+        f.cash = 10_000; f.level = Facility.ROLLER.level
+        assertEquals(Result.OK, f.buildFacility(4, 4, Facility.ROLLER))
+        assertTrue(f.facilityCost(Facility.ROLLER) > Facility.ROLLER.cost)
+        assertEquals(Result.NO_BUD, f.startBatch(4, 4, "ditch", t0))
+        f.stash["ditch"] = 100
+        assertEquals(Result.NO_SUPPLY, f.startBatch(4, 4, "ditch", t0))
+        f.buySupply(Supply.PAPERS, 2)
+        assertEquals(Result.OK, f.startBatch(4, 4, "ditch", t0))
+        assertEquals(Result.BUSY, f.startBatch(4, 4, "ditch", t0))
+        assertEquals(Result.NOT_READY, f.collect(4, 4, t0))
+        assertEquals(Result.OK, f.collect(4, 4, t0 + Facility.ROLLER.millis(1)))
+        val key = f.goodsKey(Facility.ROLLER, "ditch")
+        assertEquals(5, f.goods[key])
+        // Pre-rolls are worth more than the bud that went in.
+        assertTrue(f.goodsPrice(key) > f.price("ditch") * Facility.ROLLER.grams)
+        assertTrue(f.sellAllGoods() > 0 && f.goods.isEmpty())
+    }
+
+    @Test fun decorHelpsAndHasALimit() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 20
+        val base = f.speed(2, 3)
+        assertEquals(Result.OK, f.placeDecor(1, 3, Decor.GNOME))
+        assertTrue(f.speed(2, 3) > base)
+        assertEquals(Result.OK, f.placeDecor(1, 4, Decor.BARREL))
+        assertTrue(f.sprinkled(2, 4))
+        assertEquals(Result.OK, f.placeDecor(1, 5, Decor.FLOWERS))
+        assertEquals(Result.LIMIT, f.placeDecor(4, 4, Decor.BENCH))
+        assertEquals(Result.OK, f.placeDecor(4, 4, Decor.STONE)) // paths don't count
+        assertEquals(Result.OK, f.demolish(1, 3))
+        assertEquals(1, f.decorInv["GNOME"])
+        assertEquals(Result.NO_CASH, f.placeDecor(5, 5, Decor.NEON))
+    }
+
+    @Test fun helpersRunTheFarmWhileAway() {
+        val f = farm()
+        f.cash = 100_000_000; f.level = 30; f.shack = 3
+        f.upgrades[Upgrade.STASH.ordinal] = 10
+        Helper.entries.forEach { assertEquals(it.name, Result.OK, f.hire(it)) }
+        f.buildFacility(4, 4, Facility.ROLLER)
+        f.stash["ditch"] = 50
+        f.startBatch(4, 4, "ditch", t0).let { assertEquals(Result.NO_SUPPLY, it) }
+        f.tick(t0 + 4 * 3_600_000L)
+        assertTrue(f.away.harvests > 20)
+        assertTrue(f.away.sold > 0)
+        assertTrue(f.supplies[Supply.PAPERS.ordinal] > 0)
+    }
+
+    @Test fun hiringNeedsABiggerShack() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 30
+        assertEquals(Result.SHACK, f.hire(Helper.RUNNER))
+        f.shack = 1
+        assertEquals(Result.OK, f.hire(Helper.RUNNER))
+        assertEquals(Result.BLOCKED, f.hire(Helper.MANAGER))
+    }
+
+    @Test fun eventsHappenAndResolve() {
+        val f = farm()
+        f.cash = 10_000; f.level = 10
+        assertTrue(!f.rollEvent(t0)) // first call only schedules
+        assertTrue(f.rollEvent(t0 + 3_600_000L))
+        f.resolve(false, t0)
+        assertTrue(f.happening == null)
+
+        f.happening = f.makeEvent(t0, EventKind.RAID)
+        val bribe = f.happening!!.amount
+        f.resolve(true, t0)
+        assertEquals(10_000 - bribe, f.cash)
+
+        f.plant(2, 3, "ditch", t0)
+        f.makeEvent(t0, EventKind.PESTS)
+        assertTrue(f.tile(2, 3).pest)
+        f.tick(t0 + 3_600_000L)
+        assertTrue(!f.tile(2, 3).ready())
+        assertEquals(Result.OK, f.clearPest(2, 3))
+
+        f.makeEvent(t0 + 3_600_000L, EventKind.VIBES)
+        assertTrue(f.on(Buff.VIBES))
+    }
+
+    @Test fun blackMarketSellsExoticsAndRotates() {
+        val f = farm()
+        f.cash = 100_000_000; f.level = 40
+        val stock = f.bmStock(t0)
+        assertEquals(5, stock.size) // level 30+ gets a fifth slot
+        assertEquals(stock, f.bmStock(t0 + 1000))
+        assertEquals(Result.OK, f.bmBuy(0, t0))
+        assertEquals(Result.BLOCKED, f.bmBuy(0, t0))
+        val item = stock[0]
+        if (item.strain != null) assertEquals(BmItem.EXOTIC_PACK, f.seeds[item.strain])
+        assertTrue(f.bmRefreshIn(t0) in 1..Farm.BM_ROTATION)
+    }
+
+    @Test fun v2SaveKeepsTheNewStuff() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 30; f.shack = 2; f.paint(3, 4)
+        f.buildFacility(4, 4, Facility.PRESS); f.placeDecor(5, 5, Decor.GNOME)
+        f.seeds["ghost"] = 3; f.goods["PRESS:ditch"] = 4; f.supplies[Supply.ICE.ordinal] = 7
+        f.hire(Helper.RUNNER); f.envelopes = 2; f.addBuff(Buff.RUSH, t0, 10)
+        val g = Farm()
+        Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals(Kind.FACILITY, g.tile(4, 4).kind)
+        assertTrue(g.has(Helper.RUNNER))
+    }
+
+    @Test fun v1SaveGetsAShack() {
+        val g = Farm()
+        Save.read("""{"v":1,"land":6,"farmhand":true,"tiles":[{"i":0,"k":"PLOT"}]}""", g)
+        assertTrue(g.farmhand)
+        assertTrue(g.shackAt() != null)
+        assertEquals(Kind.PLOT, g.tile(0, 0).kind)
+    }
+
+    @Test fun labBreedsHybridsFromTwoParents() {
+        val f = farm()
+        val r = Hybrids.recipes.first()
+        val s = Strains[r.id]!!
+        f.cash = 1_000_000_000
+        f.level = Progress.BREED_LEVEL - 1
+        assertEquals(Result.LOCKED, f.breed(r.id))
+        f.level = 80
+        assertEquals(Result.NO_BUD, f.breed(r.id))
+        val g = f.breedGrams(s)
+        f.stash[r.a] = g; f.stash[r.b] = g + 5
+        assertEquals(Result.OK, f.breed(r.id))
+        assertTrue(r.id in f.bred)
+        assertEquals(null, f.stash[r.a])
+        assertEquals(5, f.stash[r.b])
+        assertEquals(Result.BLOCKED, f.breed(r.id))
+        assertEquals(1, f.stat(Stat.BRED))
+        assertEquals(r, Hybrids.of(r.b, r.a))
+    }
+
+    @Test fun dailyStreakGrowsAndBreaks() {
+        val f = farm()
+        val day = 86_400_000L
+        assertTrue(f.canClaimDaily(t0))
+        assertTrue(f.claimDaily(t0) != null)
+        assertNull(f.claimDaily(t0 + 1000))
+        assertFalse(f.canClaimDaily(t0 + 1000))
+        for (i in 1..6) assertTrue(f.claimDaily(t0 + i * day) != null)
+        assertEquals(7, f.streak)
+        assertEquals(3, f.seeds.filterKeys { Strains[it]?.exotic == true }.values.sum()) // day 7 pays exotic seeds
+        f.claimDaily(t0 + 9 * day)
+        assertEquals(1, f.streak)
+        assertEquals(7, f.bestStreak)
+        f.checkTrophies(silent = true)
+        assertTrue(Trophy.STREAK_7.name in f.trophies)
+    }
+
+    @Test fun questsPayOnceAndThenTheBonus() {
+        val f = farm()
+        f.refreshQuests(t0)
+        assertEquals(3, f.quests.size)
+        assertEquals(Result.NOT_READY, f.claimQuest(0))
+        assertFalse(f.canClaimQuestBonus())
+        for (q in f.quests) f.bump(q.kind.stat, q.target)
+        assertTrue(f.canClaim(t0) )
+        for (i in 0..2) assertEquals(Result.OK, f.claimQuest(i))
+        assertEquals(Result.BLOCKED, f.claimQuest(0))
+        val cash = f.cash
+        assertEquals(Result.OK, f.claimQuestBonus(t0))
+        assertEquals(cash + f.questBonusCash(), f.cash)
+        assertEquals(Result.BLOCKED, f.claimQuestBonus(t0))
+        // Same day keeps the quests; the next day brings new ones.
+        f.refreshQuests(t0 + 1000)
+        assertTrue(f.quests.all { it.claimed })
+        f.refreshQuests(t0 + 86_400_000L)
+        assertTrue(f.quests.none { it.claimed })
+    }
+
+    @Test fun sellingTheFarmKeepsTheLegacy() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 39
+        assertEquals(Result.LOCKED, f.sellFarm(t0))
+        f.level = 40; f.bestLevel = 40; f.placeDecor(5, 5, Decor.GNOME); f.bred += Hybrids.recipes.first().id
+        f.bump(Stat.HARVESTS, 50)
+        val price = f.priceMult()
+        assertEquals(Result.OK, f.sellFarm(t0))
+        assertEquals(1, f.legacy); assertEquals(1, f.level); assertEquals(6, f.land)
+        assertEquals(1, f.decorInv[Decor.GNOME.name] ?: f.decorInv.values.sum())
+        assertTrue(f.bred.isNotEmpty())
+        assertEquals(50, f.stat(Stat.HARVESTS))
+        assertTrue(f.shackAt() != null)
+        assertTrue(f.priceMult() > price * 0.9)
+        assertEquals(40, f.bestLevel)
+    }
+
+    @Test fun seasonsTurnWeeklyAndChangeTheRules() {
+        assertEquals(Season.SPRING, Season.at(0))
+        assertEquals(Season.SUMMER, Season.at(Season.WEEK))
+        assertEquals(Season.SPRING, Season.at(4 * Season.WEEK + 5))
+        assertEquals(Season.WEEK - 5, Season.left(4 * Season.WEEK + 5))
+        val f = farm()
+        try {
+            Season.force = Season.SUMMER
+            val y = f.yieldMult(); val p = f.priceMult()
+            Season.force = Season.AUTUMN
+            assertEquals(y * 1.2, f.yieldMult(), 1e-9)
+            Season.force = Season.WINTER
+            assertEquals(p * 1.25, f.priceMult(), 1e-9)
+        } finally { Season.force = null }
+    }
+
+    @Test fun progressSurvivesASave() {
+        val f = farm()
+        f.refreshQuests(t0); f.claimDaily(t0); f.bump(Stat.GOLDEN, 4)
+        f.bred += Hybrids.recipes.first().id; f.legacy = 2; f.level = 12
+        f.checkTrophies(silent = true)
+        val g = Farm()
+        Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals(2, g.legacy); assertEquals(1, g.streak); assertEquals(3, g.quests.size)
+        assertTrue(Trophy.GOLDEN_1.name in g.trophies)
+    }
+
+    @Test fun oldSaveFromBeforeProgressLoads() {
+        // A 0.1.x save has none of the progress keys; its old totals seed the new counters.
+        val f = farm()
+        f.level = 12; f.totalHarvests = 340; f.totalEarned = 50_000
+        val o = org.json.JSONObject(Save.write(f))
+        for (k in listOf("stats", "trophies", "bred", "legacy", "bestLevel", "streak", "bestStreak", "lastDay", "questDay", "questBonus", "quests")) o.remove(k)
+        val g = Farm()
+        Save.read(o.toString(), g)
+        assertEquals(340, g.stat(Stat.HARVESTS))
+        assertEquals(50_000, g.stat(Stat.EARNED))
+        assertEquals(12, g.bestLevel)
+        assertEquals(0, g.legacy)
+        assertTrue(g.canClaimDaily(t0))
+        g.checkTrophies(silent = true)
+        assertTrue(Trophy.HARVEST_100.name in g.trophies)
+        assertTrue(g.events.isEmpty())
+    }
+
+    @Test fun oldSixteenWideSavesKeepTheirLayout() {
+        val g = Farm(Random(1))
+        // Version 3: index 17 was x=1,y=1 on the 16-wide grid; the shack anchor 34 was x=2,y=2.
+        Save.read("""{"v":3,"land":8,"tiles":[{"i":17,"k":"PLOT"},{"i":34,"k":"SHACK","an":34},{"i":35,"k":"PART","an":34},{"i":50,"k":"PART","an":34},{"i":51,"k":"PART","an":34}]}""", g)
+        assertEquals(Kind.PLOT, g.tile(1, 1).kind)
+        assertEquals(Kind.GRASS, g.tile(17 % Farm.MAX, 17 / Farm.MAX).kind)
+        assertEquals(2 to 2, g.shackAt())
+    }
+
+    @Test fun updaterComparesVersions() {
+        assertTrue(Updater.newer("v0.3.0", "0.2.1"))
+        assertTrue(Updater.newer("0.10.0", "0.9.9"))
+        assertFalse(Updater.newer("v0.2.1", "0.2.1"))
+        assertFalse(Updater.newer("0.2", "0.2.1"))
+    }
+}

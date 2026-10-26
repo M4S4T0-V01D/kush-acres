@@ -1,0 +1,256 @@
+package dev.m4s4t0.kushacres.art
+
+import android.graphics.Bitmap
+import dev.m4s4t0.kushacres.model.Decor
+import kotlin.math.PI
+import kotlin.random.Random
+
+internal fun oval(px: Px, cx: Int, cy: Int, rx: Int, ry: Int, c: Int) {
+    for (j in -ry..ry) for (i in -rx..rx) {
+        val d = i * i / (rx * rx + 0.5f) + j * j / (ry * ry + 0.5f)
+        if (d <= 1f) px.set(cx + i, cy + j, c)
+    }
+}
+
+/** Garden decor (32×32, square centre on [AX],[AY]) and path tiles. */
+object DecorArt {
+    private val OUT = Sprites.OUT
+    const val W = 32
+    const val H = 32
+    const val AX = 16
+    const val AY = 26
+
+    private val cache = HashMap<Decor, Bitmap>()
+
+    fun sprite(d: Decor): Bitmap = cache.getOrPut(d) {
+        if (d.path) return@getOrPut path(d)
+        val px = Px(W, H)
+        val r = Random(d.ordinal * 13 + 5)
+        val wood = 0xFF9A6A3E.toInt(); val woodD = 0xFF6A4325.toInt()
+        val stone = 0xFFA8A8B0.toInt()
+        when (d) {
+            Decor.FLOWERS -> {
+                px.poly(0xFF6A4226.toInt(), 6, 26, 16, 21, 26, 26, 16, 31)
+                val cols = intArrayOf(0xFFE05A6A.toInt(), 0xFFF2D24A.toInt(), 0xFFF0F0F0.toInt(), 0xFFB070E0.toInt(), 0xFFF08A3A.toInt())
+                repeat(9) {
+                    val x = 9 + r.nextInt(15); val y = 23 + r.nextInt(6)
+                    px.line(x, y, x, y - 3, 0xFF3F8A3A.toInt()); px.disc(x, y - 4, 1, cols[r.nextInt(cols.size)])
+                }
+            }
+            Decor.BENCH -> {
+                px.poly(wood, 11, 17, 27, 25, 27, 19, 11, 11)
+                px.line(11, 14, 27, 22, woodD)
+                px.rect(8, 21, 1, 5, woodD); px.rect(22, 28, 1, 3, woodD); px.rect(26, 25, 1, 4, woodD)
+                px.poly(shade(wood, 1.15f), 7, 19, 23, 27, 27, 25, 11, 17)
+                px.poly(woodD, 7, 19, 23, 27, 23, 29, 7, 21)
+            }
+            Decor.GNOME -> {
+                px.rect(13, 24, 6, 2, 0xFF5A3A22.toInt())
+                px.rect(12, 17, 8, 7, 0xFF3E6ED0.toInt()); px.rect(12, 17, 2, 7, 0xFF5A8AE8.toInt())
+                px.poly(0xFFF4F4F0.toInt(), 12, 14, 20, 14, 16, 22)
+                px.rect(14, 11, 4, 3, 0xFFF0C090.toInt()); px.set(16, 13, 0xFFE07070.toInt())
+                px.set(14, 12, OUT); px.set(17, 12, OUT)
+                px.poly(0xFFD8484A.toInt(), 11, 11, 21, 11, 16, 1)
+            }
+            Decor.SCARECROW -> {
+                px.rect(15, 10, 2, 17, woodD); px.rect(7, 13, 18, 2, woodD)
+                px.poly(intArrayOf(11, 12, 20, 12, 21, 21, 10, 21)) { x, y -> if ((x / 2 + y / 2) % 2 == 0) 0xFFC8484A.toInt() else 0xFF8A2A2E.toInt() }
+                for (k in 0..3) px.set(11 + k * 3, 22, 0xFFE8C66A.toInt())
+                px.rect(5, 12, 2, 3, 0xFFE8C66A.toInt()); px.rect(25, 12, 2, 3, 0xFFE8C66A.toInt())
+                px.disc(16, 8, 3, 0xFFD8B888.toInt()); px.set(15, 8, OUT); px.set(17, 8, OUT); px.line(15, 10, 17, 10, woodD)
+                px.rect(10, 5, 12, 1, 0xFFC89A42.toInt()); px.rect(13, 2, 6, 3, 0xFFE8C66A.toInt())
+            }
+            Decor.BARREL -> {
+                oval(px, 16, 26, 6, 2, woodD)
+                px.poly(intArrayOf(10, 13, 22, 13, 22, 26, 10, 26)) { x, _ -> if (x % 3 == 0) shade(wood, 0.78f) else if (x < 13) shade(wood, 1.15f) else wood }
+                px.rect(10, 15, 13, 1, 0xFF6C7078.toInt()); px.rect(10, 23, 13, 1, 0xFF6C7078.toInt())
+                oval(px, 16, 13, 6, 2, woodD); oval(px, 16, 13, 5, 1, 0xFF4AA8E0.toInt()); px.set(14, 13, 0xFF9AD4FF.toInt())
+            }
+            Decor.FLAMINGO -> {
+                val pink = 0xFFF27AAE.toInt()
+                px.line(15, 18, 15, 26, 0xFFD85A8A.toInt()); px.line(17, 18, 18, 26, 0xFFD85A8A.toInt())
+                oval(px, 17, 15, 5, 3, pink); px.line(15, 14, 19, 16, shade(pink, 0.8f))
+                px.line(12, 14, 11, 8, pink); px.line(13, 14, 12, 8, pink)
+                px.disc(12, 6, 2, pink); px.set(9, 7, OUT); px.set(10, 7, 0xFFF4F4F0.toInt()); px.set(12, 5, OUT)
+            }
+            Decor.FLAG -> {
+                px.line(9, 2, 9, 26, 0xFF9AA0A8.toInt()); px.rect(8, 25, 3, 2, 0xFF6C7078.toInt())
+                val st = intArrayOf(0xFFD8484A.toInt(), 0xFFF2D24A.toInt(), 0xFF3F9A3A.toInt())
+                for (x in 10..23) for (y in 3..11) px.set(x, y + (if ((x / 3) % 2 == 0) 0 else 1), st[(y - 3) / 3])
+            }
+            Decor.COMPOST -> {
+                px.disc(16, 17, 6, 0xFF5A3A22.toInt())
+                repeat(10) { px.set(11 + r.nextInt(11), 12 + r.nextInt(6), if (it % 2 == 0) 0xFF6AB04A.toInt() else 0xFF8A5A33.toInt()) }
+                val slat: Int = wood
+                box(px, 16, 30, 10, 10, 7, 0xFF4A2E1A.toInt(), slat, shade(slat, 0.75f))
+                for (y in 0..6 step 3) { px.line(6, 25 - y, 16, 30 - y, woodD); px.line(16, 30 - y, 26, 25 - y, shade(woodD, 0.8f)) }
+            }
+            Decor.BEEHIVE -> {
+                val y = 0xFFE8B83A.toInt()
+                px.rect(10, 22, 1, 5, woodD); px.rect(21, 22, 1, 5, woodD); px.rect(16, 25, 1, 5, woodD)
+                box(px, 16, 25, 7, 7, 5, shade(y, 1.2f), y, shade(y, 0.75f))
+                box(px, 16, 19, 7, 7, 5, shade(y, 1.2f), shade(y, 0.95f), shade(y, 0.7f))
+                box(px, 16, 13, 8, 8, 2, 0xFFC8CCD4.toInt(), 0xFF9AA0A8.toInt(), 0xFF6C7078.toInt())
+                px.rect(11, 21, 3, 1, OUT)
+                for ((bx, by) in listOf(6 to 9, 25 to 12, 22 to 5)) { px.set(bx, by, 0xFFF2D24A.toInt()); px.set(bx + 1, by, OUT) }
+            }
+            Decor.TIKI -> {
+                px.rect(15, 9, 3, 18, 0xFFC8A060.toInt()); px.rect(15, 9, 1, 18, 0xFFE0C080.toInt())
+                for (yy in intArrayOf(13, 18, 23)) px.rect(15, yy, 3, 1, 0xFF8A6A3A.toInt())
+                px.rect(13, 6, 7, 3, 0xFF4A2E1A.toInt())
+                px.poly(0xFFF08A3A.toInt(), 13, 6, 20, 6, 18, 2, 17, 0, 15, 3)
+                px.poly(0xFFFFE27A.toInt(), 15, 6, 18, 6, 17, 3, 16, 2)
+            }
+            Decor.DOG -> {
+                val fur = 0xFFB07A4A.toInt()
+                px.rect(14, 22, 2, 5, shade(fur, 0.8f)); px.rect(19, 22, 2, 5, shade(fur, 0.8f))
+                oval(px, 18, 20, 5, 4, fur); px.line(23, 19, 26, 15, fur)
+                px.disc(12, 14, 3, fur); px.rect(8, 15, 3, 2, shade(fur, 1.15f)); px.set(8, 15, OUT)
+                px.rect(13, 11, 2, 4, shade(fur, 0.6f)); px.set(11, 13, OUT)
+                px.rect(11, 17, 5, 1, 0xFFD8484A.toInt()); px.set(13, 18, 0xFFF2C440.toInt())
+            }
+            Decor.FROG -> {
+                box(px, 16, 29, 8, 8, 3, shade(stone, 1.15f), stone, shade(stone, 0.75f))
+                val jade = 0xFF5AA86A.toInt()
+                oval(px, 16, 19, 6, 5, jade); oval(px, 15, 18, 4, 3, shade(jade, 1.15f))
+                px.disc(13, 14, 2, jade); px.disc(19, 14, 2, jade); px.set(13, 14, OUT); px.set(19, 14, OUT)
+                px.line(13, 20, 19, 20, shade(jade, 0.6f))
+                px.rect(11, 23, 3, 2, shade(jade, 0.8f)); px.rect(19, 23, 3, 2, shade(jade, 0.8f))
+                px.disc(16, 9, 1, 0xFFF2C440.toInt())
+            }
+            Decor.VAN -> {
+                val teal = 0xFF3AB0A8.toInt(); val white = 0xFFF0ECE0.toInt()
+                val cx = 17; val by = 30
+                box(px, cx, by, 14, 8, 11, white, teal, shade(teal, 0.78f))
+                // White upper half with windows on the long side, windshield on the front.
+                px.poly(intArrayOf(cx - 14, by - 7 - 11, cx, by - 11, cx, by - 6, cx - 14, by - 7 - 5)) { _, _ -> shade(white, 0.95f) }
+                px.poly(intArrayOf(cx, by - 11, cx + 8, by - 4 - 11, cx + 8, by - 4 - 6, cx, by - 6)) { _, _ -> shade(white, 0.8f) }
+                for (k in 0..2) for (i in 0 until 3) for (j in 0 until 3) px.set(cx - 12 + k * 4 + i, by - 7 + (k * 4 + i + 2) / 2 - 7 - j, 0xFF6AA8D8.toInt())
+                for (i in 0 until 6) for (j in 0 until 3) px.set(cx + 1 + i, by - 1 - (i + 1) / 2 - 7 - j, 0xFF8AC8F0.toInt())
+                px.disc(cx - 7, by - 4, 1, 0xFFF27AAE.toInt()); px.set(cx - 7, by - 4, 0xFFF2D24A.toInt())
+                px.disc(cx - 11, by - 4, 2, 0xFF2C3038.toInt()); px.disc(cx - 2, by, 2, 0xFF2C3038.toInt()); px.disc(cx + 6, by - 3, 2, 0xFF2C3038.toInt())
+            }
+            Decor.NEON -> {
+                px.rect(15, 17, 2, 10, 0xFF3C4048.toInt())
+                px.rect(7, 3, 18, 15, 0xFF1A1A22.toInt())
+                val pink = 0xFFFF5AC8.toInt()
+                for (x in 7..24) { px.set(x, 3, pink); px.set(x, 17, pink) }
+                for (y in 3..17) { px.set(7, y, pink); px.set(24, y, pink) }
+                Sprites.fanLeaf(px, 16, 14, -PI / 2, 6, 0xFF6AFF7A.toInt(), 0xFFCAFFD0.toInt())
+            }
+            Decor.LAVA -> {
+                px.poly(0xFF5A5F6A.toInt(), 11, 27, 21, 27, 19, 21, 13, 21)
+                px.poly(0xFF7A3AB8.toInt(), 13, 21, 19, 21, 21, 13, 18, 6, 14, 6, 11, 13)
+                px.disc(16, 17, 2, 0xFFFF8A3A.toInt()); px.disc(17, 11, 1, 0xFFFFB04A.toInt()); px.disc(14, 19, 1, 0xFFFF6A3A.toInt())
+                px.line(13, 12, 14, 8, 0xFFB08AE8.toInt())
+                px.poly(0xFF5A5F6A.toInt(), 14, 6, 18, 6, 17, 2, 15, 2)
+            }
+            Decor.ALIEN -> {
+                box(px, 16, 29, 7, 7, 3, shade(stone, 1.15f), stone, shade(stone, 0.75f))
+                val g = 0xFF8ACB5A.toInt()
+                px.rect(14, 15, 4, 9, g); px.line(13, 16, 10, 21, g); px.line(18, 16, 21, 21, g)
+                oval(px, 16, 10, 5, 6, g)
+                px.poly(OUT, 12, 9, 15, 10, 15, 12, 13, 11); px.poly(OUT, 20, 9, 17, 10, 17, 12, 19, 11)
+                px.set(13, 10, 0xFFE8FCFF.toInt()); px.set(19, 10, 0xFFE8FCFF.toInt())
+            }
+            Decor.WINDMILL -> {
+                px.poly(intArrayOf(12, 28, 20, 28, 18, 10, 14, 10)) { x, y -> if (y % 4 == 0) shade(wood, 0.8f) else if (x < 15) shade(wood, 1.1f) else wood }
+                px.rect(15, 23, 2, 5, woodD)
+                px.poly(0xFFB8483A.toInt(), 13, 10, 19, 10, 16, 6)
+                val hx = 16; val hy = 9
+                for ((dx, dy) in listOf(-9 to -6, 9 to 6, 6 to -9, -6 to 9)) {
+                    px.line(hx, hy, hx + dx, hy + dy, woodD)
+                    px.line(hx + dx / 3 + 1, hy + dy / 3, hx + dx + 1, hy + dy, 0xFFF0E8D8.toInt())
+                }
+                px.disc(hx, hy, 1, 0xFF4A3220.toInt())
+            }
+            Decor.KOI -> {
+                oval(px, 16, 25, 13, 6, stone); oval(px, 16, 25, 11, 5, 0xFF3A7AB8.toInt()); oval(px, 15, 24, 8, 3, 0xFF4F94D0.toInt())
+                px.rect(10, 25, 3, 1, 0xFFF08A3A.toInt()); px.set(9, 25, 0xFFF0F0F0.toInt())
+                px.rect(19, 23, 3, 1, 0xFFF0F0F0.toInt()); px.set(22, 23, 0xFFE05A3A.toInt())
+                px.rect(15, 14, 3, 11, shade(stone, 0.9f)); px.rect(15, 14, 1, 11, shade(stone, 1.1f))
+                oval(px, 16, 14, 4, 2, stone)
+                for (k in 0..2) { px.set(13 - k, 16 + k * 2, 0xFF9CD0F8.toInt()); px.set(19 + k, 16 + k * 2, 0xFF9CD0F8.toInt()) }
+            }
+            Decor.STATUE -> {
+                px.poly(shade(stone, 0.8f), 9, 27, 16, 30, 23, 27, 16, 24); box(px, 16, 29, 6, 6, 6, shade(stone, 1.1f), stone, shade(stone, 0.78f))
+                val g = 0xFFE8C040.toInt(); val gd = 0xFFB08A20.toInt()
+                px.rect(15, 16, 2, 7, gd)
+                px.poly(g, 16, 2, 18, 9, 16, 17, 14, 9)
+                px.poly(g, 16, 16, 8, 8, 10, 7, 16, 14); px.poly(gd, 16, 16, 24, 8, 22, 7, 16, 14)
+                px.poly(g, 16, 17, 9, 15, 10, 14, 16, 16); px.poly(gd, 16, 17, 23, 15, 22, 14, 16, 16)
+                px.set(15, 6, 0xFFFFF4B0.toInt()); px.set(15, 7, 0xFFFFF4B0.toInt())
+            }
+            Decor.GREENHOUSE -> {
+                val gl = 0xAA9CD8F0.toInt(); val gr = 0xAA6AA8D0.toInt(); val fr = 0xFFF0F0F0.toInt()
+                box(px, 16, 30, 11, 11, 9, gl, gl, gr)
+                for (k in 0..3) { px.rect(18 - k * 3, 26 - k, 1, 4, 0xFF4F9A3A.toInt()); px.disc(18 - k * 3, 25 - k, 1, 0xFF6BC04A.toInt()) }
+                px.poly(0xBBC8ECFF.toInt(), 5, 16, 16, 21, 16, 13, 10, 10)
+                px.poly(0xBB9CC8E8.toInt(), 16, 21, 27, 16, 21, 8, 16, 13)
+                px.line(16, 13, 21, 8, fr); px.line(10, 10, 21, 8, fr); px.line(5, 16, 16, 21, fr); px.line(16, 21, 27, 16, fr)
+                px.line(16, 21, 16, 30, fr); px.line(5, 16, 5, 25, fr); px.line(27, 16, 27, 25, fr)
+            }
+            Decor.TOTEM -> {
+                val cols = intArrayOf(0xFFC8484A.toInt(), 0xFF3E8AD0.toInt(), 0xFF4FA03C.toInt(), 0xFFE8B83A.toInt())
+                for (k in 0..3) {
+                    val y = 24 - k * 6
+                    px.rect(12, y - 5, 8, 6, cols[k]); px.rect(12, y - 5, 2, 6, shade(cols[k], 1.2f)); px.rect(18, y - 5, 2, 6, shade(cols[k], 0.75f))
+                    px.set(14, y - 3, 0xFFF0F0F0.toInt()); px.set(17, y - 3, 0xFFF0F0F0.toInt()); px.line(14, y - 1, 17, y - 1, OUT)
+                }
+                px.poly(0xFFE8B83A.toInt(), 8, 7, 12, 4, 12, 8); px.poly(0xFFE8B83A.toInt(), 24, 7, 20, 4, 20, 8)
+                px.poly(0xFF4FA03C.toInt(), 12, 1, 20, 1, 16, -2)
+            }
+            Decor.DISCO -> {
+                px.rect(15, 12, 2, 16, 0xFF6A6A72.toInt()); px.rect(11, 27, 10, 2, 0xFF4A4A52.toInt())
+                px.rect(10, 4, 12, 1, 0xFF6A6A72.toInt())
+                for (j in -6..6) for (i in -6..6) if (i * i + j * j <= 36) {
+                    val c = if (((i + 6) / 2 + (j + 6) / 2) % 2 == 0) 0xFFD8D8E0.toInt() else 0xFF8A8A98.toInt()
+                    px.set(16 + i, 11 + j, if (i < -2 && j < -2) shade(c, 1.2f) else if (i + j > 5) shade(c, 0.7f) else c)
+                }
+                px.set(13, 8, 0xFFFFFFFF.toInt()); px.set(19, 12, 0xFFFF80E0.toInt()); px.set(14, 14, 0xFF80E0FF.toInt())
+            }
+            Decor.UFO -> {
+                px.poly(0xFF4A3A2A.toInt(), 4, 27, 16, 31, 28, 27, 16, 23)
+                oval(px, 16, 21, 12, 4, 0xFF9AA0AA.toInt()); oval(px, 16, 20, 12, 3, 0xFFC8CED8.toInt())
+                oval(px, 16, 16, 6, 4, 0xCC7AE8D0.toInt()); px.set(14, 14, 0xFFE0FFF8.toInt())
+                for (k in 0..4) px.set(7 + k * 4, 22, if (k % 2 == 0) 0xFF60FF90.toInt() else 0xFFFFE060.toInt())
+                px.line(25, 24, 28, 28, 0xFF6A6A72.toInt())
+            }
+            Decor.CRYSTAL -> {
+                px.poly(0xFF4A3A5A.toInt(), 8, 27, 16, 31, 24, 27, 16, 23)
+                fun shard(x: Int, y: Int, w: Int, h: Int, c: Int) {
+                    px.poly(c, x - w, y, x, y + 2, x, y - h, x - w, y - h + 3)
+                    px.poly(shade(c, 0.72f), x, y + 2, x + w, y, x + w, y - h + 3, x, y - h)
+                    px.poly(shade(c, 1.3f), x - w, y - h + 3, x, y - h, x + w, y - h + 3, x, y - h - 4)
+                }
+                shard(11, 27, 3, 8, 0xFF9A5AE0.toInt()); shard(22, 27, 3, 7, 0xFFB070F0.toInt())
+                shard(16, 28, 4, 17, 0xFFC890FF.toInt())
+                px.set(14, 16, 0xFFFFFFFF.toInt()); px.set(14, 17, 0xFFF0E0FF.toInt())
+            }
+            else -> {}
+        }
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    private fun top(x: Int) = 7 - (if (x < 16) x else 31 - x) / 2
+    private fun bottom(x: Int) = 8 + (if (x < 16) x else 31 - x) / 2
+
+    /** A grass square with a path laid on it (same size as the ground tiles). */
+    private fun path(d: Decor): Bitmap {
+        val tw = Sprites.TW; val th = Sprites.TH + Sprites.DEPTH
+        val px = Px(tw, th)
+        Sprites.grass(0, false).getPixels(px.p, 0, px.fw, 0, 0, px.fw, px.fh)
+        val r = Random(d.ordinal)
+        for (x in 1 until tw - 1) for (y in top(x) + 1 until bottom(x)) {
+            if (d == Decor.BRICK) {
+                val row = (y + x / 2) / 2
+                val mortar = (y + x / 2) % 2 == 0 || ((x + row * 3) % 6 == 0)
+                px.set(x, y, if (mortar) 0xFF9A8A7A.toInt() else if (r.nextInt(6) == 0) 0xFFA84A3A.toInt() else 0xFFC0604A.toInt())
+            } else if (r.nextInt(10) < 7) {
+                px.set(x, y, if (r.nextInt(5) == 0) 0xFF8A8A92.toInt() else 0xFFB8B8C0.toInt())
+            }
+        }
+        return px.bitmap()
+    }
+}

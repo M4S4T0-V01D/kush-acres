@@ -1,0 +1,726 @@
+package dev.m4s4t0.kushacres.ui
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.Canvas as ComposeCanvas
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import dev.m4s4t0.kushacres.Store
+import dev.m4s4t0.kushacres.audio.Audio
+import dev.m4s4t0.kushacres.audio.Sfx
+import dev.m4s4t0.kushacres.art.Buildings
+import dev.m4s4t0.kushacres.art.DecorArt
+import dev.m4s4t0.kushacres.art.People
+import dev.m4s4t0.kushacres.art.S
+import dev.m4s4t0.kushacres.art.Sprites
+import dev.m4s4t0.kushacres.art.Sprites.TH
+import dev.m4s4t0.kushacres.art.Sprites.TW
+import dev.m4s4t0.kushacres.art.Town
+import dev.m4s4t0.kushacres.model.Decor
+import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.FarmEvent
+import dev.m4s4t0.kushacres.model.Helper
+import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.Tile
+import dev.m4s4t0.kushacres.model.Result
+import dev.m4s4t0.kushacres.model.Strains
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
+
+/** What a touch does to the squares it crosses. */
+enum class Act { HARVEST, PLANT, WATER, BUILD, DEMOLISH, SHOO, COLLECT }
+
+/** The whole farm, drawn at 1× into a small bitmap each frame, then scaled up with crisp pixels. */
+class World {
+    companion object {
+        const val PAD_X = 28
+        const val PAD_TOP = 44
+        val W = Farm.MAX * TW + PAD_X * 2
+        val H = Farm.MAX * TH + Sprites.DEPTH + PAD_TOP + 12
+        val OX = W / 2
+        const val OY = PAD_TOP
+    }
+
+    /** Drawn [S]× finer than the art grid; everything below works in art pixels. */
+    val bitmap: Bitmap = Bitmap.createBitmap(W * S, H * S, Bitmap.Config.ARGB_8888)
+    private val canvas = Canvas(bitmap).apply { scale(S.toFloat(), S.toFloat()) }
+    private val dst = RectF()
+
+    /** Draws a sprite (S× finer than the art grid) with its top-left at art pixel x,y. */
+    private fun blit(b: Bitmap, x: Float, y: Float) {
+        dst.set(x, y, x + b.width / S.toFloat(), y + b.height / S.toFloat())
+        canvas.drawBitmap(b, null, dst, paint)
+    }
+    private val paint = Paint().apply { isFilterBitmap = false; isAntiAlias = false }
+    private val fill = Paint().apply { isAntiAlias = false }
+    private val mul = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY) }
+    val fx = Fx()
+    private var lastT = -1f
+    private val rnd = kotlin.random.Random(3)
+    /** Lights found while drawing, five floats each: x, y, radius, colour, strength. */
+    private var lights = FloatArray(160)
+    private var nLights = 0
+    private fun light(x: Float, y: Float, radius: Float, color: Int, strength: Float) {
+        if (nLights * 5 + 5 > lights.size) lights = lights.copyOf(lights.size * 2)
+        val i = nLights++ * 5
+        lights[i] = x; lights[i + 1] = y; lights[i + 2] = radius; lights[i + 3] = Float.fromBits(color); lights[i + 4] = strength
+    }
+
+    /** Top-left pixel of the tile sprite at x,y. */
+    fun tileX(x: Int, y: Int) = OX + (x - y) * (TW / 2) - TW / 2
+    fun tileY(x: Int, y: Int) = OY + (x + y) * (TH / 2)
+    /** The tile's centre, where things stand. */
+    fun centerX(x: Int, y: Int) = OX + (x - y) * (TW / 2)
+    fun centerY(x: Int, y: Int) = OY + (x + y) * (TH / 2) + TH / 2
+
+    /** Which tile a world pixel falls on (its top face), or null off the land. */
+    fun hit(wx: Float, wy: Float): Pair<Int, Int>? {
+        val u = (wx - OX) / (TW / 2f)
+        val v = (wy - OY) / (TH / 2f)
+        val x = floor((v + u) / 2).toInt()
+        val y = floor((v - u) / 2).toInt()
+        return if (x in 0 until Farm.MAX && y in 0 until Farm.MAX) x to y else null
+    }
+
+    /** A sprite standing on tile x,y, as last drawn: what a touch on its pixels means. */
+    private class Hit(val x: Int, val y: Int, val bmp: Bitmap, val left: Int, val top: Int)
+    private val hits = ArrayList<Hit>()
+
+    private fun stand(x: Int, y: Int, bmp: Bitmap, left: Int, top: Int) {
+        hits += Hit(x, y, bmp, left, top)
+        blit(bmp, left.toFloat(), top.toFloat())
+    }
+
+    private fun solid(b: Bitmap, px: Int, py: Int) = px in 0 until b.width && py in 0 until b.height && (b.getPixel(px, py) ushr 24) > 40
+
+    /** The tile under a world pixel: the front-most sprite whose pixels (give or take one) are there, else the ground. */
+    fun pick(wx: Float, wy: Float): Pair<Int, Int>? {
+        for (i in hits.indices.reversed()) {
+            val h = hits[i]
+            val px = floor((wx - h.left) * S).toInt(); val py = floor((wy - h.top) * S).toInt()
+            if (px < -S || py < -S || px > h.bmp.width + S || py > h.bmp.height + S) continue
+            if (solid(h.bmp, px, py) || solid(h.bmp, px - S, py) || solid(h.bmp, px + S, py) || solid(h.bmp, px, py - S) || solid(h.bmp, px, py + S))
+                return h.x to h.y
+        }
+        return hit(wx, wy)
+    }
+
+    private fun hash(x: Int, y: Int) = ((x * 73856093) xor (y * 19349663)).let { if (it < 0) -it else it }
+
+    /** Where a helper is standing, in fractional tile coordinates. */
+    private class Walker(val h: Helper, val fx: Float, val fy: Float, val moving: Boolean)
+
+    /** Helpers stroll between squares: a few seconds walking, then a breather. */
+    private fun walkers(f: Farm, t: Float): List<Walker> {
+        val land = f.land
+        fun spot(h: Helper, seg: Int): Pair<Int, Int> {
+            for (k in 0 until 6) {
+                val v = hash(h.ordinal * 31 + seg, k * 17 + 5)
+                val x = v % land; val y = (v / land) % land
+                val kind = f.tile(x, y).kind
+                if (kind == Kind.GRASS || kind == Kind.PATH || kind == Kind.PLOT) return x to y
+            }
+            return 0 to 0
+        }
+        return Helper.entries.filter { f.has(it) }.map { h ->
+            val tt = t + h.ordinal * 1.7f
+            val seg = (tt / 6f).toInt()
+            val a = spot(h, seg); val b = spot(h, seg + 1)
+            val k = ((tt / 6f - seg) * 6f / 3.5f).coerceIn(0f, 1f)
+            Walker(h, a.first + (b.first - a.first) * k, a.second + (b.second - a.second) * k, k < 1f && a != b)
+        }
+    }
+
+    private fun drawWalker(w: Walker, t: Float) {
+        val sx = OX + (w.fx - w.fy) * (TW / 2)
+        val sy = OY + (w.fx + w.fy) * (TH / 2) + TH / 2
+        val frame = if (w.moving) ((t * 6).toInt() and 1) else 0
+        fill.color = 0x40000000
+        canvas.drawOval(sx - 4, sy - 1, sx + 4, sy + 2, fill)
+        blit(People.helper(w.h, frame), (sx - People.P_AX).toInt().toFloat(), (sy - People.P_AY).toInt().toFloat())
+    }
+
+    fun render(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>? = null) {
+        bitmap.eraseColor(0)
+        hits.clear()
+        nLights = 0
+        val dt = if (lastT < 0) 0f else (t - lastT).coerceIn(0f, 0.1f)
+        lastT = t
+        val land = f.land
+        val buildMode = placing
+        // Ground, back to front.
+        for (s in 0..(Farm.MAX - 1) * 2) for (x in 0..s) {
+            val y = s - x
+            if (x >= Farm.MAX || y >= Farm.MAX) continue
+            val tile = f.tile(x, y)
+            val inside = x < land && y < land
+            val bmp = when {
+                tile.kind == Kind.PLOT -> Sprites.plot(f.wet(x, y, now))
+                tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false)
+                else -> Sprites.grass(hash(x, y) % 4, !inside)
+            }
+            blit(bmp, tileX(x, y).toFloat(), tileY(x, y).toFloat())
+            if (buildMode && inside && tile.kind == Kind.GRASS) {
+                paint.alpha = 110
+                blit(Sprites.cursor(0xFFFFFFFF.toInt()), tileX(x, y).toFloat(), tileY(x, y).toFloat())
+                paint.alpha = 255
+            }
+        }
+        // A fence along the edge of what you own.
+        if (land < Farm.MAX) {
+            fill.color = 0xFF8B6A44.toInt()
+            for (i in 0 until land) {
+                val ax = centerX(land, i) - TW / 2; val ay = centerY(land, i) - TH / 2 // far corner of tile (land, i)
+                canvas.drawRect(ax.toFloat(), ay - 5f, ax + 1f, ay.toFloat(), fill)
+                val bx = centerX(i, land) + TW / 2; val by = centerY(i, land) - TH / 2
+                canvas.drawRect(bx - 1f, by - 5f, bx.toFloat(), by.toFloat(), fill)
+            }
+        }
+        selected?.let { (x, y) ->
+            blit(Sprites.cursor(0xFFFFE27A.toInt()), tileX(x, y).toFloat(), tileY(x, y).toFloat())
+        }
+        moveFrom?.let { (mx, my) ->
+            val t0 = f.tile(mx, my)
+            val cells = if (t0.kind == Kind.SHACK || t0.kind == Kind.PART) f.shackAt()?.let { (ax, ay) ->
+                listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1)
+            } ?: emptyList() else listOf(mx to my)
+            val c = if ((t * 3).toInt() % 2 == 0) 0xFF7BD34B.toInt() else 0xFFB6F27A.toInt()
+            cells.forEach { (x, y) -> blit(Sprites.cursor(c), tileX(x, y).toFloat(), tileY(x, y).toFloat()) }
+        }
+        // Lamp light pools under everything standing.
+        fill.color = 0x30FFE27A
+        for (y in 0 until land) for (x in 0 until land) if (f.tile(x, y).kind == Kind.LAMP) {
+            val cx = centerX(x, y).toFloat(); val cy = centerY(x, y).toFloat()
+            canvas.drawOval(cx - TW * 1.5f, cy - TH * 1.5f, cx + TW * 1.5f, cy + TH * 1.5f, fill)
+        }
+        // Things standing on the land, back to front. The shack is drawn once its whole footprint is behind us,
+        // helpers once the diagonal they stand on is done.
+        val shackAt = f.shackAt()
+        val walkers = walkers(f, t).groupBy { Math.round(it.fx + it.fy) }
+        for (s in 0..(Farm.MAX - 1) * 2) {
+          if (shackAt != null && s == shackAt.first + shackAt.second + 2) {
+              val (ax, ay) = shackAt
+              val sl = centerX(ax, ay) - Buildings.SHACK_AX; val st = tileY(ax, ay) + 32 - Buildings.SHACK_AY
+              stand(ax, ay, Buildings.shack(f.shack, f.roof, f.wall), sl, st)
+              for ((wx, wy) in Buildings.shackLights(f.shack)) {
+                  val flick = 0.9f + 0.1f * sin(t * 7 + wx)
+                  light(sl + wx + 0.5f, st + wy + 0.5f, 9f, 0xFFB050, 0.85f * flick)
+              }
+              if (f.shack >= 1) {
+                  // Chimney smoke.
+                  fill.color = 0x90E8E8E8.toInt()
+                  for (k in 0 until 3) {
+                      val life = (t * 0.6f + k / 3f) % 1f
+                      val px = centerX(ax, ay) + 10 + life * 6 + sin(t * 2 + k) * 1.5f
+                      val py = tileY(ax, ay) + 32 - Buildings.SHACK_AY + 4 - life * 14
+                      val r = 1 + life * 2
+                      canvas.drawRect(px - r, py - r, px + r, py + r, fill)
+                  }
+              }
+          }
+          for (x in 0..s) {
+            val y = s - x
+            if (x >= Farm.MAX || y >= Farm.MAX) continue
+            val cx = centerX(x, y); val cy = centerY(x, y)
+            val inside = x < land && y < land
+            if (!inside) {
+                val h = hash(x, y) % 7
+                val edge = x <= land && y <= land // the ring right around the farm stays clear
+                if (h < 3 && !edge) blit(Sprites.tree(hash(y, x) % 6), cx - 13f, cy - 36f)
+                else if (h == 3) blit(Sprites.bush(hash(y, x) % 4), cx - 7f, cy - 8f)
+                continue
+            }
+            val tile = f.tile(x, y)
+            when (tile.kind) {
+                Kind.PLOT -> {
+                    val st = tile.strain?.let { Strains[it] } ?: continue
+                    val frac = tile.progress / st.seconds
+                    val stage = when { frac >= 1 -> 5; frac >= 0.7 -> 4; frac >= 0.45 -> 3; frac >= 0.22 -> 2; frac >= 0.07 -> 1; else -> 0 }
+                    // A gentle breeze: the top leans up to two fine pixels either way, gusts rolling across the field.
+                    val sway = if (stage < 2) 0 else Math.round(sin(t * 1.6f + (x + y) * 0.6f + (hash(x, y) % 10) * 0.1f) * 2f)
+                    stand(x, y, Sprites.plant(st, stage, sway), cx - Sprites.PLANT_AX, cy - Sprites.PLANT_AY + 2)
+                    if (stage == 5) light(cx.toFloat(), cy - 24f, 10f, 0xC8FF9A, 0.3f + 0.1f * sin(t * 2 + hash(x, y)))
+                    if (stage == 5) {
+                        // Twinkles over a ripe plant.
+                        val k = ((t * 3 + hash(x, y) % 10) % 3).toInt()
+                        fill.color = 0xFFFFF6C0.toInt()
+                        val sx = cx + intArrayOf(-5, 4, 0)[k]; val sy = cy - 26 + intArrayOf(2, 6, -2)[k]
+                        canvas.drawRect(sx.toFloat(), sy - 1f, sx + 1f, sy + 2f, fill)
+                        canvas.drawRect(sx - 1f, sy.toFloat(), sx + 2f, sy + 1f, fill)
+                    } else if (!f.wet(x, y, now) && ((t * 2).toInt() + hash(x, y)) % 4 != 0) {
+                        // A little drop asking for water.
+                        fill.color = 0xFF6EC3FF.toInt()
+                        val dy = cy - 8 - stage * 4 - (if ((t * 2).toInt() % 2 == 0) 0 else 1)
+                        canvas.drawRect(cx + 6f, dy.toFloat(), cx + 7f, dy + 1f, fill)
+                        canvas.drawRect(cx + 5f, dy + 1f, cx + 8f, dy + 3f, fill)
+                        fill.color = 0xFF2C6FA8.toInt()
+                        canvas.drawRect(cx + 5f, dy + 3f, cx + 8f, dy + 4f, fill)
+                    }
+                }
+                Kind.SPRINKLER -> {
+                    stand(x, y, Sprites.sprinkler, cx - 7, cy - 17)
+                    fill.color = 0xCC8FD4FF.toInt()
+                    for (k in 0 until 8) {
+                        val a = t * 2.2f + k * (PI.toFloat() / 4)
+                        val life = ((t * 1.7f + k * 0.37f) % 1f)
+                        val r = 4 + life * 26
+                        val px = cx + cos(a) * r; val py = cy - 14 + sin(a) * r * 0.5f + (life * life * 30 - life * 20)
+                        canvas.drawRect(px, py, px + 1, py + 1, fill)
+                    }
+                }
+                Kind.LAMP -> {
+                    stand(x, y, Sprites.lamp, cx - 8, cy - 34)
+                    light(cx.toFloat(), cy - 30f, 9f, 0xFFE8A0, 1f)
+                    light(cx.toFloat(), cy.toFloat(), TW * 1.6f, 0xFFC860, 0.55f)
+                }
+                Kind.GRASS -> if (hash(x, y) % 11 == 0) blit(Sprites.bush(hash(y, x) % 4), cx - 7f, cy - 8f)
+                Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
+                Kind.DECOR -> Decor.of(tile.item)?.let {
+                    stand(x, y, DecorArt.sprite(it), cx - DecorArt.AX, cy - DecorArt.AY)
+                    if (it == Decor.TIKI || it == Decor.LAVA || it == Decor.NEON || it == Decor.DISCO || it == Decor.UFO || it == Decor.CRYSTAL) {
+                        fill.color = 0x28FFB040
+                        canvas.drawOval(cx - 14f, cy - 7f, cx + 14f, cy + 7f, fill)
+                        val c = when (it) {
+                            Decor.TIKI -> 0xFF9030; Decor.LAVA -> 0xFF50C0; Decor.DISCO -> discoColor(t)
+                            Decor.UFO -> 0x60FFD0; Decor.CRYSTAL -> 0xC080FF; else -> 0x60FF90
+                        }
+                        val flick = if (it == Decor.TIKI) 0.8f + 0.2f * sin(t * 11 + x) * sin(t * 7 + y) else 1f
+                        light(cx.toFloat(), cy - DecorArt.AY + 8f, 12f, c, 0.8f * flick)
+                        light(cx.toFloat(), cy.toFloat(), 20f, c, 0.35f * flick)
+                    }
+                }
+                else -> {}
+            }
+            if (tile.pest && tile.kind == Kind.PLOT) drawPests(cx, cy, t, hash(x, y))
+          }
+          walkers[s]?.forEach { drawWalker(it, t) }
+        }
+
+        // Rain splashing on the farm.
+        if (light.rain > 0) repeat((light.rain * 60 * dt + rnd.nextFloat()).toInt()) {
+            val x = rnd.nextInt(land); val y = rnd.nextInt(land)
+            fx.burst(Burst.SPLASH, centerX(x, y) + (rnd.nextFloat() - 0.5f) * TW * 0.7f, centerY(x, y) + (rnd.nextFloat() - 0.5f) * TH * 0.6f)
+        }
+        fx.step(dt)
+        fx.draw(canvas)
+
+        // Time of day and weather: darken and colour everything, then let the lights shine through.
+        if (light.tint != -1) {
+            mul.color = light.tint
+            canvas.drawRect(0f, 0f, W.toFloat(), H.toFloat(), mul)
+        }
+        val glow = ((light.night - 0.1f) / 0.6f).coerceIn(0f, 1f) + light.rain * 0.3f + light.cloud * 0.15f
+        if (glow > 0.01f) {
+            for (i in 0 until nLights) {
+                val k = i * 5
+                val radius = lights[k + 2]
+                fx.glow(canvas, lights[k], lights[k + 1], radius, lights[k + 3].toRawBits(), lights[k + 4] * minOf(1f, glow),
+                    if (radius > 14) 0.5f else 1f)
+            }
+            // Fireflies drift over the land on clear nights.
+            val ff = minOf(1f, glow) * (1f - light.rain) * (1f - light.fog * 0.5f)
+            if (ff > 0.05f) for (i in 0 until 6 + land) {
+                val bx = hash(i, 11) % land; val by = hash(i, 23) % land
+                val fxp = centerX(bx, by) + sin(t * 0.37f + i * 1.9f) * 18f + sin(t * 1.1f + i) * 3f
+                val fyp = centerY(bx, by) - 10f + sin(t * 0.29f + i * 2.7f) * 9f + sin(t * 1.7f + i * 0.5f) * 2f
+                val blink = ((sin(t * 1.3f + i * 2.1f) - 0.2f) / 0.8f).coerceIn(0f, 1f)
+                if (blink <= 0) continue
+                fx.glow(canvas, fxp, fyp, 5f, 0xC8FF60, ff * blink * 0.9f)
+                fill.color = 0xFFF4FFB0.toInt(); fill.alpha = (255 * ff * blink).toInt()
+                canvas.drawRect(floor(fxp * 2) / 2, floor(fyp * 2) / 2, floor(fxp * 2) / 2 + 0.5f, floor(fyp * 2) / 2 + 0.5f, fill)
+            }
+        }
+    }
+
+    private fun drawFacility(f: Farm, tile: Tile, x: Int, y: Int, cx: Int, cy: Int, now: Long, t: Float) {
+        val fac = Facility.of(tile.item) ?: return
+        stand(x, y, Buildings.facility(fac), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
+        // Level pips along the front.
+        fill.color = 0xFFF2C440.toInt()
+        for (i in 0 until tile.lvl) canvas.drawRect(cx - 5f + i * 2.5f, cy + 3f, cx - 4f + i * 2.5f, cy + 4f, fill)
+        if (tile.strain == null) return
+        val top = cy - Buildings.FAC_AY - 2
+        if (now >= tile.doneAt) {
+            // Done: the product bobs above the roof.
+            val bob = if ((t * 2.5f).toInt() % 2 == 0) 0 else 1
+            stand(x, y, Town.goods(fac), cx - 6, top - 11 - bob)
+            return
+        }
+        val total = fac.millis(tile.lvl).toFloat()
+        val frac = (1f - (tile.doneAt - now) / total).coerceIn(0f, 1f)
+        fill.color = 0xFF1C1A14.toInt(); canvas.drawRect(cx - 9f, top - 1f, cx + 9f, top + 3f, fill)
+        fill.color = 0xFF7BD34B.toInt(); canvas.drawRect(cx - 8f, top.toFloat(), cx - 8f + 16 * frac, top + 2f, fill)
+        // Puffs of steam while it works.
+        fill.color = 0x80F0F0F0.toInt()
+        for (k in 0 until 2) {
+            val life = (t * 0.8f + k * 0.5f) % 1f
+            val r = 1 + life * 2
+            val px = cx + 6 + sin(t * 3 + k * 2) * 2; val py = top - 3 - life * 10
+            canvas.drawRect(px - r, py - r, px + r, py + r, fill)
+        }
+    }
+
+    private fun drawPests(cx: Int, cy: Int, t: Float, seed: Int) {
+        fill.color = 0xFF2A2A20.toInt()
+        for (k in 0 until 3) {
+            val a = t * (2.5f + k * 0.7f) + k * 2.1f + seed % 7
+            val bx = cx + cos(a) * 6; val by = cy - 12 + sin(a * 1.3f) * 5
+            canvas.drawRect(bx, by, bx + 2, by + 1, fill)
+        }
+        val blink = (t * 3).toInt() % 2 == 0
+        fill.color = 0xFF1C1A14.toInt(); canvas.drawRect(cx - 2f, cy - 33f, cx + 2f, cy - 24f, fill)
+        fill.color = if (blink) 0xFFE8664A.toInt() else 0xFFFF9A7A.toInt()
+        canvas.drawRect(cx - 1f, cy - 32f, cx + 1f, cy - 28f, fill)
+        canvas.drawRect(cx - 1f, cy - 27f, cx + 1f, cy - 25f, fill)
+    }
+}
+
+private const val HOLD_MS = 140L
+
+private class Floater(val wx: Float, val wy: Float, val text: String, val color: Int, val born: Long, val big: Boolean = false)
+
+@Composable
+fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
+    val world = remember { World() }
+    val image = remember { world.bitmap.asImageBitmap() }
+    val view = LocalView.current
+    var frame by remember { mutableLongStateOf(0L) }
+    var scale by remember { mutableFloatStateOf(0f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val floaters = remember { ArrayList<Floater>() }
+    val textPaint = remember {
+        Paint().apply { typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); isAntiAlias = true; textAlign = Paint.Align.CENTER }
+    }
+
+    LaunchedEffect(Unit) {
+        var lastTick = 0L
+        while (true) {
+            withFrameMillis { ms ->
+                frame = ms
+                if (ms - lastTick > 250) { Store.tick(); lastTick = ms }
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val wPx = constraints.maxWidth.toFloat()
+        val hPx = constraints.maxHeight.toFloat()
+        val f = Store.farm
+        fun fit(): Float = wPx / (f.land * TW + 24f)
+        fun minScale() = wPx / (World.W + 40f)
+        fun clamp() {
+            // Keep some of the island on screen.
+            val bw = World.W * scale; val bh = World.H * scale
+            offset = Offset(offset.x.coerceIn(wPx * 0.5f - bw, wPx * 0.5f), offset.y.coerceIn(hPx * 0.35f - bh, hPx * 0.6f))
+        }
+        fun centerOnLand() {
+            scale = fit()
+            val c = (f.land - 1) / 2f
+            val wx = World.OX.toFloat(); val wy = World.OY + c * TH + TH / 2f
+            offset = Offset(wPx / 2 - wx * scale, hPx * 0.5f - wy * scale)
+        }
+        if (scale == 0f) centerOnLand()
+        if (ui.recenter != 0) { centerOnLand(); ui.recenter = 0 }
+
+        fun toWorld(p: Offset) = (p - offset) / scale
+        fun tileAt(p: Offset): Pair<Int, Int>? {
+            val w = toWorld(p)
+            return world.pick(w.x, w.y)
+        }
+
+        fun buzz() { if (Audio.haptics) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+
+        fun complain(r: Result) {
+            if (r == Result.NO_CASH || r == Result.STASH_FULL || r == Result.LOCKED || r == Result.LIMIT) Audio.play(Sfx.ERROR)
+            when (r) {
+                Result.NO_CASH -> Store.toast("Not enough cash")
+                Result.STASH_FULL -> Store.toast("Stash is full! Sell some bud at Dex's in town")
+                Result.LOCKED -> Store.toast("Unlocks at a higher level")
+                Result.LIMIT -> Store.toast("No room for more decor. Upgrade your shack!")
+                else -> {}
+            }
+        }
+
+        /** What a touch starting on x,y should do, given the current mode. */
+        fun actFor(x: Int, y: Int): Act? {
+            val now = Store.now()
+            val tile = f.tile(x, y)
+            if (!f.inLand(x, y)) return null
+            return when (ui.mode) {
+                is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
+                is Mode.PlaceFacility -> null
+                is Mode.Move -> null
+                Mode.Demolish -> null
+                Mode.Farm -> when {
+                    tile.pest -> Act.SHOO
+                    tile.kind == Kind.FACILITY -> if (tile.strain != null && now >= tile.doneAt) Act.COLLECT else null
+                    tile.kind != Kind.PLOT -> null
+                    tile.ready() -> Act.HARVEST
+                    tile.strain == null -> Act.PLANT
+                    !f.wet(x, y, now) -> Act.WATER
+                    else -> null
+                }
+            }
+        }
+
+        fun apply(act: Act, x: Int, y: Int, first: Boolean): Boolean {
+            val now = Store.now()
+            val tile = f.tile(x, y)
+            val r = when (act) {
+                Act.HARVEST -> if (tile.ready()) f.harvest(x, y, now) else return false
+                Act.PLANT -> if (tile.kind == Kind.PLOT && tile.strain == null) f.plant(x, y, ui.seed, now) else return false
+                Act.WATER -> if (tile.kind == Kind.PLOT && tile.strain != null && !tile.ready() && !f.wet(x, y, now)) f.water(x, y, now) else return false
+                Act.BUILD -> if (tile.kind != Kind.GRASS) return false else when (val m = ui.mode) {
+                    is Mode.Build -> f.build(x, y, m.kind)
+                    is Mode.PlaceDecor -> f.placeDecor(x, y, m.d).also {
+                        // Out of stock and can't be bought: back to farming.
+                        if (it == Result.OK && m.d.black && (f.decorInv[m.d.name] ?: 0) == 0) ui.mode = Mode.Farm
+                    }
+                    else -> return false
+                }
+                Act.SHOO -> f.clearPest(x, y)
+                Act.COLLECT -> {
+                    val n = tile.amount; val fac = f.facility(x, y)
+                    f.collect(x, y, now).also {
+                        if (it == Result.OK) floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 30f,
+                            "+$n ${fac?.product?.lowercase()}", 0xFFF2C440.toInt(), now)
+                    }
+                }
+                Act.DEMOLISH -> if (first) f.demolish(x, y) else return false
+            }
+            if (r == Result.OK) {
+                buzz()
+                when (act) {
+                    Act.PLANT -> Audio.vary(Sfx.PLANT)
+                    Act.WATER -> Audio.vary(Sfx.WATER)
+                    Act.BUILD -> Audio.play(Sfx.BUILD)
+                    Act.SHOO -> Audio.vary(Sfx.SHOO)
+                    Act.COLLECT -> Audio.play(Sfx.COLLECT)
+                    Act.DEMOLISH -> Audio.play(Sfx.DEMOLISH)
+                    Act.HARVEST -> {} // Store plays it, golden or not
+                }
+                val bx = world.centerX(x, y).toFloat(); val by = world.centerY(x, y).toFloat()
+                when (act) {
+                    Act.WATER -> world.fx.burst(Burst.WATER, bx, by - 4)
+                    Act.PLANT -> world.fx.burst(Burst.DIRT, bx, by)
+                    Act.BUILD, Act.DEMOLISH -> world.fx.burst(Burst.DUST, bx, by - 2)
+                    Act.COLLECT -> world.fx.burst(Burst.COINS, bx, by - 20)
+                    Act.SHOO -> world.fx.burst(Burst.DUST, bx, by - 8)
+                    Act.HARVEST -> {}
+                }
+                when (act) {
+                    Act.SHOO -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 20f, "shoo!", 0xFFFFE27A.toInt(), Store.now())
+                    Act.WATER -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 12f, "~", 0xFF8FD4FF.toInt(), Store.now())
+                    Act.PLANT -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 8f,
+                        "-$" + fmt(Strains[ui.seed]!!.seed), 0xFFFF9A7A.toInt(), Store.now())
+                    else -> {}
+                }
+                Store.changed()
+            } else complain(r)
+            return r == Result.OK
+        }
+
+        /** A plain tap that didn't do a farming action: place, move or show what's there. */
+        fun tap(x: Int, y: Int) {
+            val tile = f.tile(x, y)
+            when (val m = ui.mode) {
+                is Mode.PlaceFacility -> {
+                    val r = f.buildFacility(x, y, m.f)
+                    if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
+                    else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square") else complain(r)
+                }
+                Mode.Demolish -> when {
+                    tile.kind == Kind.GRASS -> ui.selected = null
+                    ui.selected == (x to y) -> {
+                        val r = f.demolish(x, y)
+                        if (r == Result.OK) { buzz(); Store.changed() } else complain(r)
+                        ui.selected = null
+                    }
+                    else -> { ui.selected = x to y; Store.toast("Tap it again to demolish") }
+                }
+                is Mode.Move -> {
+                    val from = m.from
+                    if (from == null) {
+                        if (tile.kind == Kind.GRASS) Store.toast("Tap something to pick it up")
+                        else if (tile.kind == Kind.PLOT && tile.strain != null) Store.toast("Harvest that plot before moving it")
+                        else ui.mode = Mode.Move(x to y)
+                    } else if (from == (x to y)) ui.mode = Mode.Move()
+                    else {
+                        val r = f.move(from.first, from.second, x, y)
+                        if (r == Result.OK) { buzz(); ui.mode = Mode.Move(); Store.changed() }
+                        else Store.toast(if (f.tile(from.first, from.second).kind.let { it == Kind.SHACK || it == Kind.PART })
+                            "The shack needs a free 2×2 spot with its back corner here" else "Pick an empty grass square")
+                    }
+                }
+                Mode.Farm -> when (tile.kind) {
+                    Kind.SHACK, Kind.PART -> { ui.selected = null; ui.panel = Panel.SHACK }
+                    Kind.FACILITY -> { ui.selected = null; ui.fac = x to y; ui.panel = Panel.FACILITY }
+                    Kind.GRASS -> ui.selected = null
+                    else -> ui.selected = x to y
+                }
+                else -> ui.selected = if (tile.kind != Kind.GRASS) x to y else null
+            }
+        }
+
+        ComposeCanvas(
+            Modifier.fillMaxSize().pointerInput(Unit) {
+                // A quick touch is a tap. Moving straight off is a pan. Resting a moment first, then moving, paints the
+                // action over every square the finger crosses (harvest, plant, water...). Two fingers: zoom, never an action.
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val start = tileAt(down.position)
+                    var multi = false
+                    var moved = false
+                    var ended = false
+                    var painting: Act? = null
+                    var acted = false
+                    var last = start
+                    // Wait out the hold: a still finger that stays down becomes a paint stroke.
+                    val held = withTimeoutOrNull(HOLD_MS) {
+                        while (true) {
+                            val pressed = awaitPointerEvent().changes.filter { it.pressed }
+                            if (pressed.isEmpty()) { ended = true; break }
+                            if (pressed.size >= 2) { multi = true; break }
+                            if ((pressed[0].position - down.position).getDistance() > slop) { moved = true; break }
+                        }
+                    } == null
+                    if (ended) {
+                        if (start != null && f.inLand(start.first, start.second)) {
+                            val act = actFor(start.first, start.second)
+                            if (act != null) { apply(act, start.first, start.second, true); ui.selected = null }
+                            else tap(start.first, start.second)
+                        } else ui.selected = null
+                        return@awaitEachGesture
+                    }
+                    if (held && !multi && start != null) {
+                        painting = actFor(start.first, start.second)
+                        painting?.let { acted = true; if (apply(it, start.first, start.second, true)) ui.selected = null else painting = null }
+                    }
+                    var panned = moved
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) break
+                        if (pressed.size >= 2) {
+                            multi = true; painting = null
+                            val zoom = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            val c = event.calculateCentroid()
+                            val ns = (scale * zoom).coerceIn(minScale(), 12f)
+                            offset = c - (c - offset) * (ns / scale) + pan
+                            scale = ns
+                            clamp()
+                        } else if (!multi) {
+                            val ch = pressed[0]
+                            val p = painting
+                            if (p != null) {
+                                val tl = tileAt(ch.position)
+                                if (tl != null && tl != last) {
+                                    last = tl
+                                    if (f.inLand(tl.first, tl.second)) apply(p, tl.first, tl.second, false)
+                                }
+                            } else {
+                                if (!panned && (ch.position - down.position).getDistance() > slop) panned = true
+                                if (panned) { offset += ch.position - ch.previousPosition; clamp() }
+                            }
+                        }
+                        event.changes.forEach { it.consume() }
+                    }
+                    // Held still and let go without moving: still a tap.
+                    if (!multi && !panned && !acted && held && start != null && f.inLand(start.first, start.second)) tap(start.first, start.second)
+                }
+            }
+        ) {
+            val now = Store.now()
+            Store.rev // redraw on farm changes
+            val t = frame / 1000f
+            // Harvest numbers float up from the plant.
+            for (e in Store.pending) if (e is FarmEvent.Harvest) {
+                val wx = world.centerX(e.x, e.y).toFloat(); val wy = world.centerY(e.x, e.y) - 18f
+                world.fx.burst(if (e.golden) Burst.GOLDEN else Burst.HARVEST, wx, wy + 6)
+                if (e.golden) floaters += Floater(wx, wy - 8, "GOLDEN x3!", 0xFFFFD84A.toInt(), now, big = true)
+                floaters += Floater(wx, wy, "+${e.grams}g", 0xFFB6F27A.toInt(), now)
+                floaters += Floater(wx, wy + 8, "+${e.xp}xp", 0xFF9AD4FF.toInt(), now + 120)
+            }
+            Store.pending.clear()
+
+            val m = ui.mode
+            val light = Light.at(now)
+            drawRect(Color(backdrop(light.tint)))
+            world.render(f, now, t, light, ui.selected, m is Mode.Build || m is Mode.PlaceFacility || m is Mode.PlaceDecor || (m is Mode.Move && m.from != null),
+                (m as? Mode.Move)?.from)
+            drawImage(image, dstOffset = IntOffset(offset.x.toInt(), offset.y.toInt()),
+                dstSize = IntSize((World.W * scale).toInt(), (World.H * scale).toInt()), filterQuality = FilterQuality.None)
+            drawIntoCanvas { world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light) }
+
+            textPaint.textSize = max(28f, scale * 6f)
+            drawIntoCanvas { c ->
+                val nc = c.nativeCanvas
+                val it = floaters.iterator()
+                while (it.hasNext()) {
+                    val fl = it.next()
+                    val age = (now - fl.born) / 1000f
+                    if (age > 1.3f) { it.remove(); continue }
+                    if (age < 0) continue
+                    val sx = offset.x + fl.wx * scale
+                    val sy = offset.y + (fl.wy - age * 14) * scale
+                    val alpha = (255 * min(1f, (1.3f - age) * 2.5f)).toInt()
+                    textPaint.textSize = if (fl.big) max(48f, scale * 10f) else max(38f, scale * 8f)
+                    textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = textPaint.textSize / 5
+                    textPaint.color = 0xFF1C1A14.toInt(); textPaint.alpha = alpha
+                    nc.drawText(fl.text, sx, sy, textPaint)
+                    textPaint.style = Paint.Style.FILL
+                    textPaint.color = fl.color; textPaint.alpha = alpha
+                    nc.drawText(fl.text, sx, sy, textPaint)
+                }
+            }
+        }
+    }
+}
+
+/** The dark green beyond the trees, lit like the farm. */
+private fun backdrop(tint: Int): Long {
+    fun ch(base: Int, sh: Int) = (base * ((tint shr sh) and 0xFF) / 255)
+    return 0xFF000000L or (ch(0x1B, 16).toLong() shl 16) or (ch(0x2A, 8).toLong() shl 8) or ch(0x1E, 0).toLong()
+}
+
+/** The disco ball's light walks round the colour wheel. */
+private fun discoColor(t: Float): Int = intArrayOf(0xFF60D0, 0x60D0FF, 0xFFE060, 0x80FF80)[((t * 2).toInt() and 3)]

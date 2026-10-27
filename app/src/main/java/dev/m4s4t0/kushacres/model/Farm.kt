@@ -88,12 +88,12 @@ enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEED
 
 /** What the helpers got done while you were away. */
 class Away(var millis: Long = 0, var harvests: Int = 0, var grams: Int = 0, var replants: Int = 0, var xp: Long = 0,
-           var sold: Long = 0, var batches: Int = 0) {
+           var sold: Long = 0, var batches: Int = 0, var deals: Int = 0) {
     /** Filled in by the caller after catching up: cash gained, levels gained, plants ripe and waiting. */
     var earned = 0L
     var levels = 0
     var ripe = 0
-    fun any() = harvests > 0 || sold > 0 || batches > 0 || levels > 0 || (millis >= 10 * 60_000L && (earned > 0 || ripe > 0))
+    fun any() = harvests > 0 || sold > 0 || batches > 0 || deals > 0 || levels > 0 || (millis >= 10 * 60_000L && (earned > 0 || ripe > 0))
 }
 
 /**
@@ -142,7 +142,7 @@ class Farm(var rng: Random = Random.Default) {
 
         fun xpNeed(level: Int): Long = (8.0 * level * level + 0.6 * level.toDouble().pow(3.2)).roundToLong()
 
-        private val BUYERS = listOf("Stoner Steve", "Auntie Mae", "DJ Haze", "Big Tony", "Professor Puff", "Skater Kai",
+        val BUYERS = listOf("Stoner Steve", "Auntie Mae", "DJ Haze", "Big Tony", "Professor Puff", "Skater Kai",
             "Granny Rose", "Chef Mo", "Hippie Jan", "Lil Kush", "Doc Green", "Mellow Mel", "Couch Carl", "Biker Bree",
             "Yoga Yuki", "Trucker Tom", "Rasta Ray", "Glam Gigi", "Nerdy Ned", "Surfer Sol")
         private val CELEBS = listOf("Snoop Dogg-ish", "A Famous Rapper", "Movie Star Max", "Rockstar Roxy", "Pop Idol Pia")
@@ -231,6 +231,14 @@ class Farm(var rng: Random = Random.Default) {
     /** The [Trip] a seed-hunt scout is out on (null when home) and when they get back. */
     var hunt: String? = null
     var huntBack = 0L
+    /** Farm contracts: today's offers per town (and the day they're for), the ones taken, and each town's reputation. */
+    val offers = HashMap<String, ArrayList<Contract>>()
+    val offerDay = HashMap<String, Long>()
+    val deals = ArrayList<Contract>()
+    val rep = HashMap<String, Int>()
+    /** The last contract filled, for the screen to show once; and how many have lapsed since it last looked. */
+    var lastDeal: DealPay? = null
+    var lapsed = 0
     var away = Away()
     val events = ArrayList<FarmEvent>()
     /** Pot Bucks: the rare currency from level-ups, dailies, challenges, events and lucky harvests. */
@@ -348,6 +356,7 @@ class Farm(var rng: Random = Random.Default) {
     fun bump(st: Stat, n: Long = 1) { stats[st.ordinal] += n }
     /** Cash from selling: counts towards lifetime earnings. */
     private fun earn(x: Long) { cash += x; totalEarned += x; bump(Stat.EARNED, x) }
+    fun earnCash(x: Long) = earn(x)
     /** Cash paid out for anything: counts towards lifetime spending. */
     fun spend(x: Long) { cash -= x; bump(Stat.SPENT, x) }
     fun count(kind: Kind) = tiles.count { it.kind == kind }
@@ -559,6 +568,7 @@ class Farm(var rng: Random = Random.Default) {
             while (now >= mineAt) { n++; mineAt += Special.MINE_MILLIS }
             if (n > 0) { gems += n; events += FarmEvent.Gems(n) }
         }
+        Contracts.expire(this, now)
         refreshQuests(now)
     }
 
@@ -1010,6 +1020,7 @@ class Farm(var rng: Random = Random.Default) {
         if (lvl == Progress.BREED_LEVEL) out += "The breeding lab"
         if (lvl == Cup.LEVEL) out += "The Cannabis Cup"
         if (lvl == Hunt.LEVEL) out += "Seed hunts"
+        if (lvl == Contracts.LEVEL) out += "Farm contracts"
         if (lvl == Progress.LEGACY_LEVEL) out += "Selling the farm for a legacy bonus"
         if (lvl % 6 == 0 && 2 + lvl / 6 <= MAX_ORDERS) out += "Another order slot"
         return out
@@ -1315,6 +1326,7 @@ class Farm(var rng: Random = Random.Default) {
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
+        offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); lastDeal = null; lapsed = 0
         lastTick = now; nextEventAt = 0
         newGame(now)
         refreshQuests(now)
@@ -1566,6 +1578,7 @@ class Farm(var rng: Random = Random.Default) {
                 Vehicle.VAN -> {
                     val slot = orders.indices.firstOrNull { i -> orders[i]?.let { canFill(it) } == true && !delivering(i) }
                     if (slot != null) deliver(slot, now)
+                    else deals.firstOrNull { Contracts.canShip(this, it) }?.let { Contracts.ship(this, it, now, auto = true) }
                 }
                 Vehicle.RV -> {}
             }
@@ -1918,6 +1931,8 @@ class Farm(var rng: Random = Random.Default) {
         stash.clear(); goods.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); mineAt = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear()
+        // Towns remember you, but deals in hand go with the farm.
+        offers.clear(); offerDay.clear(); deals.clear()
         legacy++
         questDay = -1L
         lastTick = now

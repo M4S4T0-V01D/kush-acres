@@ -162,7 +162,7 @@ private fun Quests() {
 }
 
 @Composable
-private fun Bar(k: Float, color: Color) {
+internal fun Bar(k: Float, color: Color) {
     Box(Modifier.fillMaxWidth().height(8.dp).border(1.dp, WoodEdge).background(Color(0xFF14100B))) {
         Box(Modifier.fillMaxWidth(k.coerceIn(0f, 1f)).height(8.dp).background(color))
     }

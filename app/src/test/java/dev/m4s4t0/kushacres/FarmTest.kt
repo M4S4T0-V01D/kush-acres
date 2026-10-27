@@ -2,6 +2,7 @@ package dev.m4s4t0.kushacres
 
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Cup
+import dev.m4s4t0.kushacres.model.Contracts
 import dev.m4s4t0.kushacres.model.Hunt
 import dev.m4s4t0.kushacres.model.Trip
 import dev.m4s4t0.kushacres.model.Buff
@@ -893,5 +894,66 @@ class FarmTest {
         assertEquals(Cup.ENTRIES, Cup.left(g, t0 + 7 * 86_400_000L))
         assertEquals(Result.OK, Cup.enter(g, s.id, t0 + 7 * 86_400_000L))
         assertEquals(1, g.cupScores.size)
+    }
+
+    @Test fun contractsOfferTakeShipAndPay() {
+        val f = farm()
+        f.level = 5
+        assertTrue(Contracts.offers(f, "home", t0).isEmpty())
+        f.level = 10
+        f.offerDay.clear()
+        val offers = Contracts.offers(f, "home", t0)
+        assertEquals(Contracts.OFFERS, offers.size)
+        assertTrue(Contracts.offers(f, "home", t0 + 60_000L) === offers)
+        // Take the bud ones (Bulk and Rush are always among them) until hands are full.
+        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { Strains[it.needs[0].what] != null }, t0))
+        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { Strains[it.needs[0].what] != null }, t0))
+        assertEquals(Result.LIMIT, Contracts.take(f, "home", 0, t0))
+        val c = f.deals[0]
+        val n = c.needs[0]
+        assertFalse(Contracts.canShip(f, c))
+        f.stash[n.what] = n.amount / 2
+        Contracts.ship(f, c, t0)
+        assertEquals(n.amount / 2, n.got)
+        assertFalse(f.stash.containsKey(n.what))
+        f.stash[n.what] = n.left + 5
+        val cash = f.cash
+        Contracts.ship(f, c, t0)
+        assertEquals(5, f.stash[n.what])
+        assertFalse(c in f.deals)
+        assertTrue(f.cash - cash > c.value)
+        assertEquals(c.kind.rep, Contracts.rep(f, "home"))
+        assertEquals(1L, f.stat(Stat.CONTRACTS))
+        // A new day brings new offers.
+        assertFalse(Contracts.offers(f, "home", t0 + 86_400_000L) === offers)
+    }
+
+    @Test fun contractsLapseDropAndSave() {
+        val f = farm()
+        f.level = 10
+        Contracts.offers(f, "home", t0)
+        f.rep["home"] = 20
+        Contracts.take(f, "home", 0, t0)
+        Contracts.take(f, "home", 0, t0)
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(2, g.deals.size)
+        assertEquals(f.deals[0].until, g.deals[0].until)
+        assertEquals(f.deals[0].needs.map { it.what }, g.deals[0].needs.map { it.what })
+        assertEquals(1, g.offers["home"]!!.size)
+        assertEquals(20, Contracts.rep(g, "home"))
+        // Dropping costs half what running out does; neither goes below nothing.
+        Contracts.drop(g, g.deals[0])
+        assertEquals(20 - Contracts.LAPSE_REP / 2, Contracts.rep(g, "home"))
+        val c = g.deals[0]
+        c.value = 1000.0
+        val cash = g.cash
+        Contracts.expire(g, c.until - 1)
+        assertEquals(1, g.deals.size)
+        Contracts.expire(g, c.until)
+        assertTrue(g.deals.isEmpty())
+        assertEquals(cash + 1000, g.cash)
+        assertEquals(0, Contracts.rep(g, "home"))
+        assertEquals(1, g.lapsed)
     }
 }

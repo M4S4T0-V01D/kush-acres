@@ -91,7 +91,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
       here cook 30% faster); crews and vehicles show in the level-up unlock list (0.10.3)
 - [x] Seed hunts (Farm Book → Hunts, Lv 12): send a scout on a 1, 4 or 8 h trip for exotic seeds (rare finds a tier up),
       cash, Pot Bucks, XP and the odd gem; Pathfinder trophy for 25 hunts (0.10.3)
-- [ ] More things to do (TBD while building)
+- [ ] More things to do (TBD while building): see phases 12–17
 
 ## Phase 8 — Graphics
 - [x] Decor shaded at fine-pixel detail: banded light across each piece, lit top-left rims, shaded lower edges
@@ -131,6 +131,43 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Collection book marks every strain you have grown and shows its traits
 - [x] Per-farm goals (Trophies tab): 100 and 1,000 harvests, both local strains, 5 work buildings, full crew, fleet; a gem and XP each
 - [ ] Try weather, vehicles and crews by hand in the running app
+
+## Phase 12 — Farm contracts (0.11.x)
+- [x] Contracts tab at each town's dispensary, from Lv 8: three offers a day per town, take up to two at once
+- [x] Ship in parts from the stash (or goods) with a progress bar; pay well over market when it's filled
+- [x] Kinds: Bulk (big, 2 days), Rush (small, 3 h, best pay), Specialty (any strain with a trait, a hybrid or a local
+      strain), Kitchen (cooked goods), Two-farm (local strains from two of your farms)
+- [x] Reputation per town: tiers raise pay and size; a missed deadline costs rep only, never cash (shipped bud is paid at market)
+- [x] Delivery Van ships to contracts; contracts in the away summary; Middleman / Kingpin of the County trophies
+- [ ] Story chains: each town's buyers have 4–5 linked contracts with a bit of story and a unique reward
+- [ ] Standing weekly order from a town at the top rep tiers; seasonal and holiday contracts
+
+## Phase 13 — Legacy 2.0 (prestige)
+- Selling the farm at Lv 40 already gives a legacy bonus; this deepens it
+- [ ] Heirloom genetics: keep a few chosen strains/phenos across runs
+- [ ] Pick a permanent perk each run (a perk tree), new start-map choices
+
+## Phase 14 — Phenotype hunting
+- [ ] Plants grow with a random pheno (yield, potency, colour); keep the best as mothers and clone them
+- [ ] Golden harvests and the lab tie in; phenos show in the collection book
+
+## Phase 15 — Active mini-moments (always optional)
+- [ ] Trimming mini-game at harvest for a quality bonus
+- [ ] Perfect-timing window on ripe plants
+
+## Phase 16 — Save transfer
+- [ ] Export/import the save as a file or code, to move between phone and desktop
+
+## Phase 17 — Photo mode
+- [ ] Hide the HUD, pick the view and time of day, save a picture (builds on the share card)
+
+## Phase 18 — Selling the game (itch.io first)
+- Goal: a small price (~$1.99–2.99) to cover running costs; no ads, no in-app purchases
+- [ ] Decide what happens to the public GitHub releases and the in-game updater (they hand out the APK for free)
+- [ ] Proper release signing key (the debug key can't go to a store)
+- [ ] itch.io page: Android APK + Linux build, screenshots, mature content note
+- [ ] Look over wait times so nothing feels like "pay to skip" bait
+- [ ] Later, maybe: Google Play build without the self-updater (Play forbids it), Mature 17+ rating
 
 ## Release log
 - 0.2.1 — before this plan

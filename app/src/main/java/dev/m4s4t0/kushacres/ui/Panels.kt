@@ -738,6 +738,7 @@ fun Dialogs() {
             if (away.harvests > 0) T("${away.harvests} harvests · ${away.grams}g", 14.sp, Leaf)
             if (away.replants > 0) T("${away.replants} replanted", 13.sp, Cream)
             if (away.batches > 0) T("${away.batches} batches cooked", 13.sp, Cream)
+            if (away.deals > 0) T("Van filled ${away.deals} contract${if (away.deals > 1) "s" else ""}", 13.sp, Gold)
             if (away.sold > 0) T("Runner sold ${money(away.sold)}", 13.sp, Gold)
             if (away.xp > 0) T("+${away.xp} xp", 13.sp, Sky)
             if (away.levels > 0) T("Reached level ${Store.farm.level}!", 13.sp, Gold)

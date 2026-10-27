@@ -235,6 +235,7 @@ object Sprites {
             for (k in 0 until 5) px.dot((bx * f).toInt(), (by * f).toInt() - 1 - k, stem)
             leaflet(px, bx, by - 2.2f, PI + 0.8, 2.4f, 0.8f, leaf, light, leaf, serrate = false)
             leaflet(px, bx, by - 2.2f, -0.8, 2.4f, 0.8f, leaf, light, leaf, serrate = false)
+            px.light()
             px.outline(shade(leaf, 0.3f))
             return@getOrPut px.bitmap()
         }
@@ -275,6 +276,7 @@ object Sprites {
             }
             if (ripe) px.dot((tx * f).toInt(), ((ty - 0.6f) * f).toInt(), shade(bud, 1.4f))
         }
+        px.light()
         px.outline(shade(leaf, 0.3f))
         px.bitmap()
     }
@@ -437,6 +439,7 @@ object Sprites {
                 fdisc(px, ax * f + 1f, ay * f + 1f, 1.6f, 0xFFE0503A.toInt()); px.dot(ax * f, ay * f, 0xFFFFB0A0.toInt())
             }
         }
+        px.light()
         px.outline(OUT)
         px.bitmap()
     }
@@ -450,6 +453,7 @@ object Sprites {
         foliage(px, 4f, 6.8f, 2.6f, g, v + 41)
         foliage(px, 9.5f, 5.8f, 2.6f, shade(g, 1.05f), v + 42)
         if (v % 3 == 0) for ((ax, ay) in listOf(5 to 4, 9 to 7, 7 to 5)) { px.dot(ax * f, ay * f, 0xFFE05A5A.toInt()); px.dot(ax * f + 1, ay * f, 0xFFE05A5A.toInt()); px.dot(ax * f, ay * f - 1, 0xFFFFB0B0.toInt()) }
+        px.light()
         px.outline(OUT)
         px.bitmap()
     }
@@ -460,6 +464,7 @@ object Sprites {
         px.rect(6, 6, 2, 11, 0xFF9AA0A8.toInt()); px.rect(7, 6, 1, 11, 0xFF6C7078.toInt())
         px.rect(4, 3, 6, 3, 0xFFC9A04A.toInt()); px.rect(4, 3, 6, 1, 0xFFE8C66A.toInt())
         px.set(3, 4, 0xFF4AA8E0.toInt()); px.set(10, 4, 0xFF4AA8E0.toInt())
+        px.light()
         px.outline(OUT)
         px.bitmap()
     }
@@ -471,6 +476,7 @@ object Sprites {
         px.rect(7, 6, 9, 2, 0xFF3C4048.toInt())
         px.rect(10, 8, 7, 3, 0xFF2C3038.toInt())
         px.rect(11, 11, 5, 1, 0xFFFFE27A.toInt())
+        px.light()
         px.outline(OUT)
         px.bitmap()
     }

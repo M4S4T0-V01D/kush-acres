@@ -63,6 +63,22 @@ internal fun dumpSprites(path: String) {
         }
     }
     ImageIO.write(bimg, "png", File(path.removeSuffix(".png") + "-buildings.png"))
+    // Plants of a few strains at every stage, then trees, bushes, the sprinkler and the lamp.
+    val Sp = dev.m4s4t0.kushacres.art.Sprites
+    val nature = dev.m4s4t0.kushacres.model.Strains.all.filterIndexed { i, _ -> i % 7 == 0 }.take(4).flatMap { st -> (0..5).map { Sp.plant(st, it, 0) } } +
+        (0 until 6).map { Sp.tree(it) } + (0 until 3).map { Sp.bush(it) } + listOf(Sp.sprinkler, Sp.lamp)
+    val nc = nature.maxOf { maxOf(it.width, it.height) } + 2; val ncols = 6
+    val nimg = BufferedImage(ncols * nc * bs, (nature.size + ncols - 1) / ncols * nc * bs, BufferedImage.TYPE_INT_ARGB)
+    nimg.createGraphics().apply { color = java.awt.Color(0x6A, 0x9A, 0x4A); fillRect(0, 0, nimg.width, nimg.height); dispose() }
+    nature.forEachIndexed { n, b ->
+        val ox = (n % ncols) * nc * bs; val oy = (n / ncols) * nc * bs
+        for (y in 0 until b.height) for (x in 0 until b.width) {
+            val c = b.getPixel(x, y)
+            if (c ushr 24 == 0) continue
+            for (j in 0 until bs) for (i in 0 until bs) nimg.setRGB(ox + x * bs + i, oy + y * bs + j, c)
+        }
+    }
+    ImageIO.write(nimg, "png", File(path.removeSuffix(".png") + "-nature.png"))
     // Shop keeper portraits, one row per town.
     val towns = listOf("home", "redwood", "mesa", "bayou", "neon", "zion")
     val kc = People.BIG * 2 + 8

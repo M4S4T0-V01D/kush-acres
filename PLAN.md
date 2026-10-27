@@ -89,7 +89,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 
 ## Phase 8 — Graphics
 - [x] Decor shaded at fine-pixel detail: banded light across each piece, lit top-left rims, shaded lower edges
-- [~] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0); decor shading, lit edges on buildings and vehicles (0.10.1)
+- [x] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0); decor shading, lit edges on buildings and vehicles (0.10.1); plants, trees, bushes, lamps and sprinklers shaded the same way (ground tiles keep their lit edges; day/night tint, lamp glow and fireflies were already in)
 
 ## Phase 9 — Holidays, farmers, Pot Bucks (0.8.0)
 - [x] Right-click / long-press tile menu: move (stunts growing plants, by strain) or destroy plants and decor

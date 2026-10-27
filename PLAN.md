@@ -88,7 +88,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics
-- [ ] Redraw decor at higher detail
+- [x] Decor shaded at fine-pixel detail: banded light across each piece, lit top-left rims, shaded lower edges
 - [~] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0)
 
 ## Phase 9 — Holidays, farmers, Pot Bucks (0.8.0)

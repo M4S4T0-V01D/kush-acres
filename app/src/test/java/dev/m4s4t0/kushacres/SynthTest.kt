@@ -4,6 +4,7 @@ import dev.m4s4t0.kushacres.audio.Amb
 import dev.m4s4t0.kushacres.audio.Ambience
 import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.audio.Synth
+import dev.m4s4t0.kushacres.audio.Tunes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,10 +25,20 @@ class SynthTest {
     @Test fun ambience() { for (a in Amb.entries) check("amb-" + a.name.lowercase(), Ambience.loop(a).also { assertEquals(Synth.RATE * 16, it.size) }) }
 
     @Test fun music() {
-        val m = Synth.music()
-        assertEquals(48.0, m.size / Synth.RATE.toDouble(), 0.01)
-        check("music", m)
-        assertTrue(kotlin.math.abs(m.first()) < 0.01f && kotlin.math.abs(m.last()) < 0.01f)
+        for (id in Tunes.areas + "somewhere-new") {
+            val t = Tunes.of(id)
+            val m = Synth.music(t)
+            assertEquals(16 * 4 * 60.0 / t.bpm, m.size / Synth.RATE.toDouble(), 0.01)
+            check("music-$id", m)
+            assertTrue(kotlin.math.abs(m.first()) < 0.01f && kotlin.math.abs(m.last()) < 0.01f)
+        }
+    }
+
+    @Test fun everyAreaHasItsOwnTune() {
+        val areas = listOf("home", "town") + (dev.m4s4t0.kushacres.model.Sites.all + dev.m4s4t0.kushacres.model.Sites.holidays + dev.m4s4t0.kushacres.model.Sites.premium).map { it.id }
+        for (a in areas) assertTrue("no tune for $a", a in Tunes.areas)
+        val sounds = Tunes.areas.map { Tunes.of(it).let { t -> listOf(t.root, t.bpm, t.minor, t.prog.toList(), t.lead) } }
+        assertEquals(sounds.size, sounds.toSet().size)
     }
 
     @Test fun wavHeader() {

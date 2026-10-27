@@ -116,7 +116,14 @@ object Sites {
             roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f)), holiday = "thanksgiving"),
     )
 
-    private val byId = (all + holidays).associateBy { it.id }
+    /** Farms bought with Pot Bucks (their price is in Pot Bucks). Not on the realtor's list either. */
+    val premium: List<SiteDef> = listOf(
+        SiteDef("zion", "Zion Gardens", "Red, gold and green as far as you can see, and a bassline from the hills.", 12, 250, 0.5f, 0.5f,
+            0xFF4AB04A.toInt(), 0xFF2E8A3A.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFFFD23A.toInt(), 4,
+            roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f)), holiday = "bucks"),
+    )
+
+    private val byId = (all + holidays + premium).associateBy { it.id }
     operator fun get(id: String): SiteDef? = byId[id]
 
     /** Smooth noise in 0..1, about one bump every 4 squares. */
@@ -189,11 +196,22 @@ class Site(val def: SiteDef) {
     var wall = def.wall
     /** Workers hired for this farm; they staff its work buildings in order and water plots when there's no building free. */
     var workers = 0
+    /** The shack's tier and Violet's upgrades bought for this farm. */
+    var shack = 0
+    val upgrades = IntArray(Upgrade.entries.size)
     /** The work buildings on this farm, worked out again whenever one is built, moved or staffed (see Farm.houses). */
     var spots: List<HouseSpot>? = null
     /** Where the player put the middle of the square, or null for the site's own spot ([SiteDef.ax], [SiteDef.ay]). */
     var cx: Int? = null
     var cy: Int? = null
+    /** Grass and plot soil colours bought in the shop, or null for the farm's own. */
+    var grass: Int? = null
+    var dirt: Int? = null
+    /** Power made and used, and the specials standing here, worked out by Farm.scan when [scanned] is stale. */
+    var scanned = -1L
+    var made = 0
+    var used = 0
+    var specials: Set<String> = emptySet()
     /** Top-left corner of the owned square. */
     val ox get() = cx?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ax).roundToInt()
     val oy get() = cy?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ay).roundToInt()

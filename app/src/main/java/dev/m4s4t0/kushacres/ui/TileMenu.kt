@@ -28,8 +28,10 @@ import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
+import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.WorkHouse
 import kotlin.math.roundToInt
@@ -65,6 +67,8 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.SHACK, Kind.PART -> "Shack"
                 Kind.FACILITY -> Facility.of(tile.item)?.title ?: "Facility"
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: "Building"
+                Kind.POWER -> Generator.of(tile.item)?.title ?: "Generator"
+                Kind.SPECIAL -> Special.of(tile.item)?.title ?: "Special"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: "Decor"
                 Kind.GRASS -> "Grass"
             }
@@ -126,7 +130,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     item("Open", Gold) { ui.fac = x to y; ui.panel = Panel.FACILITY; close() }
                     item("Move") { moveIt() }
                 }
-                Kind.HOUSE -> {
+                Kind.HOUSE, Kind.POWER, Kind.SPECIAL -> {
                     item("Details", Gold) { ui.selected = x to y; close() }
                     item("Move") { moveIt() }
                 }

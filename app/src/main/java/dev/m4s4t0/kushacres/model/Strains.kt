@@ -30,6 +30,8 @@ class Strain(
     val site: String? = null,
     /** A holiday strain: unlocked for good from that holiday's shop. */
     val holiday: String? = null,
+    /** Pot Bucks strains (holiday "bucks"): unlocked for good for this many Pot Bucks. */
+    val bucks: Long = 0,
 ) {
     val seconds: Long get() = minutes * 60L
     val hybrid: Boolean get() = parents != null
@@ -134,6 +136,17 @@ object Strains {
     )
 
     /** Holiday strains, two per holiday: a quick one and a long one, bought with that holiday's tokens. */
+    private val premium = listOf(
+        Strain("jahbless", "Jah Bless", 30, 1, 80, 9, 520, 70, 0xFF2E7A2E.toInt(), 0xFFFFD23A.toInt(), 0xFFE03A3A.toInt(),
+            "One love, one heart, one very sticky bud.", holiday = "bucks", bucks = 40),
+        Strain("zionhaze", "Zion Haze", 120, 1, 250, 12, 3200, 260, 0xFF3A8A3A.toInt(), 0xFF8AE06A.toInt(), 0xFFFFE04A.toInt(),
+            "Slow, sweet and easy, like a Sunday bassline.", holiday = "bucks", bucks = 70),
+        Strain("dubplate", "Dub Plate OG", 240, 1, 600, 15, 9800, 640, 0xFF1E4A2E.toInt(), 0xFF5A3AA4.toInt(), 0xFFFF8A1E.toInt(),
+            "Heavy on the bass, heavy on the resin.", holiday = "bucks", bucks = 110),
+        Strain("lionsmane", "Lion's Mane", 480, 1, 1500, 18, 26000, 1400, 0xFF4A6A1E.toInt(), 0xFFE0A03A.toInt(), 0xFFFF5A1E.toInt(),
+            "A golden mane of orange hairs. Roars when you harvest it.", holiday = "bucks", bucks = 160),
+    )
+
     private val festive = listOf(
         Strain("pumpkinspice", "Pumpkin Spice Kush", 45, 1, 60, 8, 420, 60, 0xFF3A4A1E.toInt(), 0xFFFF8A1E.toInt(), 0xFFFFE04A.toInt(),
             "Basic? Maybe. Delicious? Absolutely.", holiday = "halloween"),
@@ -288,7 +301,7 @@ object Strains {
         }
     }
 
-    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + native + festive
+    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + native + festive + premium
 
     /** The strains you buy seeds for with cash, in unlock order. */
     val ladder = all.filter { !it.exotic && !it.hybrid && it.site == null && it.holiday == null }
@@ -296,6 +309,8 @@ object Strains {
     val natives = native
     /** Holiday strains, kept for good once bought. */
     val holidays = festive
+    /** Pot Bucks strains, kept for good once bought. */
+    val bucksList = premium
     /** Lab strains: unlocked by breeding them once. */
     val hybridList = all.filter { it.hybrid }
     /** Black-market strains: planted from seeds you own, never asked for in orders. */

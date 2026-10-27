@@ -38,6 +38,8 @@ import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.SiteDef
+import dev.m4s4t0.kushacres.model.TownFolk
+import dev.m4s4t0.kushacres.model.Towns
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Helper
@@ -48,23 +50,24 @@ import dev.m4s4t0.kushacres.model.Upgrade
 
 private val Neon = Color(0xFFD86AF0)
 
-fun shopName(k: Keeper) = when (k) {
-    Keeper.VIOLET -> "Violet's Grow Supply"
-    Keeper.DEX -> "Dex's Dispensary"
-    Keeper.HANK -> "Hank's Hardware"
-    Keeper.MONA -> "Mona's Realty"
-    Keeper.GUS -> "Gus's Help Wanted"
-    Keeper.SHADE -> "The Back Alley"
+/** The folk running the town next to the farm on screen. */
+fun townFolk(): TownFolk = Towns[Store.farm.site.def.id]
+/** Who runs [k]'s shop in this farm's town. */
+fun keeper(k: Keeper): String = townFolk().names[k.ordinal]
+
+fun shopName(k: Keeper): String {
+    val n = keeper(k)
+    return when (k) {
+        Keeper.VIOLET -> "$n's Grow Supply"
+        Keeper.DEX -> "$n's Dispensary"
+        Keeper.HANK -> "$n's Hardware"
+        Keeper.MONA -> "$n's Realty"
+        Keeper.GUS -> "$n's Help Wanted"
+        Keeper.SHADE -> "The Back Alley"
+    }
 }
 
-private fun shopLine(k: Keeper) = when (k) {
-    Keeper.VIOLET -> "Hey sugar! Supplies, upgrades, and the best seeds in the valley. Grow something pretty for me."
-    Keeper.DEX -> "Whatcha got? I'll take bud, hash, dabs, whatever. Fair prices, mostly."
-    Keeper.HANK -> "Lumber, lamps, labs. If you can build it, I sell it."
-    Keeper.MONA -> "Location, location, location! More land, bigger house. Sign here."
-    Keeper.GUS -> "Need a hand? My folks work hard and never ask questions."
-    Keeper.SHADE -> "...You didn't see me. Stock turns over every few hours."
-}
+private fun shopLine(k: Keeper) = townFolk().lines[k.ordinal]
 
 private fun shopBlurb(k: Keeper) = when (k) {
     Keeper.VIOLET -> "Supplies & upgrades"
@@ -121,11 +124,11 @@ private fun MainStreet(ui: UiState) {
 @Composable
 private fun ShopHeader(k: Keeper) {
     val rim = if (k == Keeper.SHADE) Neon else Gold
-    val name = k.name.lowercase().replaceFirstChar { it.uppercase() }
+    val name = keeper(k)
     Row(verticalAlignment = Alignment.CenterVertically) {
         // A big framed portrait with a nameplate under it.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Px(People.portrait(k), 136.dp, Modifier.frame(Color(0xFF14100B), rim, 3.dp))
+            Px(People.portrait(k, Store.farm.site.def.id), 136.dp, Modifier.frame(Color(0xFF14100B), rim, 3.dp))
             T(name, 13.sp, if (k == Keeper.SHADE) Neon else Cream, Modifier.offset(y = (-6).dp).frame(Color(0xFF3F2C1A), rim).padding(horizontal = 10.dp))
         }
         // A speech bubble with its tail pointing at them.
@@ -186,12 +189,13 @@ private fun Upgrades() {
     val icons = mapOf(Upgrade.STASH to Sprites.jar, Upgrade.MULCH to Sprites.drop, Upgrade.NUTRIENTS to Sprites.arrow,
         Upgrade.GENETICS to Sprites.star, Upgrade.CRED to Sprites.hat)
     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item { T("Upgrades only count on ${f.site.def.name}. Each farm upgrades on its own.", 10.sp, Dim, bold = false) }
         items(Upgrade.entries) { u ->
             Store.rev
             val lvl = f.up(u)
             val maxed = lvl >= u.max
             val now = when (u) {
-                Upgrade.STASH -> "Holds ${f.stashCap()}g"
+                Upgrade.STASH -> "Here ${f.siteStash()}g · all farms ${f.stashCap()}g"
                 Upgrade.MULCH -> "Water lasts ${f.waterMillis() / 60_000}m"
                 Upgrade.NUTRIENTS -> "Growth +${lvl * 6}%"
                 Upgrade.GENETICS -> "Yield +${lvl * 8}%"
@@ -256,7 +260,7 @@ private fun GoodsSelling() {
     Store.rev
     val entries = f.goods.entries.filter { it.value > 0 }.toList()
     if (entries.isEmpty()) {
-        T(if (f.count(dev.m4s4t0.kushacres.model.Facility.ROLLER) == 0) "No goods yet. Build a Rolling Table at Hank's and turn bud into pre-rolls." else "Nothing to sell right now. Collect batches from your facilities.", 13.sp, Dim, Modifier.padding(12.dp))
+        T(if (f.count(dev.m4s4t0.kushacres.model.Facility.ROLLER) == 0) "No goods yet. Build a Rolling Table at ${keeper(Keeper.HANK)}'s and turn bud into pre-rolls." else "Nothing to sell right now. Collect batches from your facilities.", 13.sp, Dim, Modifier.padding(12.dp))
         return
     }
     val total = entries.sumOf { (f.goodsPrice(it.key) * it.value).toLong() }
@@ -314,8 +318,8 @@ private fun MonaShop(ui: UiState) {
         item {
             Store.rev
             val next = f.nextShack()
-            if (next == null) Card(dev.m4s4t0.kushacres.art.Buildings.shack(f.shack, f.roof, f.wall), "Home", "Nothing left to sell you, darling.", null, "MAX", false) {}
-            else Card(dev.m4s4t0.kushacres.art.Buildings.shack(f.shack + 1, f.roof, f.wall), next.title, next.blurb,
+            if (next == null) Card(dev.m4s4t0.kushacres.art.Buildings.shack(f.shack, f.roof, f.wall), "Home on ${f.site.def.name}", "Nothing left to sell you, darling.", null, "MAX", false) {}
+            else Card(dev.m4s4t0.kushacres.art.Buildings.shack(f.shack + 1, f.roof, f.wall), "${next.title} on ${f.site.def.name}", next.blurb,
                 "+20% stash, +3 decor, room for more helpers", money(next.cost), f.cash >= next.cost,
                 if (f.level < next.level) next.level else null) {
                 val r = f.upgradeShack(); report(r)
@@ -343,12 +347,12 @@ private fun GusShop() {
             val hired = f.has(h)
             val sub = when {
                 hired -> "On the payroll"
-                f.shack < h.shack -> "Needs a ${dev.m4s4t0.kushacres.model.SHACKS[h.shack].title}"
+                f.bestShack() < h.shack -> "Needs a ${dev.m4s4t0.kushacres.model.SHACKS[h.shack].title}"
                 h == Helper.MANAGER && !f.farmhand -> "Needs the Farmhand"
                 else -> null
             }
             Card(People.helper(h, 0), h.title, h.job, sub, if (hired) "HIRED" else money(h.cost),
-                !hired && f.cash >= h.cost && f.shack >= h.shack, if (f.level < h.level) h.level else null) { report(f.hire(h)) }
+                !hired && f.cash >= h.cost && f.bestShack() >= h.shack, if (f.level < h.level) h.level else null) { report(f.hire(h)) }
         }
         if (f.has(Helper.RUNNER)) item {
             Store.rev

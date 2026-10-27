@@ -55,6 +55,8 @@ object Save {
             val bad = when (tile.kind) {
                 Kind.FACILITY -> Facility.of(tile.item) == null
                 Kind.HOUSE -> WorkHouse.of(tile.item) == null
+                Kind.POWER -> Generator.of(tile.item) == null
+                Kind.SPECIAL -> Special.of(tile.item) == null
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item) == null
                 else -> false
             }
@@ -70,10 +72,8 @@ object Save {
         o.put("runnerOn", f.runnerOn); o.put("runnerAt", f.runnerAt)
         o.put("lastTick", f.lastTick)
         o.put("harvests", f.totalHarvests); o.put("earned", f.totalEarned)
-        o.put("shack", f.shack)
         o.put("envelopes", f.envelopes)
         o.put("bmRot", f.bmRot); o.put("bmBought", JSONArray(f.bmBought.toList()))
-        o.put("up", JSONObject().apply { Upgrade.entries.forEach { put(it.name, f.up(it)) } })
         o.put("stash", ints(f.stash)); o.put("goods", ints(f.goods)); o.put("seeds", ints(f.seeds)); o.put("decor", ints(f.decorInv))
         o.put("supplies", JSONObject().apply { Supply.entries.forEach { put(it.name, f.supplies[it.ordinal]) } })
         o.put("buffs", JSONObject().apply { f.buffs.forEach { (k, v) -> put(k.name, v) } })
@@ -82,8 +82,8 @@ object Save {
         o.put("sites", JSONArray().apply {
             f.sites.forEach { st ->
                 put(JSONObject().put("id", st.def.id).put("land", st.land).put("roof", st.roof).put("wall", st.wall)
-                    .put("workers", st.workers).put("tiles", writeTiles(st.tiles))
-                    .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) } })
+                    .put("workers", st.workers).put("shack", st.shack).put("up", ups(st.upgrades)).put("tiles", writeTiles(st.tiles))
+                    .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) }; st.grass?.let { put("grass", it) }; st.dirt?.let { put("dirt", it) } })
             }
         })
         val orders = JSONArray()
@@ -91,6 +91,7 @@ object Save {
             val ord = f.orders[i]
             orders.put(JSONObject().apply {
                 put("at", f.orderAt[i])
+                if (f.deliverAt[i] > 0) { put("da", f.deliverAt[i]); put("dp", f.deliverPay[i]) }
                 if (ord != null) {
                     put("buyer", ord.buyer); put("reward", ord.reward); put("xp", ord.xp); put("vip", ord.vip)
                     put("items", JSONArray().apply { ord.items.forEach { put(JSONObject().put("s", it.strain).put("g", it.grams)) } })
@@ -109,11 +110,18 @@ object Save {
             }
         })
         o.put("potBucks", f.potBucks)
+        o.put("gems", f.gems); o.put("mineAt", f.mineAt)
         o.put("tokens", JSONObject().apply { f.tokens.forEach { (k, v) -> put(k, v) } })
         o.put("holidayStrains", JSONArray(f.unlockedStrains.toList())); o.put("pets", JSONArray(f.pets.toList()))
         f.farmer?.let { o.put("farmerName", it.name); o.put("farmer", it.encode()) }
         o.put("festivalUntil", f.festivalUntil); f.festivalSite?.let { o.put("festivalSite", it) }
         return o.toString()
+    }
+
+    private fun ups(a: IntArray) = JSONObject().apply { Upgrade.entries.forEach { put(it.name, a[it.ordinal]) } }
+    private fun readUps(u: JSONObject?, into: IntArray) {
+        into.fill(0)
+        u?.let { Upgrade.entries.forEach { into[it.ordinal] = u.optInt(it.name).coerceIn(0, it.max) } }
     }
 
     fun read(json: String, f: Farm) {
@@ -126,12 +134,13 @@ object Save {
         f.runnerOn = o.optBoolean("runnerOn", true); f.runnerAt = o.optLong("runnerAt")
         f.lastTick = o.optLong("lastTick")
         f.totalHarvests = o.optLong("harvests"); f.totalEarned = o.optLong("earned")
-        f.shack = o.optInt("shack").coerceIn(0, SHACKS.size - 1)
+        // Before 0.9.0 the shack and Violet's upgrades were shared; old saves give them to every farm they own.
+        val oldShack = o.optInt("shack").coerceIn(0, SHACKS.size - 1)
         f.level = f.level.coerceIn(1, Farm.MAX_LEVEL)
         f.envelopes = o.optInt("envelopes")
         f.bmRot = o.optLong("bmRot", -1); f.bmBought.clear()
         o.optJSONArray("bmBought")?.let { a -> for (j in 0 until a.length()) f.bmBought += a.getInt(j) }
-        o.optJSONObject("up")?.let { u -> Upgrade.entries.forEach { f.upgrades[it.ordinal] = u.optInt(it.name).coerceIn(0, it.max) } }
+        val oldUp = o.optJSONObject("up")
         readInts(o.optJSONObject("stash"), f.stash) { Strains[it] != null }
         readInts(o.optJSONObject("goods"), f.goods) { f.goodsParts(it) != null }
         readInts(o.optJSONObject("seeds"), f.seeds) { Strains[it]?.exotic == true }
@@ -149,6 +158,7 @@ object Save {
         strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
         f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
+        f.gems = o.optLong("gems").coerceAtLeast(0); f.mineAt = o.optLong("mineAt")
         f.tokens.clear()
         o.optJSONObject("tokens")?.let { t -> t.keys().forEach { k -> if (Holiday[k] != null) f.tokens[k] = t.optLong(k).coerceAtLeast(0) } }
         f.farmer = if (o.has("farmer")) Farmer.decode(o.optString("farmerName", "Farmer").take(Farmer.NAME_MAX), o.optString("farmer")) else null
@@ -181,6 +191,7 @@ object Save {
         if (list == null) {
             // Before version 5 there was one farm, stored at the top level.
             home.land = land(o.optInt("land", 6)); home.roof = o.optInt("roof"); home.wall = o.optInt("wall")
+            home.shack = oldShack; readUps(oldUp, home.upgrades)
             readTiles(o.optJSONArray("tiles"), home.tiles, stride)
             f.sites += home
         } else for (j in 0 until list.length()) {
@@ -190,6 +201,10 @@ object Save {
             val st = if (def === Sites.HOME) home else Site(def)
             st.land = land(so.optInt("land", 6)); st.roof = so.optInt("roof", def.roof); st.wall = so.optInt("wall", def.wall)
             st.workers = so.optInt("workers").coerceIn(0, 99)
+            st.shack = if (so.has("shack")) so.optInt("shack").coerceIn(0, SHACKS.size - 1) else oldShack
+            readUps(if (so.has("up")) so.optJSONObject("up") else oldUp, st.upgrades)
+            if (so.has("grass")) st.grass = so.optInt("grass")
+            if (so.has("dirt")) st.dirt = so.optInt("dirt")
             if (so.has("cx") && so.has("cy")) { st.cx = so.optInt("cx").coerceIn(0, Farm.MAX - 1); st.cy = so.optInt("cy").coerceIn(0, Farm.MAX - 1) }
             readTiles(so.optJSONArray("tiles"), st.tiles, stride)
             f.sites += st
@@ -207,6 +222,7 @@ object Save {
             for (i in 0 until minOf(arr.length(), Farm.MAX_ORDERS)) {
                 val ord = arr.getJSONObject(i)
                 f.orderAt[i] = ord.optLong("at")
+                f.deliverAt[i] = ord.optLong("da"); f.deliverPay[i] = ord.optLong("dp")
                 val items = ord.optJSONArray("items")
                 f.orders[i] = if (items == null) null else Order(
                     ord.getString("buyer"),

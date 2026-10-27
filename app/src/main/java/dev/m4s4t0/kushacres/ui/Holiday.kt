@@ -1,6 +1,16 @@
 package dev.m4s4t0.kushacres.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +31,12 @@ import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.model.BucksItem
+import dev.m4s4t0.kushacres.model.DIRT_COLORS
+import dev.m4s4t0.kushacres.model.Decor
+import dev.m4s4t0.kushacres.model.GRASS_COLORS
+import dev.m4s4t0.kushacres.model.GROUND_BUCKS
+import dev.m4s4t0.kushacres.model.Ground
+import dev.m4s4t0.kushacres.model.Sites
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
@@ -32,8 +48,15 @@ internal fun Currencies(ui: UiState) {
     Store.rev
     val now = Store.now()
     val h = Holiday.at(now)
-    if (h == null && !f.festivalOn(now)) return
+    val gems = f.gems > 0 || f.level >= 10
+    if (h == null && !f.festivalOn(now) && !gems) return
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (gems) {
+            Chip(Modifier.clickable { ui.panel = Panel.BUILD; ui.buildTab = 5 }) {
+                Px(Coins.gem, 18.dp); Spacer(Modifier.width(4.dp)); T(short(f.gems), 13.sp, Color(0xFFD8A0FF))
+            }
+            Spacer(Modifier.width(6.dp))
+        }
         if (h != null) {
             Chip(Modifier.clickable { ui.panel = Panel.HOLIDAY }) {
                 Px(Coins.token(h), 18.dp); Spacer(Modifier.width(4.dp)); T("${short(f.tokens(h))} · ${h.title} shop", 13.sp, Color(h.main))
@@ -80,7 +103,7 @@ internal fun HolidayPanel(ui: UiState) {
                 Px(tok, 28.dp); Spacer(Modifier.width(8.dp))
                 androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                     T(h.greeting, 12.sp, Color(h.main))
-                    T("Earn ${h.tokens.lowercase()} from every sale, the dailies, challenges and events. Everything here is yours for good.", 10.sp, Dim, bold = false)
+                    T("Earn ${h.tokens.lowercase()} from orders, sales at the dispensary (half as many), harvests you pick, the dailies, jobs and events; higher strains and levels earn more. Everything here is yours for good.", 10.sp, Dim, bold = false)
                 }
                 Spacer(Modifier.width(6.dp))
                 T("${f.tokens(h)}", 18.sp, Color(h.main))
@@ -140,12 +163,45 @@ internal fun BucksPanel(ui: UiState) {
                 T("${f.potBucks}", 18.sp, Color(0xFF8AE07A))
             }
         }
+        fun buy(r: Result, msg: String) { report(r); if (r == Result.OK) Store.toast(msg) else if (r == Result.NO_CASH) Store.toast("Not enough Pot Bucks") }
+        item { Section("Ground colours on ${f.site.def.name}") }
+        item { Store.rev; GroundShop(dirt = false) }
+        item { Store.rev; GroundShop(dirt = true) }
+        item { Section("Farm") }
+        items(Sites.premium) { def ->
+            Store.rev
+            val owned = f.owns(def.id)
+            Card(DecorArt.sprite(Decor.LION), def.name, def.blurb, if (owned) "Yours. Switch to it from Your farms." else null,
+                "${def.price}", !owned && f.potBucks >= def.price, if (!owned && f.level < def.level) def.level else null, actionIcon = Coins.bucks) {
+                buy(f.buyBucksFarm(def), "${def.name} is yours! Find it under Your farms.")
+            }
+        }
+        item { Section("Strains: unlocked for good") }
+        items(Strains.bucksList) { s ->
+            Store.rev
+            val owned = s.id in f.unlockedStrains
+            Card(Sprites.strainIcon(s), s.name, "${dur(s.seconds)} · ${s.yield}g × ${money(s.price)}", if (owned) "Unlocked. It's on the Bucks seed shelf." else null,
+                "${s.bucks}", !owned && f.potBucks >= s.bucks, actionIcon = Coins.bucks) {
+                buy(f.buyBucksStrain(s), "${s.name} unlocked! Plant it from Seeds › Bucks.")
+            }
+        }
+        item { Section("Decor") }
+        items(Decor.bucksShop) { d ->
+            Store.rev
+            val have = f.decorInv[d.name] ?: 0
+            Card(DecorArt.sprite(d), d.title, d.desc, if (have > 0) "$have ready to place from Build" else null,
+                "${d.bucks}", f.potBucks >= d.bucks, actionIcon = Coins.bucks) {
+                buy(f.buyBucksDecor(d), "${d.title} bought. Place it from Build › Decor.")
+            }
+        }
+        item { Section("Boosts and more") }
         items(BucksItem.entries) { b ->
             Store.rev
             val icon = when (b) {
                 BucksItem.SEEDS -> Sprites.strainIcon(Strains.exotics.first())
                 BucksItem.CASH -> Sprites.coin
                 BucksItem.ENVELOPE -> Sprites.lock
+                BucksItem.GEM -> Coins.gem
                 else -> Coins.bucks
             }
             Card(icon, b.title, b.desc, null, "${b.price}", enabled = f.potBucks >= b.price, actionIcon = Coins.bucks) {
@@ -158,3 +214,48 @@ internal fun BucksPanel(ui: UiState) {
 
 @Composable
 private fun Section(s: String) = T(s, 13.sp, Gold)
+
+/** Swatches for this farm's grass or plot soil, each bought with cash or Pot Bucks. */
+@Composable
+private fun GroundShop(dirt: Boolean) {
+    val f = Store.farm
+    val list = if (dirt) DIRT_COLORS else GRASS_COLORS
+    val cur = if (dirt) f.site.dirt else f.site.grass
+    var pick by remember(dirt) { mutableStateOf<Ground?>(null) }
+    Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
+        T(if (dirt) "Plot soil" else "Grass", 12.sp, Cream)
+        Spacer(Modifier.height(4.dp))
+        for (row in list.chunked(6)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (g in row) {
+                    val c = g.color ?: if (dirt) 0xFF7A5A3A.toInt() else f.site.def.ground
+                    val on = g.color == cur
+                    Box(Modifier.size(34.dp).border(2.dp, if (pick == g) Gold else if (on) Cream else Color(0xFF14100B)).padding(3.dp).background(Color(c))
+                        .clickable { pick = g }, contentAlignment = Alignment.Center) {
+                        if (g.color == null) T("↺", 12.sp, Cream)
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+        val p = pick ?: return@Column
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(p.title, 12.sp, Gold, Modifier.weight(1f))
+            fun go(bucks: Boolean) {
+                val r = f.paintGround(dirt, p.color, bucks)
+                when (r) {
+                    Result.OK -> { Store.toast("${if (dirt) "Soil" else "Grass"} is now ${p.title.lowercase()}"); pick = null; Store.changed() }
+                    Result.BLOCKED -> Store.toast("It's already that colour")
+                    Result.NO_CASH -> Store.toast(if (bucks) "Not enough Pot Bucks" else "Not enough cash")
+                    else -> report(r)
+                }
+            }
+            if (p.color == null) Btn("Put back", color = Gold) { go(false) }
+            else {
+                Btn(money(f.groundCost()), enabled = f.cash >= f.groundCost(), color = Gold, icon = Sprites.coin) { go(false) }
+                Spacer(Modifier.width(6.dp))
+                Btn("$GROUND_BUCKS", enabled = f.potBucks >= GROUND_BUCKS, color = Leaf, icon = Coins.bucks) { go(true) }
+            }
+        }
+    }
+}

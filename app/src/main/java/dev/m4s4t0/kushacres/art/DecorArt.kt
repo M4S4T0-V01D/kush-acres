@@ -403,6 +403,96 @@ object DecorArt {
                 repeat(10) { px.set(8 + r.nextInt(16), 15 + r.nextInt(12), shade(h, 0.7f)) }
                 px.set(12, 13, h); px.set(16, 12, h); px.set(21, 13, shade(h, 0.85f))
             }
+            Decor.SOUNDSYSTEM -> {
+                base()
+                val red = 0xFFD83A2E.toInt(); val yel = 0xFFF2C83A.toInt(); val grn = 0xFF2E9A3E.toInt()
+                val cab = 0xFF2A2420.toInt()
+                for ((x, y0) in listOf(6 to 13, 19 to 13)) {
+                    px.rect(x, y0, 8, 15, cab); px.rect(x + 6, y0, 2, 15, shade(cab, 0.7f))
+                    px.disc(x + 3, y0 + 4, 2, 0xFF5A5450.toInt()); px.set(x + 3, y0 + 4, cab)
+                    px.disc(x + 3, y0 + 10, 3, 0xFF5A5450.toInt()); px.disc(x + 3, y0 + 10, 1, cab)
+                }
+                px.rect(13, 20, 7, 8, 0xFF3A3430.toInt())
+                px.rect(13, 21, 7, 1, red); px.rect(13, 23, 7, 1, yel); px.rect(13, 25, 7, 1, grn)
+                px.rect(6, 11, 21, 2, cab); px.rect(6, 11, 7, 1, red); px.rect(13, 11, 7, 1, yel); px.rect(20, 11, 7, 1, grn)
+                px.set(10, 7, yel); px.set(12, 5, yel); px.set(22, 6, yel); px.set(24, 8, yel)
+            }
+            Decor.HAMMOCK -> {
+                base(0xFF4A6A30.toInt())
+                val post = 0xFF6A4325.toInt()
+                px.rect(5, 9, 2, 19, post); px.rect(25, 9, 2, 19, post)
+                px.disc(6, 7, 3, leaf); px.disc(26, 7, 3, leaf)
+                val stripes = intArrayOf(0xFFD83A2E.toInt(), 0xFFF2C83A.toInt(), 0xFF2E9A3E.toInt())
+                for (x in 7..24) {
+                    val sag = ((x - 7) * (24 - x)) / 22
+                    for (k in 0..2) px.set(x, 12 + sag + k, stripes[(x / 2) % 3].let { if (k == 2) shade(it, 0.75f) else it })
+                }
+                px.line(7, 12, 5, 11, white); px.line(24, 12, 26, 11, white)
+            }
+            Decor.STEELDRUM -> {
+                base()
+                val s = 0xFFC8CCD4.toInt()
+                px.rect(10, 26, 1, 3, 0xFF4A4A50.toInt()); px.rect(21, 26, 1, 3, 0xFF4A4A50.toInt())
+                px.rect(10, 15, 12, 11, shade(s, 0.85f)); px.rect(10, 15, 3, 11, s); px.rect(19, 15, 3, 11, shade(s, 0.65f))
+                px.rect(10, 18, 12, 1, 0xFFD83A2E.toInt()); px.rect(10, 22, 12, 1, 0xFFF2C83A.toInt())
+                oval(px, 16, 15, 6, 2, shade(s, 1.1f)); oval(px, 16, 15, 4, 1, shade(s, 0.75f))
+                px.set(14, 15, white); px.set(18, 14, white)
+                px.line(6, 9, 13, 13, 0xFF8A5A30.toInt()); px.line(26, 9, 19, 13, 0xFF8A5A30.toInt())
+                px.disc(13, 13, 1, white); px.disc(19, 13, 1, white)
+            }
+            Decor.MURAL -> {
+                base()
+                val wall = 0xFFE8DCC0.toInt()
+                px.rect(5, 6, 22, 21, wall); px.rect(5, 26, 22, 2, shade(wall, 0.7f))
+                px.rect(6, 7, 20, 6, 0xFFD83A2E.toInt()); px.rect(6, 13, 20, 6, 0xFFF2C83A.toInt()); px.rect(6, 19, 20, 7, 0xFF2E9A3E.toInt())
+                val l = 0xFF1E5A22.toInt()
+                px.line(16, 24, 16, 11, l)
+                for (k in 0..2) { px.line(16, 16 + k * 2, 10 + k, 11 + k * 3, l); px.line(16, 16 + k * 2, 22 - k, 11 + k * 3, l) }
+                px.line(16, 20, 12, 22, l); px.line(16, 20, 20, 22, l)
+            }
+            Decor.LION -> {
+                base(0xFF6A6A70.toInt())
+                val st = 0xFFC8B070.toInt(); val mane = 0xFFB0702A.toInt()
+                px.rect(8, 23, 16, 5, shade(st, 0.75f)); px.rect(8, 23, 16, 1, st)
+                oval(px, 19, 19, 6, 4, st); px.rect(21, 21, 2, 3, shade(st, 0.8f)); px.rect(16, 21, 2, 3, shade(st, 0.8f))
+                px.disc(11, 15, 6, mane); px.disc(12, 16, 5, shade(mane, 0.8f))
+                for (k in 0..5) px.set(6 + k * 2, 9 + (k % 2), 0xFFD83A2E.toInt())
+                px.disc(11, 15, 3, st); px.set(10, 14, OUT); px.set(12, 14, OUT); px.rect(10, 17, 3, 1, shade(st, 0.6f))
+                px.line(25, 18, 27, 13, mane); px.disc(27, 12, 1, mane)
+            }
+            Decor.SHROOMS -> {
+                base(0xFF3A4A2A.toInt())
+                val stem = 0xFFF0E8D0.toInt()
+                fun shroom(cx: Int, by: Int, h: Int, r: Int, cap: Int) {
+                    px.rect(cx - 1, by - h, 3, h, stem); px.set(cx + 1, by - 1, shade(stem, 0.8f))
+                    oval(px, cx, by - h, r, r / 2 + 1, cap); oval(px, cx + 1, by - h + 1, r - 1, r / 2, shade(cap, 0.8f))
+                    oval(px, cx, by - h - 1, r - 1, r / 2, cap)
+                    px.set(cx - r / 2, by - h - 1, white); px.set(cx + r / 2, by - h, white); px.set(cx, by - h - 2, white)
+                }
+                shroom(10, 28, 6, 4, 0xFFB05AE0.toInt()); shroom(22, 28, 5, 4, 0xFF3AB0D8.toInt())
+                shroom(16, 29, 11, 6, 0xFFE04A6A.toInt())
+            }
+            Decor.BUDDHA -> {
+                base(0xFF5A5A62.toInt())
+                val g = 0xFFE0B040.toInt()
+                px.rect(7, 25, 18, 3, 0xFF8A8A94.toInt()); px.rect(7, 25, 18, 1, 0xFFB0B0B8.toInt())
+                oval(px, 16, 22, 8, 3, shade(g, 0.85f))
+                oval(px, 16, 17, 5, 6, g); oval(px, 17, 18, 4, 5, shade(g, 0.85f)); oval(px, 15, 16, 3, 4, g)
+                px.disc(16, 9, 3, g); px.set(16, 5, shade(g, 0.8f)); px.disc(17, 10, 2, shade(g, 0.85f)); px.disc(15, 8, 1, mix(g, white, 0.5f))
+                px.set(15, 9, shade(g, 0.6f)); px.set(17, 9, shade(g, 0.6f))
+                px.rect(13, 20, 6, 1, shade(g, 0.7f))
+            }
+            Decor.TIKIBAR -> {
+                base()
+                val wd = 0xFF8A5A30.toInt(); val thatch = 0xFFD8B060.toInt()
+                px.rect(7, 12, 2, 16, shade(wd, 0.7f)); px.rect(23, 12, 2, 16, shade(wd, 0.7f))
+                px.rect(6, 20, 20, 7, wd); px.rect(6, 20, 20, 1, shade(wd, 1.25f)); px.rect(20, 21, 6, 6, shade(wd, 0.75f))
+                for (x in 7..24 step 3) px.line(x, 21, x, 26, shade(wd, 0.6f))
+                px.poly(thatch, 3, 13, 16, 5, 29, 13)
+                for (x in 4..28 step 2) px.line(x, 13, x, 15, shade(thatch, if (x % 4 == 0) 0.8f else 1f))
+                px.rect(10, 17, 2, 3, 0xFF3AB0D8.toInt()); px.rect(15, 18, 2, 2, 0xFFF08A3A.toInt()); px.set(15, 17, 0xFF4F9A3A.toInt())
+                px.rect(20, 17, 2, 3, 0xFFD83A2E.toInt())
+            }
             else -> {}
         }
     }

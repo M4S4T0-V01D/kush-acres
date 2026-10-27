@@ -158,9 +158,14 @@ object Sprites {
         px.bitmap()
     }
 
-    private val plotCache = HashMap<Boolean, Bitmap>()
-    fun plot(wet: Boolean): Bitmap = plotCache.getOrPut(wet) {
-        val soil = if (wet) 0xFF5A3720.toInt() else 0xFF9C6A3C.toInt()
+    private val plotCache = HashMap<Pair<Boolean, Int?>, Bitmap>()
+    /** A plot; [dirt] swaps the dry soil colour (wet soil is the same colour, darker). */
+    fun plot(wet: Boolean, dirt: Int? = null): Bitmap = plotCache.getOrPut(wet to dirt) {
+        val soil = when {
+            dirt != null -> if (wet) shade(dirt, 0.58f) else dirt
+            wet -> 0xFF5A3720.toInt()
+            else -> 0xFF9C6A3C.toInt()
+        }
         val wood = 0xFF7A5230.toInt()
         val px = Px(TW, TH + DEPTH)
         val s = px.s

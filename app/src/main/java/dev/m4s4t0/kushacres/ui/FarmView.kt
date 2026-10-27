@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
@@ -52,6 +54,8 @@ import dev.m4s4t0.kushacres.art.Sprites.TH
 import dev.m4s4t0.kushacres.art.Sprites.TW
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
+import dev.m4s4t0.kushacres.model.Generator
+import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Farm
@@ -318,6 +322,8 @@ class World {
         val land = f.land
         val ox = f.ox; val oy = f.oy
         val def = f.site.def
+        val ground = f.site.grass ?: def.ground
+        val dark = !f.powered()
         val buildMode = placing
         val wave = (t * 2.5f).toInt()
         // Ground, back to front.
@@ -328,14 +334,14 @@ class World {
             val tile = f.tile(x, y)
             val inside = f.inLand(x, y)
             val bmp = when {
-                tile.kind == Kind.PLOT -> Sprites.plot(f.wet(x, y, now))
-                tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false, def.ground)
+                tile.kind == Kind.PLOT -> Sprites.plot(f.wet(x, y, now), f.site.dirt)
+                tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false, ground)
                 tile.kind == Kind.WATER -> {
                     fun w(a: Int, b: Int) = a !in 0 until Farm.MAX || b !in 0 until Farm.MAX || f.tile(a, b).kind == Kind.WATER
                     val deep = w(x - 1, y) && w(x + 1, y) && w(x, y - 1) && w(x, y + 1)
                     Sprites.water((wave + hash(x, y) % 2) % Sprites.WATER_FRAMES, deep)
                 }
-                else -> Sprites.grass(hash(x, y) % 4, !inside, if (inside) def.ground else def.wild)
+                else -> Sprites.grass(hash(x, y) % 4, !inside, if (inside) ground else def.wild)
             }
             blit(bmp, tileX(x, y).toFloat(), tileY(x, y).toFloat())
             if (buildMode && inside && tile.kind == Kind.GRASS) {
@@ -372,7 +378,7 @@ class World {
         }
         // Lamp light pools under everything standing.
         fill.color = 0x30FFE27A
-        for (y in oy until oy + land) for (x in ox until ox + land) if (f.tile(x, y).kind == Kind.LAMP && seen(centerX(x, y), centerY(x, y))) {
+        if (!dark) for (y in oy until oy + land) for (x in ox until ox + land) if (f.tile(x, y).kind == Kind.LAMP && seen(centerX(x, y), centerY(x, y))) {
             val cx = centerX(x, y).toFloat(); val cy = centerY(x, y).toFloat()
             canvas.drawOval(cx - TW * 1.5f, cy - TH * 1.5f, cx + TW * 1.5f, cy + TH * 1.5f, fill)
         }
@@ -465,8 +471,21 @@ class World {
                 }
                 Kind.LAMP -> {
                     stand(x, y, Sprites.lamp, cx - 8, cy - 34)
-                    light(cx.toFloat(), cy - 30f, 9f, 0xFFE8A0, 1f)
-                    light(cx.toFloat(), cy.toFloat(), TW * 1.6f, 0xFFC860, 0.55f)
+                    // Short on power the lamps go dark, with a slow red warning blink.
+                    if (dark) {
+                        if ((t * 1.5f).toInt() % 2 == 0) light(cx.toFloat(), cy - 30f, 4f, 0xFF4030, 0.8f)
+                    } else {
+                        light(cx.toFloat(), cy - 30f, 9f, 0xFFE8A0, 1f)
+                        light(cx.toFloat(), cy.toFloat(), TW * 1.6f, 0xFFC860, 0.55f)
+                    }
+                }
+                Kind.POWER -> Generator.of(tile.item)?.let { g ->
+                    stand(x, y, Buildings.generator(g), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
+                    light(cx.toFloat(), cy - 12f, 7f, 0xFFF080, 0.6f + 0.15f * sin(t * 6 + x * 3))
+                }
+                Kind.SPECIAL -> Special.of(tile.item)?.let { sp ->
+                    stand(x, y, Buildings.special(sp), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
+                    light(cx.toFloat(), cy - 16f, 12f, 0xD8A0FF, 0.45f + 0.15f * sin(t * 2 + y))
                 }
                 Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
                 Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
@@ -632,8 +651,31 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (scale != 0f) offset = Offset(wPx / 2 - world.centerX(gx, gy) * scale, hPx / 2 - world.centerY(gx, gy) * scale)
             prefs.edit().putInt("rot", ui.rot).apply()
         }
-        if (scale == 0f) centerOnLand()
+        // The view (the square in the middle of the screen and the zoom) is kept per farm, so it comes back as you left it.
+        val camKey = "cam-" + f.site.def.id
+        if (scale == 0f && wPx > 0f) {
+            val cam = prefs.getString(camKey, null)?.split(",")?.mapNotNull { it.toFloatOrNull() }
+            if (cam?.size == 3 && cam.all { it.isFinite() }) {
+                scale = cam[2].coerceIn(minScale(), 12f)
+                offset = Offset(wPx / 2 - world.centerX(cam[0], cam[1]) * scale, hPx / 2 - world.centerY(cam[0], cam[1]) * scale)
+                clamp()
+            } else centerOnLand()
+        }
         if (ui.recenter != 0) { centerOnLand(); ui.recenter = 0 }
+        val savedCam = remember { arrayOf("", "") }
+        val savedAt = remember { longArrayOf(0L) }
+        SideEffect {
+            // At most every second and a half: on the desktop each write is a file.
+            if (scale == 0f || System.currentTimeMillis() - savedAt[0] < 1500) return@SideEffect
+            savedAt[0] = System.currentTimeMillis()
+            val mid = (Offset(wPx / 2, hPx / 2) - offset) / scale
+            val (gx, gy) = world.groundAt(mid.x, mid.y)
+            val cam = "%.1f,%.1f,%.3f".format(java.util.Locale.ROOT, gx, gy, scale)
+            if (savedCam[0] != camKey || savedCam[1] != cam) {
+                savedCam[0] = camKey; savedCam[1] = cam
+                prefs.edit().putString(camKey, cam).apply()
+            }
+        }
 
         fun toWorld(p: Offset) = (p - offset) / scale
         fun tileAt(p: Offset): Pair<Int, Int>? {
@@ -647,9 +689,10 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (r == Result.NO_CASH || r == Result.STASH_FULL || r == Result.LOCKED || r == Result.LIMIT) Audio.play(Sfx.ERROR)
             when (r) {
                 Result.NO_CASH -> Store.toast("Not enough cash")
-                Result.STASH_FULL -> Store.toast("Stash is full! Sell some bud at Dex's in town")
+                Result.STASH_FULL -> Store.toast("Stash is full! Sell some bud at ${keeper(Keeper.DEX)}'s in town")
                 Result.LOCKED -> Store.toast("Unlocks at a higher level")
                 Result.LIMIT -> Store.toast("No room for more decor. Upgrade your shack!")
+                Result.NO_POWER -> Store.toast("Not enough power on this farm. Build a generator!")
                 else -> {}
             }
         }
@@ -661,7 +704,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (!f.inLand(x, y)) return null
             return when (ui.mode) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
-                is Mode.PlaceFacility, is Mode.PlaceHouse -> null
+                is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial -> null
                 is Mode.Move -> null
                 Mode.Demolish -> null
                 Mode.Farm -> when {
@@ -751,6 +794,23 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val r = f.buildFacility(x, y, m.f)
                     if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
                     else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square") else complain(r)
+                }
+                is Mode.PlacePower -> {
+                    val r = f.buildPower(x, y, m.g)
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f)
+                        Store.toast("${m.g.title} built: +${m.g.watts} ⚡"); ui.mode = Mode.Farm; Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square") else complain(r)
+                }
+                is Mode.PlaceSpecial -> {
+                    val r = f.buildSpecial(x, y, m.s, Store.now())
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.LEVEL_UP); world.fx.burst(Burst.COINS, world.centerX(x, y).toFloat(), world.centerY(x, y) - 10f)
+                        Store.toast("${m.s.title} built! ${m.s.desc}."); ui.mode = Mode.Farm; Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square")
+                    else if (r == Result.NO_CASH) { Audio.play(Sfx.ERROR); Store.toast("Not enough gems or cash") }
+                    else if (r == Result.LIMIT) Store.toast("You already have one of those")
+                    else complain(r)
                 }
                 Mode.Demolish -> when {
                     tile.kind == Kind.GRASS -> ui.selected = null

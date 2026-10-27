@@ -23,6 +23,7 @@ import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Stat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -75,6 +76,8 @@ import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.Generator
+import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Strains
 import kotlinx.coroutines.delay
 import java.util.IdentityHashMap
@@ -87,12 +90,14 @@ sealed class Mode {
     data class PlaceFacility(val f: Facility) : Mode()
     data class PlaceDecor(val d: Decor) : Mode()
     data class PlaceHouse(val h: WorkHouse) : Mode()
+    data class PlacePower(val g: Generator) : Mode()
+    data class PlaceSpecial(val s: Special) : Mode()
     /** Pick something up, then tap where it goes. */
     data class Move(val from: Pair<Int, Int>? = null) : Mode()
     data object Demolish : Mode()
 }
 
-enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS }
+enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS }
 
 class UiState {
     var mode by mutableStateOf<Mode>(Mode.Farm)
@@ -110,6 +115,7 @@ class UiState {
     var menu by mutableStateOf<Pair<Int, Int>?>(null)
     /** The farmer creator open to restyle, and the farm-moving map open. */
     var creator by mutableStateOf(false)
+    var buildTab by mutableIntStateOf(0)
     var mover by mutableStateOf(false)
     var menuAt by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
@@ -255,7 +261,11 @@ fun App() {
 private fun Hud(ui: UiState) {
     val f = Store.farm
     Store.rev
-    SideEffect { Theme.site = f.site.def }
+    val area = if (ui.panel == Panel.TOWN) "town" else f.site.def.id
+    SideEffect { Theme.site = f.site.def; Audio.area(area) }
+    // On a phone the top bar is narrow, so the numbers are a little smaller there and don't wrap.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val narrow = maxWidth < 600.dp
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         // Level and XP.
         // A red dot when there's a daily reward or a quest to claim in the Farm Book.
@@ -295,21 +305,22 @@ private fun Hud(ui: UiState) {
         Row(Modifier.weight(1f).woodBox().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.coin, 20.dp)
             Spacer(Modifier.width(6.dp))
-            T("$" + short(shown), 16.sp, Gold, Modifier.scale(bounce))
+            T("$" + short(shown), if (narrow) 14.sp else 16.sp, Gold, Modifier.scale(bounce))
         }
         Spacer(Modifier.width(6.dp))
         Row(Modifier.woodBox().clickable { ui.panel = Panel.BUCKS }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(dev.m4s4t0.kushacres.art.Coins.bucks, 20.dp)
             Spacer(Modifier.width(4.dp))
-            T(short(f.potBucks), 14.sp, Color(0xFF8AE07A))
+            T(short(f.potBucks), if (narrow) 12.sp else 14.sp, Color(0xFF8AE07A))
         }
         Spacer(Modifier.width(6.dp))
         val used = f.stashUsed(); val cap = f.stashCap()
         Row(Modifier.woodBox().clickable { ui.shop = Keeper.DEX; ui.panel = Panel.TOWN }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.jar, 20.dp)
             Spacer(Modifier.width(4.dp))
-            T("$used/${cap}g", 13.sp, if (used >= cap) Bad else if (used > cap * 0.8) Gold else Cream)
+            T("$used/${cap}g", if (narrow) 11.sp else 13.sp, if (used >= cap) Bad else if (used > cap * 0.8) Gold else Cream)
         }
+    }
     }
     SkyChip(ui)
     Currencies(ui)
@@ -350,6 +361,8 @@ private fun SkyChip(ui: UiState) {
             Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 8.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
             Spacer(Modifier.width(4.dp))
         }
+        Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
+        Spacer(Modifier.width(4.dp))
         Spacer(Modifier.weight(1f))
         Row(
             Modifier.background(Color(0xAA1C1A14)).clickable {
@@ -377,10 +390,10 @@ private fun Hints(ui: UiState) {
         // Starter tips. Lifetime stats drive them, so they don't come back after selling the farm.
         ui.mode != Mode.Farm || f.level >= 5 -> null
         f.stat(Stat.HARVESTS) == 0L -> "Tap the ripe plants to harvest. Swipe across many at once!"
-        f.stat(Stat.EARNED) == 0L && f.stashUsed() > 0 -> "Sell your bud at Dex's in Town, or fill an order for a bonus."
+        f.stat(Stat.EARNED) == 0L && f.stashUsed() > 0 -> "Sell your bud at ${keeper(Keeper.DEX)}'s in Town, or fill an order for a bonus."
         f.stat(Stat.HARVESTS) < 6 && f.tiles.any { it.kind == Kind.PLOT && it.strain == null } -> "Tap empty plots to plant ${Strains[ui.seed]?.name}. Tap a growing plant to water it."
-        f.stashUsed() >= f.stashCap() -> "Your stash is full! Sell at Dex's in Town or upgrade your Stash at Violet's."
-        f.level >= 4 && f.legacy == 0 && f.count(dev.m4s4t0.kushacres.model.Facility.ROLLER) == 0 -> "Hank's in Town sells a Rolling Table. Pre-rolls sell for more than bud!"
+        f.stashUsed() >= f.stashCap() -> "Your stash is full! Sell at ${keeper(Keeper.DEX)}'s in Town or upgrade your Stash at ${keeper(Keeper.VIOLET)}'s."
+        f.level >= 4 && f.legacy == 0 && f.count(dev.m4s4t0.kushacres.model.Facility.ROLLER) == 0 -> "${keeper(Keeper.HANK)}'s in Town sells a Rolling Table. Pre-rolls sell for more than bud!"
         else -> null
     }
     val now = Store.now()
@@ -416,6 +429,8 @@ private fun BottomBar(ui: UiState) {
                 }
                 is Mode.PlaceFacility -> "Tap grass to build the ${m.f.title}: ${money(f.facilityCost(m.f))}"
                 is Mode.PlaceHouse -> "Tap grass to build the ${m.h.title}: ${money(f.houseCost(m.h))}"
+                is Mode.PlacePower -> "Tap grass to build the ${m.g.title}: ${money(f.generatorCost(m.g))}"
+                is Mode.PlaceSpecial -> "Tap grass to build the ${m.s.title}: ${m.s.gems} gems + ${money(m.s.cash)}"
                 is Mode.PlaceDecor -> {
                     val n = f.decorInv[m.d.name] ?: 0
                     "Placing ${m.d.title}: " + if (n > 0) "$n in shed" else money(m.d.cost)
@@ -471,6 +486,8 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: ""
+                Kind.POWER -> Generator.of(tile.item)?.title ?: ""
+                Kind.SPECIAL -> Special.of(tile.item)?.title ?: ""
                 else -> ""
             }
             T(title, 15.sp, Gold, Modifier.weight(1f))
@@ -497,7 +514,19 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 }
             }
             Kind.SPRINKLER -> T("Keeps the 8 squares around it watered forever.", 12.sp, Dim)
-            Kind.LAMP -> T("Plants on the 8 squares around it grow 25% faster (2 lamps max).", 12.sp, Dim)
+            Kind.LAMP -> {
+                T("Plants on the 8 squares around it grow 25% faster (2 lamps max). Uses ${Generator.LAMP} power.", 12.sp, Dim)
+                if (!f.powered()) T("No power! Build a generator: lamps are dark.", 12.sp, Bad)
+            }
+            Kind.POWER -> Generator.of(tile.item)?.let { g ->
+                T("${g.desc}. Makes ${g.watts} ⚡.", 12.sp, Dim)
+                PowerLine()
+            }
+            Kind.SPECIAL -> Special.of(tile.item)?.let { sp ->
+                T(sp.desc + ".", 12.sp, Dim)
+                T(if (sp.local) "Works on this farm." else "Works on every farm.", 11.sp, Leaf)
+                if (sp == Special.MINE && f.mineAt > 0) T("Next gem in ${dur(((f.mineAt - now) / 1000).coerceAtLeast(0))}", 11.sp, Sky)
+            }
             Kind.DECOR, Kind.PATH -> T(Decor.of(tile.item)?.desc ?: "", 12.sp, Dim)
             Kind.ROCK -> {
                 T("Too big to build on. Break it up to free the square.", 12.sp, Dim)
@@ -512,6 +541,15 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
             else -> {}
         }
     }
+}
+
+/** Power on this farm: used out of made, red when it's short. */
+@Composable
+internal fun PowerLine() {
+    val f = Store.farm
+    Store.rev
+    val ok = f.powered()
+    T("⚡ ${f.powerUsed()} / ${f.powerMade()} used on this farm" + if (ok) "" else ": not enough! Lamps are dark and facilities won't start.", 11.sp, if (ok) Sky else Bad)
 }
 
 /** A work building's card: what it does, whether it's staffed, and hiring workers for this farm. */

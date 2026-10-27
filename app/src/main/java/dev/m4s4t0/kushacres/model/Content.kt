@@ -63,6 +63,8 @@ enum class Decor(
     val title: String, val desc: String, val level: Int, val cost: Long, val black: Boolean = false, val path: Boolean = false,
     /** Holiday decor: bought with that holiday's tokens, then kept like black-market decor. Its effect is [perk] × [amt]. */
     val holiday: String? = null, val perk: Perk? = null, val amt: Double = 0.0,
+    /** Pot Bucks decor: bought from the Bucks shop for this many Pot Bucks, then kept like holiday decor. */
+    val bucks: Long = 0,
 ) {
     STONE("Stone Path", "Just looks nice", 1, 5, path = true),
     BRICK("Brick Path", "Just looks nice", 3, 15, path = true),
@@ -109,12 +111,22 @@ enum class Decor(
     FLAGPOLE("Flagpole", "Everything sells 5% higher", 1, 0, black = true, holiday = "july4", perk = Perk.SELL, amt = 0.05),
     GRILL("BBQ Grill", "+6% XP", 1, 0, black = true, holiday = "july4", perk = Perk.XP, amt = 0.06),
     CORNUCOPIA("Cornucopia", "Neighbours yield 15% more", 1, 0, black = true, holiday = "thanksgiving", perk = Perk.YIELD, amt = 0.15),
-    HAYBALE("Hay Bale", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "thanksgiving", perk = Perk.GROW, amt = 0.12);
+    HAYBALE("Hay Bale", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "thanksgiving", perk = Perk.GROW, amt = 0.12),
+    SOUNDSYSTEM("Reggae Sound System", "+6% XP", 1, 0, black = true, perk = Perk.XP, amt = 0.06, bucks = 30),
+    HAMMOCK("Palm Hammock", "Neighbours grow 12% faster", 1, 0, black = true, perk = Perk.GROW, amt = 0.12, bucks = 25),
+    STEELDRUM("Steel Drum", "Neighbours +5% golden chance", 1, 0, black = true, perk = Perk.GOLD, amt = 0.05, bucks = 30),
+    MURAL("Rasta Mural", "Neighbours yield 15% more", 1, 0, black = true, perk = Perk.YIELD, amt = 0.15, bucks = 35),
+    LION("Lion of Zion", "Everything sells 4% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.04, bucks = 40),
+    SHROOMS("Glowing Mushrooms", "Neighbours grow 15% faster", 1, 0, black = true, perk = Perk.GROW, amt = 0.15, bucks = 45),
+    BUDDHA("Chill Buddha", "+8% XP", 1, 0, black = true, perk = Perk.XP, amt = 0.08, bucks = 50),
+    TIKIBAR("Tiki Bar", "Everything sells 5% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.05, bucks = 60);
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.name == id }
         /** Holiday decor with neighbour or farm-wide effects of each kind. */
         val perks: Map<Perk, List<Decor>> = entries.filter { it.perk != null }.groupBy { it.perk!! }
+        /** Decor sold for Pot Bucks. */
+        val bucksShop = entries.filter { it.bucks > 0 }
     }
 }
 
@@ -186,7 +198,75 @@ enum class BucksItem(val title: String, val desc: String, val price: Long, val b
     ENVELOPE("Bribe Envelope", "Makes the next raid go away", 8),
     CASH("Cash bundle", "A stack of cash that grows with your level", 12),
     SEEDS("Exotic seed pack", "5 of the best exotic seeds you can grow", 25),
+    GEM("Kush Gem", "One gem, for building specials", 80),
 }
+
+/**
+ * Power for a farm. Lamps and every facility past the rolling table run on it; each farm has a little from the
+ * mains ([GRID]) and generators add [watts]. When a farm uses more than it makes, its lamps go dark and its
+ * facilities won't start new batches.
+ */
+enum class Generator(val title: String, val desc: String, val level: Int, val cost: Long, val watts: Int) {
+    GAS("Gas Generator", "Small, loud and smelly", 8, 2_000, 10),
+    DIESEL("Diesel Generator", "Runs all night on the farm truck's fuel", 16, 60_000, 30),
+    SOLAR("Solar Array", "Free power from the sun", 24, 1_500_000, 80),
+    WIND("Wind Turbine", "Big blades, lots of power", 32, 25_000_000, 180),
+    STATION("Power Station", "A small power plant of your own", 42, 400_000_000, 450),
+    FUSION("Fusion Core", "Don't ask where it came from", 55, 15_000_000_000, 1200);
+
+    companion object {
+        /** Free power on every farm, from the mains. */
+        const val GRID = 4
+        const val LAMP = 1
+        fun of(id: String?) = entries.firstOrNull { it.name == id }
+        /** What a facility of level [lvl] draws. The rolling table works by hand. */
+        fun draw(f: Facility, lvl: Int): Int {
+            val base = when (f) { Facility.ROLLER -> 0; Facility.PRESS -> 3; Facility.KITCHEN -> 5; Facility.LAB -> 8; Facility.VAPE -> 12 }
+            return (base * (1 + 0.25 * (lvl - 1))).toInt()
+        }
+    }
+}
+
+/**
+ * Special buildings: paid for in gems plus cash, one of each per farm. [local] ones help the farm they stand on;
+ * the others work everywhere but only count once, wherever you build them.
+ */
+enum class Special(val title: String, val desc: String, val level: Int, val gems: Long, val cash: Long, val local: Boolean) {
+    VAULT("Mother Plant Vault", "Plants on this farm grow 30% faster", 10, 3, 20_000, true),
+    WELL("Deep Well", "Every plot on this farm stays wet", 12, 3, 50_000, true),
+    RADIO("Pirate Radio", "Orders pay 25% more and come twice as fast", 14, 4, 120_000, false),
+    DEPOT("Delivery Depot", "Deliveries arrive in half the time and pay 20% more", 16, 5, 300_000, false),
+    TERRACE("Hydro Terraces", "Plants on this farm yield 25% more", 18, 5, 600_000, true),
+    DISPENSARY("Dispensary", "Everything sells 15% higher", 20, 8, 1_500_000, false),
+    DOME("Sun Dome", "+8% golden harvests on this farm", 22, 6, 3_000_000, true),
+    CURING("Curing Vault", "Pre-rolls, hash and the rest sell 25% higher", 24, 8, 6_000_000, false),
+    FACTORY("Goods Factory", "Facilities on this farm work 40% faster", 26, 8, 12_000_000, true),
+    SUBSTATION("Substation", "+150 power on this farm", 28, 6, 25_000_000, true),
+    ACADEMY("Grow Academy", "+25% XP", 30, 10, 60_000_000, false),
+    EXCHANGE("Trade Exchange", "The market bounces back three times as fast", 33, 10, 150_000_000, false),
+    TEMPLE("Rasta Temple", "No more raids, and plants everywhere grow 10% faster", 36, 12, 400_000_000, false),
+    MINE("Gem Mine", "Digs up a gem every 12 hours", 40, 15, 1_000_000_000, false),
+    MONUMENT("Golden Kush Monument", "Everything sells 25% higher and +10% XP", 48, 25, 10_000_000_000, false);
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.name == id }
+        const val MINE_MILLIS = 12 * 3_600_000L
+    }
+}
+
+/** Ground colours for sale: grass inside your land and the soil in the plots. Null means the farm's own. */
+class Ground(val title: String, val color: Int?)
+val GRASS_COLORS = listOf(
+    Ground("Natural", null), Ground("Lush", 0xFF3FA040.toInt()), Ground("Lime", 0xFF8ACB3A.toInt()), Ground("Teal", 0xFF2E9A80.toInt()),
+    Ground("Autumn", 0xFFC89A3A.toInt()), Ground("Frost", 0xFFB8DCD4.toInt()), Ground("Purple Haze", 0xFF8A5AB0.toInt()),
+    Ground("Neon", 0xFF3AE07A.toInt()), Ground("Ash", 0xFF7A8070.toInt()), Ground("Blossom", 0xFFD88AB8.toInt()), Ground("Sand", 0xFFD8C08A.toInt()),
+)
+val DIRT_COLORS = listOf(
+    Ground("Natural", null), Ground("Dark loam", 0xFF6A4A2E.toInt()), Ground("Red clay", 0xFFB0583A.toInt()), Ground("Desert", 0xFFD0A86A.toInt()),
+    Ground("Ash", 0xFF707076.toInt()), Ground("Purple", 0xFF8A5A9A.toInt()), Ground("Gold", 0xFFC8A040.toInt()), Ground("Black soil", 0xFF3E322A.toInt()),
+)
+/** What a ground colour change costs in Pot Bucks (the cash price grows with your level). */
+const val GROUND_BUCKS = 8L
 
 /** Black-market goods. Seed packs give [EXOTIC_PACK] seeds; prices scale with your level except for seeds. */
 enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0) {

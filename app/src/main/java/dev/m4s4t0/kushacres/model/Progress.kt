@@ -1,5 +1,6 @@
 package dev.m4s4t0.kushacres.model
 
+import kotlin.math.roundToLong
 import java.util.TimeZone
 import kotlin.random.Random
 
@@ -81,8 +82,8 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
     LEVEL_50("Master Grower", "Reach level 50", 50, { it.bestLevel.toLong() }),
     LEVEL_80("Legend of Kush", "Reach level 80", 80, { it.bestLevel.toLong() }),
     LAND_MAX("Lord of the Land", "Own the full ${Farm.MAX}×${Farm.MAX} farm", Farm.MAX.toLong(), { f -> f.sites.maxOf { it.land }.toLong() }),
-    MANSION("Mansion Life", "Move into the Kush Mansion", 5, { it.shack.toLong() }),
-    PALACE("Palace Dweller", "Move into the Kush Palace", 9, { it.shack.toLong() }),
+    MANSION("Mansion Life", "Move into the Kush Mansion", 5, { it.bestShack().toLong() }),
+    PALACE("Palace Dweller", "Move into the Kush Palace", 9, { it.bestShack().toLong() }),
     HYBRID_1("Mad Scientist", "Breed a hybrid", 1, { it.bred.size.toLong() }),
     HYBRID_10("Gene Splicer", "Breed 10 different hybrids", 10, { it.bred.size.toLong() }),
     HYBRID_ALL("Master Breeder", "Breed every hybrid", Hybrids.recipes.size.toLong(), { it.bred.size.toLong() }),
@@ -143,7 +144,7 @@ object Progress {
             else -> DailyReward(d, cash)
         }
         r.bucks = if (d == 7) 10 else 2
-        r.tokens = if (Holiday.at(f.lastTick) != null) 10L + 2 * d else 0
+        r.tokens = if (Holiday.at(f.lastTick) != null) ((10 + 2 * d) * f.tokenMult(f.level)).roundToLong() else 0
         return r
     }
 

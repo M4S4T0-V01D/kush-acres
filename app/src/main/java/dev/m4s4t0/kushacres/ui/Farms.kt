@@ -44,7 +44,7 @@ private fun go(ui: UiState, def: SiteDef) {
 
 /** One card per farm: switch to the ones you own, buy the rest from Mona once you're Lv 15. */
 internal fun LazyListScope.farmCards(ui: UiState) {
-    items(Sites.all + Sites.holidays.filter { Store.farm.owns(it.id) }) { def ->
+    items(Sites.all + (Sites.holidays + Sites.premium).filter { Store.farm.owns(it.id) }) { def ->
         Store.rev
         val f = Store.farm
         val owned = f.owns(def.id)

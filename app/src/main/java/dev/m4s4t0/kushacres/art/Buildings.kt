@@ -2,6 +2,8 @@ package dev.m4s4t0.kushacres.art
 
 import android.graphics.Bitmap
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Generator
+import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.ROOF_COLORS
 import dev.m4s4t0.kushacres.model.WALL_COLORS
 import dev.m4s4t0.kushacres.model.WorkHouse
@@ -345,6 +347,216 @@ object Buildings {
                 px.rect(12, 23, 1, 8, 0xFFA87A4A.toInt()); px.rect(11, 30, 3, 2, steel)
                 px.rect(19, 26, 5, 4, 0xFFE8B040.toInt()); px.rect(19, 26, 5, 1, 0xFFFFE08A.toInt())
                 roof(px, cx, by, 12, 9, 3, 0xFF8A3A2E.toInt())
+            }
+        }
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    // ---- Generators and specials (same frame again) ----
+
+    private val genCache = HashMap<Generator, Bitmap>()
+    private val specCache = HashMap<Special, Bitmap>()
+
+    /** A lightning bolt, [c] coloured, with its top at (x, y). */
+    private fun bolt(px: Px, x: Int, y: Int, c: Int) = px.poly(c, x + 2, y, x - 1, y + 4, x + 1, y + 4, x - 1, y + 8, x + 4, y + 3, x + 2, y + 3, x + 4, y)
+
+    fun generator(g: Generator): Bitmap = genCache.getOrPut(g) {
+        val px = Px(FAC_W, FAC_H)
+        val cx = 16; val by = 37
+        when (g) {
+            Generator.GAS -> {
+                val red = 0xFFD8483A.toInt()
+                px.rect(7, 31, 18, 2, 0xFF5C6068.toInt())
+                box(px, cx, by - 3, 8, 8, 9, shade(red, 1.2f), red, shade(red, 0.7f))
+                px.rect(10, 26, 4, 3, 0xFF2C3038.toInt()); px.set(11, 27, 0xFFFFD23A.toInt())
+                px.rect(20, 16, 2, 7, 0xFF7A8088.toInt()); px.disc(21, 13, 2, 0x99C8C8C8.toInt()); px.disc(24, 9, 2, 0x66C8C8C8.toInt())
+                px.rect(13, 20, 6, 1, 0xFF2C3038.toInt())
+            }
+            Generator.DIESEL -> {
+                val y = 0xFFF2B830.toInt()
+                box(px, cx, by, 12, 12, 11, shade(y, 1.15f), y, shade(y, 0.7f))
+                for (k in 0..3) px.line(6, 25 + k * 2, 14, 29 + k * 2, 0xFF3A3020.toInt())
+                px.rect(21, 7, 3, 12, 0xFF3A3A40.toInt()); px.rect(20, 6, 5, 2, 0xFF2A2A30.toInt())
+                px.disc(22, 3, 2, 0x88505050.toInt())
+                bolt(px, 19, 24, 0xFF2C2418.toInt())
+            }
+            Generator.SOLAR -> {
+                val frame = 0xFF9AA0A8.toInt()
+                for (lx in intArrayOf(8, 16, 24)) px.rect(lx, 22, 1, 12, shade(frame, 0.7f))
+                val cell = 0xFF2E5AA8.toInt()
+                px.poly(intArrayOf(2, 22, 16, 29, 30, 22, 16, 13)) { x, yy -> if ((x + yy * 2) % 6 == 0 || (x - yy * 2 + 60) % 6 == 0) 0xFF8AB8F0.toInt() else if (x < 16) shade(cell, 1.15f) else cell }
+                px.line(2, 22, 16, 13, 0xFFD8E8F8.toInt()); px.line(16, 13, 30, 22, 0xFFB8C8E0.toInt())
+                px.rect(14, 33, 5, 3, 0xFF3A3A40.toInt()); bolt(px, 15, 33, 0xFFFFD23A.toInt())
+            }
+            Generator.WIND -> {
+                val w = 0xFFF0F0F0.toInt()
+                px.rect(10, 34, 12, 2, 0xFF8A9098.toInt())
+                px.poly(w, 15, 10, 17, 10, 18, 35, 14, 35); px.rect(17, 10, 1, 25, 0xFFC8CCD4.toInt())
+                px.rect(14, 7, 5, 4, 0xFFD8DCE0.toInt())
+                px.poly(w, 16, 9, 15, 0, 17, 0); px.poly(w, 16, 9, 4, 14, 5, 16); px.poly(0xFFD8DCE0.toInt(), 16, 9, 28, 15, 27, 17)
+                px.disc(16, 9, 1, 0xFF5C6068.toInt()); px.set(16, 1, 0xFFFF4A3A.toInt())
+            }
+            Generator.STATION -> {
+                val c = 0xFFB8BCC4.toInt()
+                box(px, cx, by, 12, 12, 9, shade(c, 1.15f), c, shade(c, 0.72f))
+                px.poly(0xFFD8D8D0.toInt(), 5, 26, 7, 8, 13, 8, 15, 26); px.rect(7, 8, 6, 2, 0xFFE8E8E0.toInt())
+                px.poly(0xFFA8A8A0.toInt(), 13, 8, 15, 26, 15, 8)
+                px.disc(10, 5, 3, 0xAAF0F0F0.toInt()); px.disc(13, 2, 2, 0x77F0F0F0.toInt())
+                for (k in 0..3) px.rect(22, 6 + k * 4, 3, 2, if (k % 2 == 0) 0xFFE8483A.toInt() else 0xFFF4F4F0.toInt())
+                px.rect(22, 22, 3, 6, 0xFF8A9098.toInt())
+                bolt(px, 19, 27, 0xFFFFD23A.toInt())
+            }
+            Generator.FUSION -> {
+                box(px, cx, by, 12, 12, 6, 0xFF4A4A5A.toInt(), 0xFF3A3A48.toInt(), 0xFF2A2A36.toInt())
+                val glow = 0xFF5AF0FF.toInt()
+                px.disc(16, 18, 10, 0xFF2A2A36.toInt()); px.disc(16, 18, 8, glow); px.disc(16, 18, 6, 0xFF2A2A36.toInt())
+                px.disc(16, 18, 3, 0xFFE8FFFF.toInt()); px.disc(16, 18, 2, 0xFFFFFFFF.toInt())
+                px.rect(5, 18, 3, 1, 0xFFB060F0.toInt()); px.rect(24, 18, 3, 1, 0xFFB060F0.toInt())
+                px.set(12, 12, 0xFFC8FFFF.toInt()); px.set(20, 24, 0xFFC8FFFF.toInt())
+            }
+        }
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    fun special(sp: Special): Bitmap = specCache.getOrPut(sp) {
+        val px = Px(FAC_W, FAC_H)
+        val cx = 16; val by = 37
+        val red = 0xFFD8402E.toInt(); val gold = 0xFFF2C440.toInt(); val green = 0xFF3EA040.toInt()
+        when (sp) {
+            Special.VAULT -> {
+                val conc = 0xFF9A9A92.toInt()
+                box(px, cx, by, 12, 12, 10, shade(conc, 1.15f), conc, shade(conc, 0.72f))
+                px.disc(10, 27, 4, 0xFF6C7078.toInt()); px.disc(10, 27, 3, 0xFFB8BCC4.toInt()); px.line(8, 27, 12, 27, 0xFF5C6068.toInt()); px.line(10, 25, 10, 29, 0xFF5C6068.toInt())
+                px.disc(16, 21, 4, green); px.disc(15, 19, 2, 0xFF7AD85A.toInt()); px.rect(16, 21, 1, 4, 0xFF2E6A2A.toInt())
+                px.rect(21, 26, 4, 2, 0xFF7AFF7A.toInt())
+            }
+            Special.WELL -> {
+                val stone = 0xFF8A8478.toInt()
+                px.disc(16, 30, 8, shade(stone, 0.7f)); px.disc(16, 28, 8, stone); px.disc(16, 27, 6, 0xFF2E6AA8.toInt()); px.set(14, 26, 0xFF8FD4FF.toInt())
+                for (k in 0..3) px.set(9 + k * 4, 31 - (k % 2), shade(stone, 1.25f))
+                px.rect(7, 12, 1, 15, 0xFF7A4E2A.toInt()); px.rect(24, 12, 1, 15, 0xFF5A3A22.toInt())
+                px.poly(0xFFB8443A.toInt(), 4, 14, 16, 6, 28, 14, 26, 15, 16, 9, 6, 15)
+                px.rect(8, 15, 16, 1, 0xFF5A3A22.toInt()); px.rect(15, 16, 1, 6, 0xFFC8B89A.toInt()); px.rect(14, 21, 3, 3, 0xFF9A6A3A.toInt())
+            }
+            Special.RADIO -> {
+                val wood = 0xFFA8764A.toInt()
+                box(px, cx, by, 10, 10, 8, 0, wood, shade(wood, 0.72f))
+                roof(px, cx, by, 10, 8, 2, 0xFF5C4A3E.toInt())
+                for ((k, c) in listOf(red, gold, green).withIndex()) px.line(6, 28 + k, 15, 32 + k, c)
+                px.rect(21, 2, 1, 26, 0xFF9AA0A8.toInt()); px.line(18, 20, 21, 8, 0xFF9AA0A8.toInt()); px.line(24, 20, 21, 8, 0xFF7A8088.toInt())
+                for (y in intArrayOf(8, 13, 18)) px.rect(19, y, 5, 1, 0xFF7A8088.toInt())
+                px.disc(21, 1, 1, 0xFFFF3A3A.toInt())
+                px.line(24, 3, 27, 1, 0xFFF4F4F0.toInt()); px.line(25, 5, 29, 3, 0xFFF4F4F0.toInt())
+            }
+            Special.DEPOT -> {
+                val wall = 0xFF5A8AB8.toInt()
+                box(px, cx, by, 12, 12, 11, shade(wall, 1.2f), wall, shade(wall, 0.72f))
+                px.poly(0xFFC8CCD4.toInt(), 6, 24, 14, 28, 14, 35, 6, 31)
+                for (k in 0..3) px.line(6, 26 + k * 2, 14, 30 + k * 2, 0xFF8A9098.toInt())
+                px.rect(18, 22, 8, 3, 0xFFF4F0E8.toInt()); px.rect(19, 23, 2, 1, green); px.rect(22, 23, 3, 1, red)
+                px.rect(20, 28, 5, 3, 0xFF4AA04A.toInt()); px.disc(21, 31, 1, 0xFF222222.toInt()); px.disc(24, 30, 1, 0xFF222222.toInt())
+            }
+            Special.TERRACE -> {
+                val st = 0xFFB0A088.toInt()
+                for (k in 0..2) {
+                    val w = 12 - k * 3
+                    box(px, cx, by - k * 5, w, w, 4, 0xFF4E8A3A.toInt(), st, shade(st, 0.72f))
+                    for (i in 0 until w / 2) { px.disc(cx - w + 3 + i * 2, by - k * 5 - 6 - (w - 3 - i * 2) / 2 + i / 2, 1, if (i % 2 == 0) green else 0xFF6AC84A.toInt()) }
+                    px.line(cx, by - k * 5 - 4, cx + w - 1, by - k * 5 - 4 - (w - 1) / 2, 0xFF5AB0F0.toInt())
+                }
+            }
+            Special.DISPENSARY -> {
+                val wall = 0xFFF4F0E8.toInt()
+                box(px, cx, by, 12, 12, 11, 0, wall, shade(wall, 0.8f))
+                roof(px, cx, by, 12, 11, 2, green)
+                px.poly(0xFF7AC8E8.toInt(), 6, 25, 14, 29, 14, 34, 6, 30)
+                px.rect(19, 25, 4, 7, 0xFF3E6E4A.toInt()); px.set(22, 28, gold)
+                px.rect(14, 4, 5, 13, green); px.rect(11, 8, 11, 5, green); px.rect(15, 5, 3, 11, 0xFF7AFF7A.toInt()); px.rect(12, 9, 9, 3, 0xFF7AFF7A.toInt())
+            }
+            Special.DOME -> {
+                px.disc(16, 31, 12, 0xFF6A6A70.toInt())
+                px.disc(16, 26, 12, 0x99B8ECF4.toInt())
+                for (k in -2..2) px.line(16 + k * 5, 14, 16 + k * 6, 31, 0xFFE8F4F8.toInt())
+                for (y in intArrayOf(19, 25)) px.line(5, y, 27, y, 0xFFE8F4F8.toInt())
+                px.disc(16, 30, 5, green); px.disc(11, 31, 3, 0xFF6AC84A.toInt()); px.disc(22, 31, 3, 0xFF4E8A3A.toInt())
+                px.disc(10, 19, 2, 0xFFFFFFFF.toInt()); px.disc(24, 7, 3, gold); px.set(23, 6, 0xFFFFF0A0.toInt())
+            }
+            Special.CURING -> {
+                val wood = 0xFF7A4E2A.toInt()
+                box(px, cx, by, 12, 12, 10, 0, wood, shade(wood, 0.72f))
+                roof(px, cx, by, 12, 10, 4, 0xFF8A3A2E.toInt())
+                for (k in 0..2) { px.rect(6 + k * 3, 25 + k, 2, 4, 0xFFB8ECF4.toInt()); px.rect(6 + k * 3, 24 + k, 2, 1, gold); px.set(6 + k * 3, 27 + k, green) }
+                px.rect(19, 25, 5, 7, 0xFF3A2A1E.toInt()); px.rect(19, 28, 5, 1, 0xFF5A3A22.toInt())
+                px.rect(13, 9, 6, 3, 0xFFF4F0E8.toInt())
+            }
+            Special.FACTORY -> {
+                val brick = 0xFFA84A3A.toInt()
+                box(px, cx, by, 12, 12, 11, 0, brick, shade(brick, 0.72f))
+                for (k in 0..2) px.poly(0xFF5C6068.toInt(), 4 + k * 4, 22 + k * 2, 8 + k * 4, 18 + k * 2, 8 + k * 4, 24 + k * 2)
+                px.poly(shade(brick, 0.85f), 16, 26, 28, 20, 28, 15, 16, 21)
+                for (k in 0..1) px.rect(19 + k * 4, 25 - k * 2, 2, 3, 0xFFFFE08A.toInt())
+                px.rect(23, 3, 3, 14, 0xFF8A3A2E.toInt()); px.rect(23, 3, 3, 1, 0xFF2A2A30.toInt())
+                px.disc(25, 1, 2, 0x88C8C8C8.toInt())
+                px.disc(10, 28, 2, gold); px.set(10, 28, 0xFF7A5A1E.toInt())
+            }
+            Special.SUBSTATION -> {
+                px.poly(0xFF7A7A72.toInt(), 4, 31, 16, 37, 28, 31, 16, 25)
+                for (i in 0..12) { px.set(4 + i, 31 + i / 2 - 4, 0xFF9AA0A8.toInt()); px.set(16 + i, 37 - i / 2 - 4, 0xFF9AA0A8.toInt()) }
+                for (i in 0..12 step 2) { px.rect(4 + i, 27 + i / 2, 1, 4, 0xFF8A9098.toInt()); px.rect(16 + i, 33 - i / 2, 1, 4, 0xFF6C7078.toInt()) }
+                box(px, 12, 31, 4, 4, 9, 0xFFA8B0B8.toInt(), 0xFF8A9098.toInt(), 0xFF5C6068.toInt())
+                box(px, 21, 30, 4, 4, 7, 0xFFA8B0B8.toInt(), 0xFF8A9098.toInt(), 0xFF5C6068.toInt())
+                for (x in intArrayOf(10, 12, 14)) { px.rect(x, 15, 1, 6, 0xFFC86A3A.toInt()); px.set(x, 14, 0xFFE8E8E0.toInt()) }
+                px.line(10, 14, 22, 12, 0xFF2C3038.toInt()); px.rect(21, 12, 1, 9, 0xFF6C7078.toInt())
+                bolt(px, 19, 22, 0xFFFFD23A.toInt())
+            }
+            Special.ACADEMY -> {
+                val wall = 0xFFE8DCC0.toInt()
+                box(px, cx, by, 12, 12, 10, 0, wall, shade(wall, 0.78f))
+                for (k in 0..2) { px.rect(6 + k * 3, 23 + k, 1, 7, 0xFFFFFFFF.toInt()); px.rect(19 + k * 3, 30 - k * 2 - 6, 1, 7, shade(wall, 0.9f)) }
+                px.poly(0xFF3A5A9A.toInt(), 3, 21, 16, 14, 29, 21, 16, 28)
+                px.poly(0xFF2C4478.toInt(), 16, 28, 29, 21, 29, 22, 16, 29)
+                px.rect(14, 8, 5, 3, 0xFF2C2C34.toInt()); px.poly(0xFF2C2C34.toInt(), 10, 9, 16, 6, 22, 9, 16, 11)
+                px.line(21, 9, 23, 14, gold); px.set(23, 15, gold)
+            }
+            Special.EXCHANGE -> {
+                val marble = 0xFFF0ECE4.toInt()
+                box(px, cx, by, 12, 12, 3, marble, shade(marble, 0.9f), shade(marble, 0.7f))
+                for (k in 0..3) { px.rect(6 + k * 3, 20 + k * 1, 2, 11, marble); px.rect(18 + k * 3, 23 - k, 2, 11, shade(marble, 0.8f)) }
+                px.poly(marble, 2, 20, 16, 10, 30, 20, 16, 23); px.poly(shade(marble, 0.75f), 16, 23, 30, 20, 30, 21, 16, 24)
+                px.disc(16, 16, 2, gold)
+                px.line(5, 8, 9, 5, 0xFF4AE04A.toInt()); px.line(9, 5, 12, 7, 0xFF4AE04A.toInt()); px.line(12, 7, 15, 2, 0xFF4AE04A.toInt())
+            }
+            Special.TEMPLE -> {
+                val w = 0xFFE8D8B0.toInt()
+                box(px, cx, by, 12, 12, 4, shade(w, 1.1f), w, shade(w, 0.72f))
+                box(px, cx, by - 4, 8, 8, 9, 0, red, shade(red, 0.72f))
+                for ((k, c) in listOf(red, gold, green).withIndex()) { px.line(8, 21 + k * 2, 16, 25 + k * 2, c); px.line(16, 25 + k * 2, 24, 21 + k * 2, shade(c, 0.8f)) }
+                px.poly(green, 5, 20, 16, 4, 27, 20, 16, 26)
+                px.poly(shade(green, 0.7f), 16, 26, 27, 20, 27, 21, 16, 27)
+                px.disc(16, 5, 2, gold); px.set(15, 4, 0xFFFFF0A0.toInt())
+                px.rect(14, 28, 4, 5, 0xFF3A2A1E.toInt())
+            }
+            Special.MINE -> {
+                val rock = 0xFF7A6E62.toInt()
+                px.poly(rock, 2, 32, 8, 16, 16, 10, 24, 14, 30, 30, 16, 37)
+                px.poly(shade(rock, 0.75f), 16, 37, 30, 30, 24, 14, 16, 22)
+                px.poly(0xFF1C1610.toInt(), 9, 33, 10, 25, 15, 23, 17, 30)
+                px.rect(9, 24, 1, 9, 0xFF8A5A34.toInt()); px.rect(16, 22, 1, 9, 0xFF8A5A34.toInt()); px.line(9, 24, 16, 22, 0xFF8A5A34.toInt())
+                px.rect(17, 31, 6, 3, 0xFF5C6068.toInt()); px.rect(18, 29, 4, 2, 0xFFB060F0.toInt()); px.set(19, 29, 0xFFE8C8FF.toInt())
+                px.set(21, 18, 0xFFB060F0.toInt()); px.set(11, 17, 0xFFD8A0FF.toInt()); px.set(25, 24, 0xFFB060F0.toInt())
+            }
+            Special.MONUMENT -> {
+                val st = 0xFFE8E0D0.toInt()
+                box(px, cx, by, 12, 12, 3, shade(st, 1.1f), st, shade(st, 0.72f))
+                box(px, cx, by - 3, 7, 7, 5, shade(gold, 1.1f), gold, shade(gold, 0.7f))
+                val leaf = 0xFFFFD23A.toInt()
+                px.rect(16, 6, 1, 20, shade(gold, 0.6f))
+                px.poly(leaf, 16, 2, 14, 12, 16, 22, 18, 12)
+                px.poly(leaf, 16, 20, 7, 10, 9, 15); px.poly(shade(leaf, 0.85f), 16, 20, 25, 10, 23, 15)
+                px.poly(leaf, 16, 22, 5, 17, 9, 20); px.poly(shade(leaf, 0.85f), 16, 22, 27, 17, 23, 20)
+                px.set(15, 6, 0xFFFFFFC0.toInt()); px.set(9, 12, 0xFFFFFFC0.toInt())
             }
         }
         px.outline(OUT)

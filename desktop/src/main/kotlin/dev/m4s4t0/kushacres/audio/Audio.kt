@@ -31,6 +31,12 @@ object Audio {
     @Volatile private var ambWant: Amb? = null
     @Volatile private var foreground = false
     private var songPos = 0
+    /** A loop waiting to take over once the current one has faded out. */
+    @Volatile private var nextSong: FloatArray? = null
+    private var songGain = 0f
+    @Volatile private var areaWant = "home"
+    private var areaHave: String? = null
+    private val tunes = LinkedHashMap<String, FloatArray>()
     private val ambPos = IntArray(Amb.entries.size)
     /** Ambience gains, eased toward their targets so a change of weather fades over. */
     private val ambGain = FloatArray(Amb.entries.size)
@@ -42,8 +48,19 @@ object Audio {
         thread(name = "synth", isDaemon = true, priority = Thread.MIN_PRIORITY) {
             runCatching {
                 sfx = Array(Sfx.entries.size) { Synth.sfx(Sfx.entries[it]) }
-                song = Synth.music()
                 amb = Array(Amb.entries.size) { Ambience.loop(Amb.entries[it]) }
+                // Render each area's tune when it's wanted; keep the last few in memory.
+                while (true) {
+                    val id = areaWant
+                    if (id != areaHave) {
+                        val t = tunes.remove(id) ?: Synth.music(Tunes.of(id))
+                        tunes[id] = t
+                        if (tunes.size > 4) tunes.remove(tunes.keys.first())
+                        if (song == null) song = t else nextSong = t
+                        areaHave = id
+                    }
+                    Thread.sleep(200)
+                }
             }.onFailure { Log.e("KushAcres", "audio failed", it) }
         }
         thread(name = "mixer", isDaemon = true) { runCatching { mix() }.onFailure { Log.e("KushAcres", "no sound output", it) } }
@@ -67,6 +84,9 @@ object Audio {
 
     fun ambience(a: Amb?) { ambWant = a }
 
+    /** Plays [id]'s own tune: the farm you're on, or "town". */
+    fun area(id: String) { areaWant = id }
+
     fun start() { foreground = true }
     fun stop() { foreground = false }
 
@@ -87,8 +107,11 @@ object Audio {
             buf.fill(0f)
             val on = foreground
             song?.let { s ->
-                val v = if (on) music * 0.6f else 0f
-                if (v > 0f) for (i in 0 until n) { buf[i] += s[songPos] * v; songPos = (songPos + 1) % s.size }
+                val v = if (on && nextSong == null) music * 0.6f else 0f
+                var g = songGain
+                if (g > 0f || v > 0f) for (i in 0 until n) { g += (v - g) * 0.0008f; buf[i] += s[songPos] * g; songPos = (songPos + 1) % s.size }
+                songGain = if (v == 0f && g < 0.001f) 0f else g
+                nextSong?.let { if (songGain == 0f) { song = it; songPos = 0; nextSong = null } }
             }
             amb?.let { loops ->
                 for (k in Amb.entries) {

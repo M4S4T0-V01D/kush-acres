@@ -20,6 +20,30 @@ object Coins {
         }.bitmap()
     }
 
+    /** A cut purple gem with a green glint: Kush Gems, for special buildings. */
+    val gem: Bitmap by lazy {
+        Px(12, 12).apply {
+            val g = 0xFFB060F0.toInt()
+            poly(shade(g, 0.7f), 1, 4, 11, 4, 6, 11)
+            poly(g, 3, 4, 9, 4, 6, 10)
+            poly(shade(g, 1.3f), 3, 1, 9, 1, 11, 4, 1, 4)
+            rect(4, 2, 4, 1, 0xFFE8C8FF.toInt())
+            set(5, 5, 0xFFC8FF9A.toInt()); set(4, 3, white)
+            outline(OUT)
+        }.bitmap()
+    }
+
+    /** A little green delivery van, for orders on the road. */
+    val van: Bitmap by lazy {
+        Px(14, 12).apply {
+            val g = 0xFF4AA04A.toInt()
+            rect(1, 3, 8, 6, g); rect(9, 5, 4, 4, shade(g, 0.9f)); rect(1, 3, 8, 1, shade(g, 1.25f))
+            rect(10, 6, 2, 2, 0xFF9AD0F0.toInt()); rect(3, 5, 4, 2, 0xFFF4E8C0.toInt()); set(5, 5, g)
+            disc(4, 9, 1, 0xFF222222.toInt()); disc(10, 9, 1, 0xFF222222.toInt())
+            outline(OUT)
+        }.bitmap()
+    }
+
     private val cache = HashMap<Holiday, Bitmap>()
 
     fun token(h: Holiday): Bitmap = cache.getOrPut(h) {

@@ -19,7 +19,7 @@ import kotlin.concurrent.thread
  */
 object Audio {
     /** Bump when Synth changes, so the cached WAVs are rendered again. */
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     var music by mutableFloatStateOf(0.5f); private set
     var sound by mutableFloatStateOf(0.8f); private set
@@ -35,6 +35,11 @@ object Audio {
     private val amb = arrayOfNulls<MediaPlayer>(Amb.entries.size)
     private var ambWant: Amb? = null
     private var foreground = false
+    private lateinit var dir: File
+    /** The area whose tune should play, and the one whose tune is loaded. */
+    private var areaWant = "home"
+    private var areaHave: String? = null
+    private var rendering = false
 
     fun init(ctx: Context) {
         app = ctx.applicationContext
@@ -43,20 +48,43 @@ object Audio {
         pool.setOnLoadCompleteListener { _, id, status -> if (status == 0) ids.indexOf(id).let { if (it >= 0) loaded[it] = true } }
         thread(name = "synth", priority = Thread.MIN_PRIORITY) {
             runCatching {
-                val dir = File(app.cacheDir, "audio-v$VERSION").apply { mkdirs() }
+                dir = File(app.cacheDir, "audio-v$VERSION").apply { mkdirs() }
                 app.cacheDir.listFiles { f -> f.name.startsWith("audio-v") && f != dir }?.forEach { it.deleteRecursively() }
-                fun file(name: String, make: () -> FloatArray) = File(dir, "$name.wav").also { f ->
-                    if (!f.exists()) { val tmp = File(dir, "$name.tmp"); tmp.writeBytes(Synth.wav(make())); tmp.renameTo(f) }
-                }
                 for (s in Sfx.entries) ids[s.ordinal] = pool.load(file(s.name) { Synth.sfx(s) }.path, 1)
-                val m = file("music") { Synth.music() }
                 val a = Amb.entries.map { file("amb-${it.name}") { Ambience.loop(it) } }
                 android.os.Handler(app.mainLooper).post {
-                    song = player(m, music * 0.6f)
                     for (k in Amb.entries) amb[k.ordinal] = player(a[k.ordinal], 0f)
                     refresh()
+                    loadTune()
                 }
             }.onFailure { Log.e("KushAcres", "audio failed", it) }
+        }
+    }
+
+    private fun file(name: String, make: () -> FloatArray) = File(dir, "$name.wav").also { f ->
+        if (!f.exists()) { val tmp = File(dir, "$name.tmp"); tmp.writeBytes(Synth.wav(make())); tmp.renameTo(f) }
+    }
+
+    /** Plays [id]'s own tune: the farm you're on, or "town". */
+    fun area(id: String) { if (id != areaWant) { areaWant = id; if (::dir.isInitialized) loadTune() } }
+
+    /** Renders the wanted area's loop if it isn't cached yet, then swaps it in. Main thread only. */
+    private fun loadTune() {
+        if (rendering || areaHave == areaWant) return
+        val id = areaWant
+        rendering = true
+        thread(name = "synth-$id", priority = Thread.MIN_PRIORITY) {
+            val f = runCatching { file("music-$id") { Synth.music(Tunes.of(id)) } }.onFailure { Log.e("KushAcres", "tune", it) }.getOrNull()
+            android.os.Handler(app.mainLooper).post {
+                rendering = false
+                if (f != null) {
+                    song?.release()
+                    song = player(f, music * 0.6f)
+                    areaHave = id
+                    refresh()
+                }
+                if (areaWant != id) loadTune()
+            }
         }
     }
 

@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.art.People
+import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.Updater
 import androidx.compose.ui.platform.LocalContext
@@ -89,7 +90,8 @@ private fun Daily() {
         val r = Progress.reward(f, d)
         val done = d < shown || (d == shown && !can)
         val next = d == shown && can
-        val extra = listOfNotNull(r.buff?.let { "${it.title} (${r.minutes}m)" }, r.seeds?.let { "${r.seedCount}× ${Strains[it]?.name} seeds" }).joinToString(", ")
+        val extra = listOfNotNull(r.buff?.let { "${it.title} (${r.minutes}m)" }, r.seeds?.let { "${r.seedCount}× ${Strains[it]?.name} seeds" },
+            f.holiday()?.takeIf { r.tokens > 0 }?.let { "${r.tokens} ${it.tokens.lowercase()}" }).joinToString(", ")
         Row(
             Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 .frame(if (done) Color(0xFF2A3A1E) else WoodIn, if (next) Gold else WoodEdge).padding(5.dp),
@@ -108,7 +110,7 @@ private fun Daily() {
     Btn(if (can) "Claim day $today" else "Claimed", Modifier.fillMaxWidth(), enabled = can, color = Gold, icon = Sprites.gift) {
         val r = f.claimDaily(Store.now()) ?: return@Btn
         Audio.play(Sfx.COLLECT)
-        Store.toast("Day ${r.day}: +${money(r.cash)}")
+        Store.toast("Day ${r.day}: +${money(r.cash)}" + (f.holiday()?.takeIf { r.tokens > 0 }?.let { ", +${r.tokens} ${it.tokens.lowercase()}" } ?: ""))
         Store.changed()
     }
     T("Best streak: ${f.bestStreak} days", 10.sp, Dim, Modifier.padding(top = 6.dp), bold = false)
@@ -132,7 +134,7 @@ private fun Quests() {
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     T(q.kind.text.format(goal), 13.sp, if (q.claimed) Dim else Cream)
-                    T("${money(q.cash)}  +${q.xp} XP", 10.sp, Gold)
+                    T("${money(q.cash)}  +${q.xp} XP" + (f.holiday()?.let { "  +${f.rewardTokens(Farm.QUEST_TOKENS)} ${it.tokens.lowercase()}" } ?: ""), 10.sp, Gold)
                 }
                 if (q.claimed) T("✓", 16.sp, Leaf)
                 else Btn("Claim", enabled = done, color = Gold) { Audio.play(Sfx.COLLECT); report(f.claimQuest(i)) }
@@ -144,7 +146,8 @@ private fun Quests() {
     }
     Spacer(Modifier.height(8.dp))
     val bonus = f.canClaimQuestBonus()
-    Btn(if (f.questBonus) "Bonus claimed" else "All three: ${money(f.questBonusCash())} + Good Vibes",
+    Btn(if (f.questBonus) "Bonus claimed" else "All three: ${money(f.questBonusCash())} + Good Vibes" +
+        (f.holiday()?.let { " + ${f.rewardTokens(Farm.BONUS_TOKENS)} ${it.tokens.lowercase()}" } ?: ""),
         Modifier.fillMaxWidth(), enabled = bonus, color = Gold) {
         Audio.play(Sfx.LEVEL_UP); report(f.claimQuestBonus(now))
     }
@@ -287,7 +290,7 @@ private fun Stats() {
 }
 
 @Composable
-private fun Settings(ui: UiState) {
+internal fun Settings(ui: UiState) {
     val f = Store.farm
     f.farmer?.let { me ->
         Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {

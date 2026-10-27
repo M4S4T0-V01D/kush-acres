@@ -65,7 +65,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - Note: the desktop farm is its own save (`~/.local/share/kush-acres`), separate from the phone's.
 
 ## Phase 5 — Per-farm towns
-- [ ] Each site: town name, keepers (names/looks), back-alley dealer + stock
+- [x] Each site: town name, keepers with their own names, lines and looks (0.9.0)
+- [ ] Back-alley stock per town
 - [ ] Strain sets per site (site-exclusive strains, like levels)
 
 ## Phase 6 — Vehicles
@@ -99,6 +100,20 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Share card shows a real render of the farm
 - [ ] Test the creator, map picker, holiday shop and Bucks shop by hand in the running app
 
+## Phase 10 — Power, gems, specials, reggae (0.9.0)
+- [x] Settings button (⚙) in the top bar
+- [x] Pot Bucks cosmetics: new decor, strains, grass and dirt colours per farm (cash or Pot Bucks)
+- [x] Orders: sell now, or deliver for more after a wait
+- [x] Gems: a rare third currency for 15 special buildings that boost a farm
+- [x] Electricity: generators and power stations; lamps, hash presses and other machines need power
+- [x] Store keeper portraits redrawn at 96 px with their shops behind them
+- [x] Slow reggae loops, a different tune for home, town and every other farm
+- [x] Phone top bar: smaller money numbers so they don't wrap
+- [x] The camera spot and zoom are remembered per farm
+- [x] Holiday tokens from dailies, challenges, jobs and hand harvests (35%, 1–3); more at higher levels; dispensary sales give half of an order
+- [x] Upgrades and the shack belong to each farm; the stash adds up every farm's storage
+- [ ] Listen to the area tunes and test power, deliveries and specials by hand
+
 ## Release log
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
@@ -111,3 +126,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.8.1 — seed shelves fold into low, mid and high level drop-downs
 - 0.8.2 — Pot Bucks, holiday token and festival chips get the same wood box as the money
 - 0.8.3 — Pot Bucks sit next to the money in the top bar; big amounts shortened to K, M and B
+- 0.9.0 — settings button, cosmetics and grass/dirt colours, deliveries, gems and 15 specials, electricity, new keeper portraits, reggae music per area, each town has its own keepers, upgrades and shack per farm, more holiday tokens, camera remembered per farm

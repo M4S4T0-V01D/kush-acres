@@ -44,6 +44,33 @@ internal fun dumpSprites(path: String) {
         }
     }
     ImageIO.write(dimg, "png", File(path.removeSuffix(".png") + "-decor.png"))
+    // Generators, specials and the Pot Bucks decor.
+    val builds = dev.m4s4t0.kushacres.model.Generator.entries.map { dev.m4s4t0.kushacres.art.Buildings.generator(it) } +
+        dev.m4s4t0.kushacres.model.Special.entries.map { dev.m4s4t0.kushacres.art.Buildings.special(it) } +
+        Decor.entries.filter { it.bucks > 0 }.map { DecorArt.sprite(it) }
+    val bc = builds.maxOf { maxOf(it.width, it.height) } + 4; val bcols = 8; val bs = 2
+    val bimg = BufferedImage(bcols * bc * bs, (builds.size + bcols - 1) / bcols * bc * bs, BufferedImage.TYPE_INT_ARGB)
+    bimg.createGraphics().apply { color = java.awt.Color(0x6A, 0x9A, 0x4A); fillRect(0, 0, bimg.width, bimg.height); dispose() }
+    builds.forEachIndexed { n, b ->
+        val ox = (n % bcols) * bc * bs; val oy = (n / bcols) * bc * bs
+        for (y in 0 until b.height) for (x in 0 until b.width) {
+            val c = b.getPixel(x, y)
+            if (c ushr 24 == 0) continue
+            for (j in 0 until bs) for (i in 0 until bs) bimg.setRGB(ox + x * bs + i, oy + y * bs + j, c)
+        }
+    }
+    ImageIO.write(bimg, "png", File(path.removeSuffix(".png") + "-buildings.png"))
+    // Shop keeper portraits, one row per town.
+    val towns = listOf("home", "redwood", "mesa", "bayou", "neon", "zion")
+    val kc = People.BIG * 2 + 8
+    val kimg = BufferedImage(dev.m4s4t0.kushacres.art.Keeper.entries.size * kc, towns.size * kc, BufferedImage.TYPE_INT_ARGB)
+    towns.forEachIndexed { row, t ->
+        dev.m4s4t0.kushacres.art.Keeper.entries.forEachIndexed { n, k ->
+            val px = People.portraitPx(k, t)
+            for (y in 0 until px.fh) for (x in 0 until px.fw) kimg.setRGB(n * kc + x, row * kc + y, px.p[y * px.fw + x])
+        }
+    }
+    ImageIO.write(kimg, "png", File(path.removeSuffix(".png") + "-keepers.png"))
     // And a share card for a fresh farm with a few plants in.
     val now = System.currentTimeMillis()
     val f = dev.m4s4t0.kushacres.model.Farm(kotlin.random.Random(5)).apply { newGame(now); cash = 1000L }

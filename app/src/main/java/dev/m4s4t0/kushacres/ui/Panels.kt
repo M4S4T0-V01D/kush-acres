@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.SavePic
 import androidx.compose.foundation.Image
@@ -62,6 +63,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import dev.m4s4t0.kushacres.Updater
 import dev.m4s4t0.kushacres.art.Buildings
+import dev.m4s4t0.kushacres.art.Coins
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.Sprites
@@ -69,6 +71,8 @@ import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Generator
+import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Helper
@@ -92,8 +96,9 @@ internal fun report(r: Result) {
         Result.SHACK -> Store.toast("Needs a bigger shack")
         Result.LIMIT -> Store.toast("No room for more decor. Upgrade the shack!")
         Result.NO_BUD -> Store.toast("Not enough of that strain in the stash")
-        Result.NO_SUPPLY -> Store.toast("Out of supplies. Violet's in town has them")
+        Result.NO_SUPPLY -> Store.toast("Out of supplies. ${keeper(Keeper.VIOLET)}'s in town has them")
         Result.BUSY -> Store.toast("Already working on a batch")
+        Result.NO_POWER -> Store.toast("Not enough power on this farm. Build a generator!")
         Result.BLOCKED -> Store.toast("Can't do that here")
         else -> {}
     }
@@ -121,7 +126,7 @@ fun PanelHost(ui: UiState) {
             val title = when (ui.panel) {
                 Panel.SEEDS -> "Seeds"
                 Panel.ORDERS -> "Orders"
-                Panel.TOWN -> ui.shop?.let { shopName(it) } ?: "Main Street"
+                Panel.TOWN -> ui.shop?.let { shopName(it) } ?: townFolk().town
                 Panel.BUILD -> "Build"
                 Panel.SHACK -> SHACKS[f.shack].title
                 Panel.FACILITY -> ui.fac?.let { (x, y) -> f.facility(x, y)?.title } ?: ""
@@ -129,6 +134,7 @@ fun PanelHost(ui: UiState) {
                 Panel.FARMS -> "Your farms"
                 Panel.HOLIDAY -> Holiday.at(Store.now())?.let { "${it.title} shop" } ?: "Holidays"
                 Panel.BUCKS -> "Pot Bucks"
+                Panel.SETTINGS -> "Settings"
                 Panel.NONE -> ""
             }
             Row(Modifier.fillMaxWidth().frame(Color(0xFF3F2C1A), Color(0xFFB08440)).padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -155,6 +161,7 @@ fun PanelHost(ui: UiState) {
                 Panel.FARMS -> FarmsPanel(ui)
                 Panel.HOLIDAY -> HolidayPanel(ui)
                 Panel.BUCKS -> BucksPanel(ui)
+                Panel.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState())) { Settings(ui) }
                 Panel.NONE -> {}
             }
         }
@@ -165,9 +172,9 @@ fun PanelHost(ui: UiState) {
 private val SHELVES: List<Pair<String, List<Strain>>> = run {
     val per = (Strains.ladder.size + 3) / 4
     val ladder = Strains.ladder.chunked(per)
-    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics, "Holiday" to Strains.holidays)
+    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics, "Holiday" to Strains.holidays, "Bucks" to Strains.bucksList)
 }
-private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0, 0xFFFF8A1E).map { Color(it) }
+private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0, 0xFFFF8A1E, 0xFF5AC05A).map { Color(it) }
 
 @Composable
 internal fun SeedPanel(ui: UiState) {
@@ -178,7 +185,7 @@ internal fun SeedPanel(ui: UiState) {
         when (i) {
             4 -> "$name ${l.count { it.id in f.bred }}"
             5 -> "$name ${l.count { (f.seeds[it.id] ?: 0) > 0 }}"
-            6 -> "$name ${l.count { f.unlocked(it) }}"
+            6, 7 -> "$name ${l.count { f.unlocked(it) }}"
             else -> "$name ${l.count { f.unlocked(it) }}/${l.size}"
         }
     }, tab) { tab = it }
@@ -188,11 +195,12 @@ internal fun SeedPanel(ui: UiState) {
     val list = when (tab) {
         4 -> shelf.filter { it.id in f.bred }
         5 -> shelf.filter { (f.seeds[it.id] ?: 0) > 0 }
-        6 -> shelf.filter { f.unlocked(it) }
+        6, 7 -> shelf.filter { f.unlocked(it) }
         else -> shelf
     }
     if (list.isEmpty()) {
-        T(if (tab == 6) "No holiday strains yet. Each holiday's shop sells two, and they stay yours for good."
+        T(if (tab == 7) "No Pot Bucks strains yet. The Pot Bucks shop sells four, and they stay yours for good."
+            else if (tab == 6) "No holiday strains yet. Each holiday's shop sells two, and they stay yours for good."
             else if (tab == 4) "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
             else "No exotic seeds. The back-alley dealer in Town sells them now and then.", 12.sp, Dim, bold = false)
         return
@@ -257,11 +265,28 @@ internal fun Orders() {
     Store.rev
     val now = Store.now()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item {
+            Store.rev
+            val vans = (0 until Farm.MAX_ORDERS).filter { f.delivering(it) }
+            Row(Modifier.fillMaxWidth().frame(Color(0xFF1E2A1E), Leaf).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Px(Coins.van, 26.dp); Spacer(Modifier.width(8.dp))
+                T(if (vans.isEmpty()) "Sell an order now, or send it in the van for about ×${"%.1f".format(Farm.DELIVERY_PAY)} the pay. The bud leaves now; the money comes when the van gets there."
+                    else "${vans.size} on the road, ${money(vans.sumOf { f.deliverPay[it] })} on the way.", 10.sp, Dim, Modifier.weight(1f), bold = false)
+            }
+        }
         items((0 until Farm.MAX_ORDERS).toList()) { i ->
             Store.rev
             val o = f.orders[i]
-            Column(Modifier.fillMaxWidth().frame(WoodIn, if (o?.vip == true) Gold else WoodEdge).padding(5.dp)) {
+            Column(Modifier.fillMaxWidth().frame(WoodIn, if (f.delivering(i)) Leaf else if (o?.vip == true) Gold else WoodEdge).padding(5.dp)) {
                 when {
+                    f.delivering(i) -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Px(Coins.van, 20.dp); Spacer(Modifier.width(6.dp))
+                        Column(Modifier.weight(1f)) {
+                            T("On the road to ${o?.buyer ?: "a buyer"}", 12.sp, Cream)
+                            T("Arrives in ${dur(((f.deliverAt[i] - now) / 1000).coerceAtLeast(0))}", 11.sp, Sky)
+                        }
+                        T(money(f.deliverPay[i]), 13.sp, Gold)
+                    }
                     i >= f.orderSlots() -> Row(verticalAlignment = Alignment.CenterVertically) {
                         Px(Sprites.lock, 16.dp); Spacer(Modifier.width(6.dp))
                         T("Order slot opens at Lv ${(i - 1) * 6}", 12.sp, Dim)
@@ -273,9 +298,13 @@ internal fun Orders() {
                     }
                     else -> {
                         val ok = f.canFill(o)
+                        val street = o.items.sumOf { (f.price(it.strain) * it.grams) }.toLong()
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Px(if (o.vip) Sprites.star else Sprites.hat, 18.dp); Spacer(Modifier.width(6.dp))
-                            T(o.buyer, 13.sp, if (o.vip) Gold else Cream, Modifier.weight(1f))
+                            Column(Modifier.weight(1f)) {
+                                T(o.buyer + if (o.vip) " · VIP +1 gem" else "", 13.sp, if (o.vip) Gold else Cream)
+                                if (street > 0) T("${keeper(Keeper.DEX)} would pay ${money(street)}", 10.sp, Dim, bold = false)
+                            }
                             T(money(o.reward), 13.sp, Gold)
                             T(" +${o.xp}xp", 11.sp, Sky)
                         }
@@ -293,8 +322,11 @@ internal fun Orders() {
                         T(o.items.joinToString(", ") { Strains[it.strain]?.name ?: "" }, 10.sp, Dim, bold = false)
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Btn("Deliver", Modifier.weight(1f), enabled = ok, icon = Sprites.bag) {
+                            Btn("Sell ${short(o.reward)}", Modifier.weight(1f), enabled = ok, icon = Sprites.bag) {
                                 if (f.fill(i, Store.now()) == Result.OK) Store.changed()
+                            }
+                            Btn("Van ${short(f.deliveryPay(o))} · ${dur(f.deliveryMillis(o) / 1000)}", Modifier.weight(1.4f), enabled = ok, color = Leaf, icon = Coins.van) {
+                                if (f.deliver(i, Store.now()) == Result.OK) { Audio.play(Sfx.TAP); Store.toast("The van's off to ${o.buyer}!"); Store.changed() }
                             }
                             Btn("Pass", color = Bad, icon = Sprites.trash) { f.trash(i, Store.now()); Store.changed() }
                         }
@@ -345,13 +377,15 @@ internal fun startPlacing(ui: UiState, m: Mode) { ui.mode = m; ui.panel = Panel.
 
 @Composable
 private fun BuildPanel(ui: UiState) {
-    var tab by remember { mutableIntStateOf(0) }
-    Tabs(listOf("Farm", "Work", "Make", "Decor", "Tools"), tab) { tab = it }
+    val tab = ui.buildTab
+    Tabs(listOf("Farm", "Work", "Make", "Decor", "Power", "Special", "Tools"), tab) { ui.buildTab = it }
     when (tab) {
         0 -> FarmBuilds(ui)
         1 -> WorkList(ui)
         2 -> FacilityList(ui)
         3 -> DecorList(ui, owned = true)
+        4 -> PowerList(ui)
+        5 -> SpecialList(ui)
         else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
                 Store.rev
@@ -439,6 +473,60 @@ internal fun FacilityList(ui: UiState) {
     }
 }
 
+/** Generators: lamps and the machines that make things need power, and each farm makes its own. */
+@Composable
+internal fun PowerList(ui: UiState) {
+    val f = Store.farm
+    Store.rev
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item {
+            Store.rev
+            Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
+                PowerLine()
+                T("The town grid gives every farm ${Generator.GRID} ⚡. Grow lamps use ${Generator.LAMP} each; presses, kitchens, labs and vape rigs use more, and more again when upgraded. Short on power, lamps go dark and those machines stop taking new batches.", 10.sp, Dim, bold = false)
+            }
+        }
+        items(Generator.entries) { g ->
+            Store.rev
+            val c = f.generatorCost(g)
+            Card(Buildings.generator(g), g.title, "${g.desc}. +${g.watts} ⚡", "You have ${f.count(g)} here", money(c), f.cash >= c,
+                if (f.level < g.level) g.level else null) { startPlacing(ui, Mode.PlacePower(g)) }
+        }
+    }
+}
+
+/** Special buildings: big, one-off boosts paid for in Kush Gems (plus cash). */
+@Composable
+internal fun SpecialList(ui: UiState) {
+    val f = Store.farm
+    Store.rev
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item {
+            Store.rev
+            Row(Modifier.fillMaxWidth().frame(Color(0xFF261C30), Color(0xFFB060F0)).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Px(Coins.gem, 28.dp); Spacer(Modifier.width(8.dp))
+                T("Kush Gems are rare: 2 every 5 levels, 1 per trophy, 1 every 7-day streak, VIP orders and the odd golden harvest. The Pot Bucks shop sells them too.", 10.sp, Dim, Modifier.weight(1f), bold = false)
+                Spacer(Modifier.width(6.dp))
+                T("${f.gems}", 18.sp, Color(0xFFD8A0FF))
+            }
+        }
+        items(Special.entries) { sp ->
+            Store.rev
+            val ok = f.canPlace(sp)
+            val sub = when {
+                f.here(sp) -> "Built on this farm"
+                !sp.local && f.built(sp) -> "Built on another farm. Works everywhere"
+                sp.local -> "Works on the farm it's built on. One per farm"
+                else -> "Works on every farm. Build it once"
+            }
+            Card(Buildings.special(sp), sp.title, sp.desc, sub, "${sp.gems} + ${short(sp.cash)}",
+                ok && f.gems >= sp.gems && f.cash >= sp.cash, if (f.level < sp.level) sp.level else null, actionIcon = Coins.gem) {
+                startPlacing(ui, Mode.PlaceSpecial(sp))
+            }
+        }
+    }
+}
+
 /** Decor to place. With [owned], your shed of free pieces comes first. */
 @Composable
 internal fun DecorList(ui: UiState, owned: Boolean) {
@@ -478,7 +566,7 @@ private fun ShackPanel(ui: UiState) {
                 Column(Modifier.weight(1f)) {
                     T(cur.blurb, 12.sp, Cream, bold = false)
                     Spacer(Modifier.height(4.dp))
-                    T("Stash ${f.stashCap()}g (+${f.shack * 20}%)", 11.sp, Sky)
+                    T("Stash here ${f.siteStash()}g (+${f.shack * 20}%)", 11.sp, Sky)
                     T("Decor room ${f.decorCount()}/${f.decorCap()}", 11.sp, Sky)
                     val bunks = Helper.entries.filter { it.shack in 1..f.shack }.joinToString { it.title }
                     T(if (bunks.isEmpty()) "No spare bunks yet. Runners and Fetchers need a Cozy Cabin" else "Room for: $bunks", 11.sp, Sky)
@@ -552,7 +640,7 @@ private fun FacilityPanel(ui: UiState) {
                     report(f.collect(x, y, Store.now()))
                 }
                 s != null -> T("Making ${s.name} ${fac.product.lowercase()}… ${dur((t.doneAt - now) / 1000 + 1)} left", 13.sp, Sky)
-                else -> T(if (sup > 0) "Pick a strain from your stash to start a batch" else "Needs ${fac.supply.title.lowercase()}. Buy some at Violet's in town.", 12.sp, Dim)
+                else -> T(if (sup > 0) "Pick a strain from your stash to start a batch" else "Needs ${fac.supply.title.lowercase()}. Buy some at ${keeper(Keeper.VIOLET)}'s in town.", 12.sp, Dim)
             }
         }
         if (t.strain == null) {
@@ -582,7 +670,7 @@ private fun FacilityPanel(ui: UiState) {
         }
         item {
             Store.rev
-            Btn("Visit Violet's for supplies", Modifier.fillMaxWidth(), color = WoodEdge, icon = Town.supply(fac.supply)) {
+            Btn("Visit ${keeper(Keeper.VIOLET)}'s for supplies", Modifier.fillMaxWidth(), color = WoodEdge, icon = Town.supply(fac.supply)) {
                 ui.shop = dev.m4s4t0.kushacres.art.Keeper.VIOLET; ui.panel = Panel.TOWN
             }
         }
@@ -607,6 +695,10 @@ fun Dialogs() {
             T("LEVEL ${lv.level}!", 24.sp, Gold)
             Spacer(Modifier.height(6.dp))
             T("Bonus: ${money(lv.bonus)}", 15.sp, Leaf)
+            if (lv.bucks > 0 || lv.gems > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (lv.bucks > 0) { Px(Coins.bucks, 14.dp); T(" +${lv.bucks} Pot Bucks  ", 13.sp, Leaf) }
+                if (lv.gems > 0) { Px(Coins.gem, 14.dp); T(" +${lv.gems} gem${if (lv.gems > 1) "s" else ""}", 13.sp, Color(0xFFD8A0FF)) }
+            }
             if (lv.unlocks.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 T("Unlocked", 12.sp, Dim)

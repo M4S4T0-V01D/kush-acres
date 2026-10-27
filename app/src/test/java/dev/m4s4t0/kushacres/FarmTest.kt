@@ -481,6 +481,50 @@ class FarmTest {
         assertFalse(f.switchTo("mesa"))
     }
 
+    @Test fun upgradesAndShackBelongToOneFarm() {
+        val f = rich()
+        f.upgrades[Upgrade.STASH.ordinal] = 2
+        f.shack = 3
+        val homeStash = f.siteStash()
+        f.buySite(Sites["redwood"]!!)
+        assertEquals(0, f.upgrades[Upgrade.STASH.ordinal])
+        assertEquals(0, f.shack)
+        assertEquals(3, f.bestShack())
+        assertEquals(homeStash + f.siteStash(), f.stashCap())
+        // Each farm's upgrades and shack survive a save.
+        val g = farm()
+        Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        g.switchTo("home")
+        assertEquals(2, g.upgrades[Upgrade.STASH.ordinal])
+        assertEquals(3, g.shack)
+    }
+
+    @Test fun oldSavesGiveTheirUpgradesToEveryFarm() {
+        val f = rich()
+        f.buySite(Sites["redwood"]!!)
+        val o = JSONObject(Save.write(f))
+        val sites = o.getJSONArray("sites")
+        for (i in 0 until sites.length()) sites.getJSONObject(i).apply { remove("shack"); remove("up") }
+        o.put("shack", 2).put("up", JSONObject().put(Upgrade.STASH.name, 1))
+        val g = farm()
+        Save.read(o.toString(), g)
+        for (s in g.sites) {
+            assertEquals(2, s.shack)
+            assertEquals(1, s.upgrades[Upgrade.STASH.ordinal])
+        }
+    }
+
+    @Test fun everyFarmHasItsOwnTown() {
+        for (def in Sites.all + Sites.holidays) {
+            val t = dev.m4s4t0.kushacres.model.Towns[def.id]
+            assertEquals(6, t.names.size)
+            assertTrue(def.id, def.id == "home" || t !== dev.m4s4t0.kushacres.model.Towns.HOME)
+        }
+        val towns = dev.m4s4t0.kushacres.model.Towns.ids.map { dev.m4s4t0.kushacres.model.Towns[it].town }
+        assertEquals(towns.size, towns.toSet().size)
+    }
+
     @Test fun everyFarmGrowsAroundItsSpot() {
         for (def in Sites.all) {
             val st = Site(def)

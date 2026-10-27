@@ -25,6 +25,7 @@ enum class Stat(val title: String) {
     SPENT("Cash spent"),
     CUPS("Cannabis Cups won"),
     PLACED("Cup ribbons won"),
+    HUNTS("Seed hunts"),
 }
 
 /** The real-world seasons of the farm, a week each, the same for everyone. */
@@ -117,6 +118,7 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
     CREW("Full Crew", "Hire every helper", Helper.entries.size.toLong(), { f -> f.helpers.count { it }.toLong() }),
     CUP_1("Blue Ribbon", "Win a Cannabis Cup", 1, { it.stat(Stat.CUPS) }),
     CUP_10("Cup Legend", "Win 10 Cannabis Cups", 10, { it.stat(Stat.CUPS) }),
+    HUNT_25("Pathfinder", "Come back from 25 seed hunts", 25, { it.stat(Stat.HUNTS) }),
     LEGACY_1("Fresh Start", "Sell the farm", 1, { it.legacy.toLong() }),
     LEGACY_5("Dynasty", "Sell the farm 5 times", 5, { it.legacy.toLong() });
 

@@ -88,7 +88,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Weekly Cannabis Cup (Farm Book → Cup, Lv 10): a class each week, three rival growers, three entries paid in
       grams of bud, cash/Bucks/gem/XP prizes for better placings, Blue Ribbon and Cup Legend trophies (0.10.2)
 - [x] Two more crew: Botanist (Lv 24, plants here grow 10% faster each, up to 2) and Lab Chemist (28, facilities
-      here cook 30% faster); crews and vehicles show in the level-up unlock list
+      here cook 30% faster); crews and vehicles show in the level-up unlock list (0.10.3)
+- [x] Seed hunts (Farm Book → Hunts, Lv 12): send a scout on a 1, 4 or 8 h trip for exotic seeds (rare finds a tier up),
+      cash, Pot Bucks, XP and the odd gem; Pathfinder trophy for 25 hunts (0.10.3)
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics
@@ -146,3 +148,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.10.0 — desktop keys and window memory, per-town back alleys and strains, vehicles, crews, storms and mould, strain traits, seasonal favourites, away summary, collection book, per-farm goals, ground shadows
 - 0.10.1 — decor redrawn with light and shade, lit edges on buildings and vehicles
 - 0.10.2 — weekly Cannabis Cup; plants, trees, bushes, lamps and sprinklers shaded
+- 0.10.3 — seed hunts, Botanist and Lab Chemist crew, crews and vehicles in the level-up list

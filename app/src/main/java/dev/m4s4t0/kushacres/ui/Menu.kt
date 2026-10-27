@@ -43,6 +43,8 @@ import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.FarmGoal
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.CupClass
+import dev.m4s4t0.kushacres.model.Hunt
+import dev.m4s4t0.kushacres.model.Trip
 import dev.m4s4t0.kushacres.model.Trophy
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
@@ -56,16 +58,18 @@ internal fun MenuPanel(ui: UiState) {
     val now = Store.now()
     val dot = { b: Boolean, n: String -> if (b) "$n •" else n }
     Tabs(listOf(dot(f.canClaimDaily(now), "Daily"), dot(f.quests.any { !it.claimed && f.questDone(it) } || f.canClaimQuestBonus(), "Quests"),
-        "Lab", dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"), "Strains", "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
+        "Lab", dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"),
+        dot(f.level >= Hunt.LEVEL && (Hunt.back(f, now) || !Hunt.away(f)), "Hunts"), "Strains", "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         when (tab) {
             0 -> Daily()
             1 -> Quests()
             2 -> Lab()
             3 -> CupTab()
-            4 -> StrainBook()
-            5 -> Trophies()
-            6 -> Stats()
+            4 -> HuntTab()
+            5 -> StrainBook()
+            6 -> Trophies()
+            7 -> Stats()
             else -> Settings(ui)
         }
     }
@@ -276,6 +280,56 @@ private fun CupTab() {
                     })
                     Store.changed()
                 } else report(r)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HuntTab() {
+    Store.rev
+    val f = Store.farm
+    val now = Store.now()
+    if (f.level < Hunt.LEVEL) {
+        T("Seed hunts open at level ${Hunt.LEVEL}.", 14.sp, Dim)
+        T("Send a scout out to find exotic seeds in the wild. They bring back cash, Pot Bucks and the odd gem too.", 11.sp, Dim, bold = false)
+        return
+    }
+    val common = Strains[Hunt.common(f).strain!!]
+    val rare = Strains[Hunt.rareOf(f).strain!!]
+    T("Seed hunts", 14.sp, Gold)
+    T("Your scout finds ${common?.name ?: "exotic"} seeds" + (if (rare != null && rare != common) ", or on a lucky trip ${rare.name}" else "") +
+        ". One trip at a time.", 10.sp, Dim, bold = false)
+    Spacer(Modifier.height(6.dp))
+    val out = Trip.of(f.hunt)
+    if (out != null) {
+        Row(Modifier.fillMaxWidth().frame(WoodIn, Gold).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                T(out.title, 12.sp, Cream)
+                if (now < f.huntBack) T("Back in ${dur((f.huntBack - now) / 1000)}", 10.sp, Dim, bold = false)
+                else T("Your scout is back!", 10.sp, Leaf, bold = false)
+            }
+            Btn("Claim", enabled = now >= f.huntBack, color = Gold) {
+                val l = Hunt.claim(f, now) ?: return@Btn
+                Audio.play(Sfx.UNLOCK)
+                Store.toast((if (l.rare) "Rare find! " else "") + "${l.seeds} ${Strains[l.strain]?.name ?: l.strain} seeds, ${money(l.cash)}, ${l.bucks} Bucks" +
+                    (if (l.gems > 0) ", ${l.gems} gem" else "") + ", ${l.xp} XP")
+                Store.changed()
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+    for (t in Trip.entries) {
+        val c = Hunt.cost(f, t)
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
+            common?.let { Px(Sprites.strainIcon(it), 28.dp); Spacer(Modifier.width(8.dp)) }
+            Column(Modifier.weight(1f)) {
+                T("${t.title} · ${t.hours} h", 12.sp, Cream)
+                T(t.desc + ". Rare find ${(Hunt.rareChance(t) * 100).toInt()}%.", 10.sp, Dim, bold = false)
+            }
+            Btn(money(c), enabled = out == null && f.cash >= c, color = Gold) {
+                val r = Hunt.send(f, t, now)
+                if (r == Result.OK) { Audio.play(Sfx.TAP); Store.toast("Your scout set off on the ${t.title.lowercase()}"); Store.changed() } else report(r)
             }
         }
     }

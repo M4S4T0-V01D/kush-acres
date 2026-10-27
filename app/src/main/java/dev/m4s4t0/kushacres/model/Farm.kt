@@ -228,6 +228,9 @@ class Farm(var rng: Random = Random.Default) {
     /** The Cannabis Cup week the entries in [cupScores] belong to, and each entry (strain id, judged score). */
     var cupWeek = -1L
     val cupScores = ArrayList<Pair<String, Int>>()
+    /** The [Trip] a seed-hunt scout is out on (null when home) and when they get back. */
+    var hunt: String? = null
+    var huntBack = 0L
     var away = Away()
     val events = ArrayList<FarmEvent>()
     /** Pot Bucks: the rare currency from level-ups, dailies, challenges, events and lucky harvests. */
@@ -346,7 +349,7 @@ class Farm(var rng: Random = Random.Default) {
     /** Cash from selling: counts towards lifetime earnings. */
     private fun earn(x: Long) { cash += x; totalEarned += x; bump(Stat.EARNED, x) }
     /** Cash paid out for anything: counts towards lifetime spending. */
-    private fun spend(x: Long) { cash -= x; bump(Stat.SPENT, x) }
+    fun spend(x: Long) { cash -= x; bump(Stat.SPENT, x) }
     fun count(kind: Kind) = tiles.count { it.kind == kind }
     fun count(f: Facility) = tiles.count { it.kind == Kind.FACILITY && it.item == f.name }
     /** Decor bonuses to prices and XP count from any farm you own. */
@@ -1006,6 +1009,7 @@ class Farm(var rng: Random = Random.Default) {
         if (lvl == EVENT_LEVEL) out += "Random events"
         if (lvl == Progress.BREED_LEVEL) out += "The breeding lab"
         if (lvl == Cup.LEVEL) out += "The Cannabis Cup"
+        if (lvl == Hunt.LEVEL) out += "Seed hunts"
         if (lvl == Progress.LEGACY_LEVEL) out += "Selling the farm for a legacy bonus"
         if (lvl % 6 == 0 && 2 + lvl / 6 <= MAX_ORDERS) out += "Another order slot"
         return out
@@ -1310,6 +1314,7 @@ class Farm(var rng: Random = Random.Default) {
         quests.clear(); questBonus = false; events.clear()
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
+        cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         lastTick = now; nextEventAt = 0
         newGame(now)
         refreshQuests(now)

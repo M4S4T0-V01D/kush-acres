@@ -2,6 +2,8 @@ package dev.m4s4t0.kushacres
 
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Cup
+import dev.m4s4t0.kushacres.model.Hunt
+import dev.m4s4t0.kushacres.model.Trip
 import dev.m4s4t0.kushacres.model.Buff
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
@@ -777,6 +779,33 @@ class FarmTest {
         val g = Farm(Random(1))
         Save.read(Save.write(f), g)
         assertEquals(1, g.crew(Crew.DRIVER))
+    }
+
+    @Test fun seedHuntsCostWaitPayAndSave() {
+        val f = farm()
+        f.cash = 1_000_000_000
+        assertEquals(Result.LOCKED, Hunt.send(f, Trip.HILLS, t0))
+        f.level = 15
+        val cash = f.cash
+        assertEquals(Result.OK, Hunt.send(f, Trip.VALLEY, t0))
+        assertEquals(cash - Hunt.cost(f, Trip.VALLEY), f.cash)
+        assertEquals(Result.BUSY, Hunt.send(f, Trip.HILLS, t0))
+        assertNull(Hunt.claim(f, t0 + 3_600_000L))
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(Trip.VALLEY.name, g.hunt)
+        assertEquals(f.huntBack, g.huntBack)
+        val bucks = g.potBucks
+        val l = Hunt.claim(g, t0 + 4 * 3_600_000L)!!
+        assertTrue(l.seeds in 4..6)
+        assertEquals(l.seeds, g.seeds[l.strain])
+        assertTrue(l.strain == Hunt.common(g).strain || l.strain == Hunt.rareOf(g).strain)
+        assertTrue(Strains[l.strain]!!.exotic)
+        assertEquals(bucks + l.bucks, g.potBucks)
+        assertEquals(1L, g.stat(Stat.HUNTS))
+        assertFalse(Hunt.away(g))
+        assertNull(Hunt.claim(g, t0 + 5 * 3_600_000L))
+        assertEquals(Result.OK, Hunt.send(g, Trip.JUNGLE, t0))
     }
 
     @Test fun botanistsAndChemistSpeedUpTheirFarm() {

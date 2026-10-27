@@ -74,6 +74,7 @@ import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Holiday
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Vehicle
 import dev.m4s4t0.kushacres.model.Crew
@@ -456,8 +457,9 @@ internal fun WorkList(ui: UiState) {
             Store.rev
             val c = f.houseCost(h)
             val n = f.count(h)
-            Card(Buildings.house(h), h.title, h.desc + ". Staffed: " + h.staffed.lowercase() + ".", "You have $n here" + if (n >= WorkHouse.MAX_EACH) " (max)" else "",
-                money(c), f.cash >= c && n < WorkHouse.MAX_EACH, if (f.level < h.level) h.level else null) { startPlacing(ui, Mode.PlaceHouse(h)) }
+            val max = if (h == WorkHouse.STORE) Storefronts.PER_FARM else WorkHouse.MAX_EACH
+            Card(Buildings.house(h), h.title, h.desc + ". Staffed: " + h.staffed.lowercase() + ".", "You have $n here" + if (n >= max) " (max)" else "",
+                money(c), f.cash >= c && n < max, if (f.level < h.level) h.level else null) { startPlacing(ui, Mode.PlaceHouse(h)) }
         }
         items(Crew.entries) { k ->
             Store.rev
@@ -740,6 +742,7 @@ fun Dialogs() {
             if (away.batches > 0) T("${away.batches} batches cooked", 13.sp, Cream)
             if (away.deals > 0) T("Van filled ${away.deals} contract${if (away.deals > 1) "s" else ""}", 13.sp, Gold)
             if (away.sold > 0) T("Runner sold ${money(away.sold)}", 13.sp, Gold)
+            if (away.shop > 0) T("Your storefronts sold ${money(away.shop)} of lab bud", 13.sp, Gold)
             if (away.xp > 0) T("+${away.xp} xp", 13.sp, Sky)
             if (away.levels > 0) T("Reached level ${Store.farm.level}!", 13.sp, Gold)
             if (away.earned > 0) T("Cash up ${money(away.earned)} in all", 13.sp, Gold)

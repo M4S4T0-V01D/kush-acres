@@ -141,6 +141,11 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Delivery Van ships to contracts; contracts in the away summary; Middleman / Kingpin of the County trophies
 - [ ] Story chains: each town's buyers have 4–5 linked contracts with a bit of story and a unique reward
 - [ ] Standing weekly order from a town at the top rep tiers; seasonal and holiday contracts
+- [x] Lab Storefront (work building, Lv 8, up to 4 per farm): sells hybrids from the stash by itself, offline too, at
+      +25–45% over market with no demand drop; grows Roadside Stand → Kiosk → Lab Shop → Lab Store → Flagship (Lv 12/18/26/34);
+      a worker makes it sell 50% faster
+- [x] Lab research is timed: one cross at a time; +10% speed per store level on every farm, +50% per Lab Chemist;
+      Open for Business / Franchise trophies
 
 ## Phase 13 — Legacy 2.0 (prestige)
 - Selling the farm at Lv 40 already gives a legacy bonus; this deepens it

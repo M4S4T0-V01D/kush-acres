@@ -74,6 +74,7 @@ import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Generator
@@ -502,7 +503,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.ROCK -> "Boulder"
                 Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
-                Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: ""
+                Kind.HOUSE -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: ""
                 Kind.POWER -> Generator.of(tile.item)?.title ?: ""
                 Kind.SPECIAL -> Special.of(tile.item)?.title ?: ""
                 Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: ""
@@ -582,12 +583,38 @@ internal fun PowerLine() {
 @Composable
 private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
     val f = Store.farm
-    T(h.desc + ".", 12.sp, Dim)
     val spot = f.houses().firstOrNull { it.x == x && it.y == y }
+    if (h == WorkHouse.STORE) return StoreInfo(x, y, spot?.staffed == true)
+    T(h.desc + ".", 12.sp, Dim)
     when {
         h == WorkHouse.BUNK -> T("Beds for ${f.workerCap()} workers on this farm.", 11.sp, Sky)
         spot?.staffed == true -> T("Staffed: ${h.staffed.lowercase()}.", 11.sp, Leaf)
         else -> T("No worker yet. Staffed: ${h.staffed.lowercase()}.", 11.sp, Gold)
+    }
+    Spacer(Modifier.height(6.dp))
+    WorkerButton(Modifier.fillMaxWidth())
+}
+
+/** A lab storefront: what's on the shelf, how fast it sells, and growing it into the next kind of store. */
+@Composable
+private fun StoreInfo(x: Int, y: Int, staffed: Boolean) {
+    val f = Store.farm
+    val lvl = f.tile(x, y).lvl
+    val next = Storefronts.next(f)
+    T("Sells your lab-bred bud by itself at +${(Storefronts.premium(lvl) * 100 - 100).toInt()}% over market, even while you're away.", 12.sp, Dim)
+    T("${Storefronts.rate(lvl, staffed).toInt()}g an hour" + if (staffed) " · staffed" else " · a worker would sell 50% faster", 11.sp, if (staffed) Leaf else Gold)
+    T(if (next != null) "On the shelf: ${next.name} (${f.stash[next.id]}g)" else "Shelf's empty. Breed hybrids in the Lab and keep some in the stash.", 11.sp, if (next != null) Cream else Bad, bold = false)
+    T("Every store level speeds up Lab research: ×${"%.1f".format(Storefronts.researchSpeed(f))} now", 11.sp, Sky, bold = false)
+    Spacer(Modifier.height(6.dp))
+    val cost = Storefronts.upgradeCost(lvl)
+    if (cost == null) T("A flagship. It doesn't get bigger than this.", 11.sp, Leaf)
+    else {
+        val need = Storefronts.LEVELS[lvl]
+        Btn(if (f.level < need) "${Storefronts.name(lvl + 1)} at level $need" else "Grow into a ${Storefronts.name(lvl + 1)} · ${money(cost)}", Modifier.fillMaxWidth(),
+            enabled = f.level >= need && f.cash >= cost, color = Gold) {
+            val r = Storefronts.upgrade(f, x, y)
+            if (r == Result.OK) { Audio.play(Sfx.UNLOCK); Store.toast("Now a ${Storefronts.name(lvl + 1)}: ${Storefronts.rate(lvl + 1, staffed).toInt()}g an hour"); Store.changed() } else report(r)
+        }
     }
     Spacer(Modifier.height(6.dp))
     WorkerButton(Modifier.fillMaxWidth())

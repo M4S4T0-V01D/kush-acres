@@ -14,6 +14,11 @@ import dev.m4s4t0.kushacres.model.Contracts
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Hunt
 import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.Storefronts
+import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.WorkHouse
+import dev.m4s4t0.kushacres.art.Buildings
+import dev.m4s4t0.kushacres.ui.Px
 import dev.m4s4t0.kushacres.model.Trip
 import dev.m4s4t0.kushacres.ui.ContractsTab
 import dev.m4s4t0.kushacres.ui.MenuPanel
@@ -55,6 +60,16 @@ internal fun dumpPanels(dir: String) {
     Contracts.take(f, "home", 0, now)
     f.deals[0].needs[0].let { it.got = it.amount / 3 }
     shot("contracts", 0) { ContractsTab() }
+    val lab = Strains.hybridList.first { f.unlocked(Strains[it.parents!!.first]!!) && f.unlocked(Strains[it.parents!!.second]!!) }
+    f.bred += Strains.hybridList.take(2).map { it.id }.filter { it != lab.id }
+    for (p in listOf(lab.parents!!.first, lab.parents!!.second)) f.stash[p] = 999
+    val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
+    f.buildHouse(sx, sy, WorkHouse.STORE); f.tile(sx, sy).lvl = 3
+    f.breed(lab.id, now)
+    shot("lab", 2)
+    shot("stores", 0) {
+        androidx.compose.foundation.layout.Row { for (i in 1..Storefronts.MAX) Px(Buildings.store(i), 60.dp) }
+    }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

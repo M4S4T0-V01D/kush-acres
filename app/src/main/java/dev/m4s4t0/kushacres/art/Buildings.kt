@@ -294,10 +294,89 @@ object Buildings {
         px.poly(shade(c, 0.78f), cx, top + 1, cx + w + 1, top - w / 2, ax, ay)
     }
 
-    fun house(h: WorkHouse): Bitmap = houseCache.getOrPut(h) {
+    private val storeCache = HashMap<Int, Bitmap>()
+
+    /** A lab storefront at [lvl]: a roadside stand, a kiosk, a shop, a store, then a glass-fronted flagship. */
+    fun store(lvl: Int): Bitmap = storeCache.getOrPut(lvl.coerceIn(1, 5)) {
+        val px = Px(FAC_W, FAC_H)
+        val cx = 16; val by = 37
+        // Something [hgt] tall standing [up] px off the ground on the left (front) face, columns x0..x1.
+        fun left(x0: Int, x1: Int, up: Int, hgt: Int, c: (Int) -> Int) {
+            for (x in x0..x1) px.rect(x, by - (cx - x) / 2 - up - hgt, 1, hgt, c(x))
+        }
+        fun right(x0: Int, x1: Int, up: Int, hgt: Int, c: (Int) -> Int) {
+            for (x in x0..x1) px.rect(x, by - (x - cx) / 2 - up - hgt, 1, hgt, c(x))
+        }
+        val jars = intArrayOf(0xFF6AD84A.toInt(), 0xFFB070F0.toInt(), 0xFF5CD0E0.toInt(), 0xFFF2C440.toInt())
+        val green = 0xFF3FB84A.toInt(); val white = 0xFFF4F0E8.toInt(); val neon = 0xFFE070FF.toInt()
+        fun stripes(x: Int) = if ((x / 2) % 2 == 0) green else white
+        fun shelf(x0: Int, x1: Int, up: Int) {
+            left(x0, x1, up, 6) { 0xFF2A2230.toInt() }
+            for (x in x0 + 1..x1 - 1 step 2) px.rect(x, by - (cx - x) / 2 - up - 4, 1, 2, jars[(x / 2) % 4])
+        }
+        when (lvl.coerceIn(1, 5)) {
+            1 -> {
+                val wood = 0xFFB07A4A.toInt()
+                for ((x, yb) in listOf(6 to 31, 26 to 31, 16 to 26)) px.rect(x, yb - 16, 1, 16, shade(wood, 0.6f))
+                box(px, cx, by, 10, 10, 6, shade(wood, 1.2f), wood, shade(wood, 0.75f))
+                for (i in 0..3) px.rect(9 + i * 4, 23 - (if (i in 1..2) 3 else 0) + i % 2, 2, 3, jars[i])
+                left(5, 16, 17, 3, ::stripes); right(16, 27, 17, 3, ::stripes)
+                px.rect(10, 30, 7, 3, white); px.rect(11, 31, 1, 1, green); px.rect(13, 31, 3, 1, green)
+            }
+            2 -> {
+                val paint = 0xFF4E8A5A.toInt()
+                box(px, cx, by, 10, 10, 13, shade(paint, 1.25f), paint, shade(paint, 0.75f))
+                shelf(8, 14, 4)
+                left(5, 16, 12, 3, ::stripes); right(16, 27, 12, 3, ::stripes)
+                px.rect(10, 9, 13, 5, 0xFF2A2230.toInt()); px.rect(11, 10, 11, 3, white)
+                for (x in 12..20 step 3) px.rect(x, 11, 2, 1, green)
+            }
+            3 -> {
+                val brick = 0xFFC8A070.toInt()
+                box(px, cx, by, 12, 12, 13, 0, brick, shade(brick, 0.75f))
+                shelf(6, 11, 3)
+                left(13, 15, 0, 9) { 0xFF5A3A22.toInt() }
+                left(4, 12, 9, 2, ::stripes)
+                roof(px, cx, by, 12, 13, 3, 0xFF5C6A72.toInt())
+                // A green cross on the right wall.
+                px.rect(22, 25, 2, 6, green); px.rect(20, 27, 6, 2, green)
+            }
+            4 -> {
+                val wall = 0xFFE8E0D0.toInt()
+                box(px, cx, by, 12, 12, 17, shade(wall, 0.65f), wall, shade(wall, 0.78f))
+                left(5, 12, 3, 9) { 0xFF8FD4F0.toInt() }
+                shelf(6, 11, 3)
+                left(13, 15, 0, 10) { 0xFF3A6A8A.toInt() }
+                left(3, 16, 13, 2, ::stripes); right(16, 28, 13, 2, ::stripes)
+                right(18, 26, 4, 7) { 0xFF8FD4F0.toInt() }
+                px.rect(9, 6, 15, 6, 0xFF2A2230.toInt()); px.rect(10, 7, 13, 4, neon)
+                for (x in 11..21 step 2) px.set(x, 9, white)
+            }
+            else -> {
+                val glass = 0xFF7AD0E8.toInt(); val frame = 0xFF3A3A48.toInt()
+                box(px, cx, by, 13, 13, 24, shade(frame, 1.3f), glass, shade(glass, 0.75f))
+                for (x in intArrayOf(3, 8, 12)) left(x, x, 0, 24) { frame }
+                for (x in intArrayOf(20, 24, 28)) right(x, x, 0, 24) { frame }
+                for (up in intArrayOf(8, 16)) { left(3, 16, up, 1) { frame }; right(16, 29, up, 1) { frame } }
+                shelf(4, 7, 1); shelf(9, 11, 9)
+                left(13, 15, 0, 8) { 0xFF2A2230.toInt() }
+                // A neon leaf on top.
+                val lx = 16; val ly = 4
+                px.rect(lx, ly, 1, 7, green)
+                for (i in 1..3) { px.rect(lx - i - 1, ly + 2 + i, 2, 1, neon); px.rect(lx + i, ly + 2 + i, 2, 1, neon) }
+                px.rect(lx - 1, ly + 1, 3, 1, neon); px.rect(lx, ly + 7, 1, 2, frame)
+            }
+        }
+        px.light(bands = false)
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    fun house(h: WorkHouse): Bitmap = if (h == WorkHouse.STORE) store(1) else houseCache.getOrPut(h) {
         val px = Px(FAC_W, FAC_H)
         val cx = 16; val by = 37
         when (h) {
+            WorkHouse.STORE -> {}
             WorkHouse.TOWER -> {
                 val wood = 0xFF8A5A34.toInt()
                 for (lx in intArrayOf(7, 25)) px.rect(lx, 16, 1, 17, shade(wood, 0.7f))

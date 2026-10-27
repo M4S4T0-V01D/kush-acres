@@ -59,6 +59,7 @@ import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Vehicle
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.FarmEvent
@@ -523,7 +524,7 @@ class World {
                 Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.let { h ->
-                    stand(x, y, Buildings.house(h), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
+                    stand(x, y, if (h == WorkHouse.STORE) Buildings.store(tile.lvl) else Buildings.house(h), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
                     // A staffed building keeps a light on.
                     if (staffed?.contains(x to y) == true) light(cx.toFloat(), cy - 14f, 8f, 0xFFC060, 0.7f + 0.1f * sin(t * 5 + x))
                 }
@@ -848,7 +849,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val r = f.buildHouse(x, y, m.h)
                     if (r == Result.OK) {
                         buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f)
-                        Store.toast(if (m.h == WorkHouse.BUNK) "Bunkhouse built: room for 2 more workers" else "${m.h.title} built! Hire a worker to staff it")
+                        Store.toast(if (m.h == WorkHouse.BUNK) "Bunkhouse built: room for 2 more workers" else if (m.h == WorkHouse.STORE) "Your stand is open! It sells lab-bred bud from the stash" else "${m.h.title} built! Hire a worker to staff it")
                         ui.mode = Mode.Farm; Store.changed()
                     } else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square")
                     else if (r == Result.LIMIT) Store.toast("That's the most of those one farm can hold")

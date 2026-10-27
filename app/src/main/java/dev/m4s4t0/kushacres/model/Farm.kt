@@ -82,18 +82,19 @@ sealed class FarmEvent {
     class Cash(val amount: Long) : FarmEvent()
     class Award(val trophy: Trophy, val xp: Long) : FarmEvent()
     class Goal(val goal: FarmGoal, val site: String, val xp: Long) : FarmEvent()
+    class Bred(val strain: Strain) : FarmEvent()
 }
 
 enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEEDS, SHACK, LIMIT, NO_BUD, NO_SUPPLY, BUSY, NO_POWER }
 
 /** What the helpers got done while you were away. */
 class Away(var millis: Long = 0, var harvests: Int = 0, var grams: Int = 0, var replants: Int = 0, var xp: Long = 0,
-           var sold: Long = 0, var batches: Int = 0, var deals: Int = 0) {
+           var sold: Long = 0, var batches: Int = 0, var deals: Int = 0, var shop: Long = 0) {
     /** Filled in by the caller after catching up: cash gained, levels gained, plants ripe and waiting. */
     var earned = 0L
     var levels = 0
     var ripe = 0
-    fun any() = harvests > 0 || sold > 0 || batches > 0 || deals > 0 || levels > 0 || (millis >= 10 * 60_000L && (earned > 0 || ripe > 0))
+    fun any() = harvests > 0 || sold > 0 || shop > 0 || batches > 0 || deals > 0 || levels > 0 || (millis >= 10 * 60_000L && (earned > 0 || ripe > 0))
 }
 
 /**
@@ -239,6 +240,9 @@ class Farm(var rng: Random = Random.Default) {
     /** The last contract filled, for the screen to show once; and how many have lapsed since it last looked. */
     var lastDeal: DealPay? = null
     var lapsed = 0
+    /** The hybrid the Lab is working out (null when idle) and when it's done. */
+    var research: String? = null
+    var researchAt = 0L
     var away = Away()
     val events = ArrayList<FarmEvent>()
     /** Pot Bucks: the rare currency from level-ups, dailies, challenges, events and lucky harvests. */
@@ -553,7 +557,7 @@ class Farm(var rng: Random = Random.Default) {
         var t = lastTick
         while (t < now) {
             val t1 = min(now, t + step)
-            eachSite { grow(t, t1) }
+            eachSite { grow(t, t1); Storefronts.sell(this, t, t1) }
             recoverDemand(t1 - t)
             refillOrders(t1)
             lastTick = t1
@@ -568,6 +572,7 @@ class Farm(var rng: Random = Random.Default) {
             while (now >= mineAt) { n++; mineAt += Special.MINE_MILLIS }
             if (n > 0) { gems += n; events += FarmEvent.Gems(n) }
         }
+        if (research != null && now >= researchAt) finishResearch()
         Contracts.expire(this, now)
         refreshQuests(now)
     }
@@ -1327,6 +1332,7 @@ class Farm(var rng: Random = Random.Default) {
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); lastDeal = null; lapsed = 0
+        research = null; researchAt = 0
         lastTick = now; nextEventAt = 0
         newGame(now)
         refreshQuests(now)
@@ -1466,11 +1472,11 @@ class Farm(var rng: Random = Random.Default) {
     fun buildHouse(x: Int, y: Int, h: WorkHouse): Result {
         if (!inLand(x, y) || tile(x, y).kind != Kind.GRASS) return Result.BLOCKED
         if (level < h.level) return Result.LOCKED
-        if (count(h) >= WorkHouse.MAX_EACH) return Result.LIMIT
+        if (count(h) >= (if (h == WorkHouse.STORE) Storefronts.PER_FARM else WorkHouse.MAX_EACH)) return Result.LIMIT
         val cost = houseCost(h)
         if (cash < cost) return Result.NO_CASH
         spend(cost)
-        tile(x, y).apply { kind = Kind.HOUSE; item = h.name }
+        tile(x, y).apply { kind = Kind.HOUSE; item = h.name; lvl = 1; progress = 0.0 }
         site.spots = null
         return Result.OK
     }
@@ -1894,10 +1900,12 @@ class Farm(var rng: Random = Random.Default) {
     fun breedGrams(s: Strain) = max(10, s.yield * 2)
     fun breedFee(s: Strain) = nice(s.seed * 10.0)
 
-    fun breed(id: String): Result {
+    /** Starts researching hybrid [id]: the parents and fee go now, the strain comes when [researchAt] passes. */
+    fun breed(id: String, now: Long): Result {
         val s = Strains[id] ?: return Result.BLOCKED
         val (pa, pb) = s.parents ?: return Result.BLOCKED
-        if (id in bred) return Result.BLOCKED
+        if (id in bred || id == research) return Result.BLOCKED
+        if (research != null) return Result.BUSY
         if (level < Progress.BREED_LEVEL) return Result.LOCKED
         val a = Strains[pa]!!; val b = Strains[pb]!!
         if (!owned(a) || !owned(b)) return Result.LOCKED
@@ -1907,10 +1915,18 @@ class Farm(var rng: Random = Random.Default) {
         if (cash < fee) return Result.NO_CASH
         for (p in listOf(pa, pb)) { val left = stash[p]!! - g; if (left == 0) stash.remove(p) else stash[p] = left }
         spend(fee)
-        bred += id
+        research = id
+        researchAt = now + Storefronts.researchMillis(this, s)
+        return Result.OK
+    }
+
+    private fun finishResearch() {
+        val s = research?.let { Strains[it] } ?: run { research = null; return }
+        research = null; researchAt = 0
+        bred += s.id
         bump(Stat.BRED)
         addXp((s.xp * 3 * xpMult()).roundToLong())
-        return Result.OK
+        events += FarmEvent.Bred(s)
     }
 
     fun canSellFarm() = level >= Progress.LEGACY_LEVEL

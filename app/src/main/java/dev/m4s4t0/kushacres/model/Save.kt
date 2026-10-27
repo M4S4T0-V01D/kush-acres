@@ -116,6 +116,7 @@ object Save {
         o.put("questDay", f.questDay); o.put("questBonus", f.questBonus)
         o.put("cupWeek", f.cupWeek); o.put("cup", JSONArray().apply { f.cupScores.forEach { put(JSONObject().put("s", it.first).put("p", it.second)) } })
         f.hunt?.let { o.put("hunt", it) }; o.put("huntBack", f.huntBack)
+        f.research?.let { o.put("research", it) }; o.put("researchAt", f.researchAt)
         o.put("contracts", Contracts.save(f))
         o.put("quests", JSONArray().apply {
             f.quests.forEach { q ->
@@ -183,6 +184,7 @@ object Save {
         f.questDay = o.optLong("questDay", -1); f.questBonus = o.optBoolean("questBonus")
         f.cupWeek = o.optLong("cupWeek", -1); f.cupScores.clear()
         f.hunt = Trip.of(o.optString("hunt", ""))?.name; f.huntBack = o.optLong("huntBack", 0)
+        f.research = o.optString("research", "").takeIf { Strains[it]?.hybrid == true && it !in f.bred }; f.researchAt = o.optLong("researchAt", 0)
         Contracts.load(f, o.optJSONObject("contracts"))
         o.optJSONArray("cup")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { e -> f.cupScores += e.optString("s") to e.optInt("p") } }
         f.quests.clear()

@@ -39,6 +39,7 @@ import dev.m4s4t0.kushacres.model.QuestKind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Stat
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.FarmGoal
 import dev.m4s4t0.kushacres.model.Cup
@@ -168,6 +169,27 @@ internal fun Bar(k: Float, color: Color) {
     }
 }
 
+/** What the Lab is working on, and what makes it quicker: storefronts on every farm and Lab Chemists. */
+@Composable
+private fun LabResearch() {
+    val f = Store.farm
+    val now = Store.now()
+    Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
+        val r = f.research?.let { Strains[it] }
+        if (r != null) {
+            val left = ((f.researchAt - now) / 1000).coerceAtLeast(0)
+            val total = Storefronts.researchMillis(f, r) / 1000.0
+            T("Researching ${r.name}", 12.sp, Color(0xFF5CD0E0))
+            Bar((1 - left / total).toFloat().coerceIn(0f, 1f), Color(0xFF5CD0E0))
+            T("${dur(left)} to go", 10.sp, Dim, bold = false)
+        } else T("The Lab is free. One cross at a time.", 11.sp, Cream, bold = false)
+        val n = Storefronts.stores(f); val lv = Storefronts.levels(f); val c = Storefronts.chemists(f)
+        T("Research speed ×${"%.1f".format(Storefronts.researchSpeed(f))}: $n storefront${if (n == 1) "" else "s"} ($lv level${if (lv == 1) "" else "s"}, +10% each), " +
+            "$c chemist${if (c == 1) "" else "s"} (+50% each)", 10.sp, Sky, bold = false)
+        if (n == 0) T("Build a Lab Storefront (Build › Work buildings) to sell your hybrids and research faster.", 10.sp, Gold, bold = false)
+    }
+}
+
 @Composable
 private fun Lab() {
     Store.rev
@@ -180,6 +202,8 @@ private fun Lab() {
     T("Cross two strains from your stash. Each hybrid only needs breeding once; then its seeds are in the seed shop for good.", 10.sp, Dim, bold = false)
     Spacer(Modifier.height(8.dp))
     T("Bred ${f.bred.size} of ${Strains.hybridList.size}", 12.sp, Sky)
+    Spacer(Modifier.height(4.dp))
+    LabResearch()
     Spacer(Modifier.height(6.dp))
     for (s in Strains.hybridList.sortedBy { it.level }) {
         val (pa, pb) = s.parents!!
@@ -205,10 +229,11 @@ private fun Lab() {
                 if (have) T("${dur(s.minutes * 60L)}  ·  ${money(s.price)}/g", 10.sp, Sky, bold = false)
             }
             if (have) T("✓", 16.sp, Leaf)
+            else if (s.id == f.research) Px(Sprites.flask, 22.dp)
             else if (!open) T("Lv ${maxOf(a.level, b.level)}", 12.sp, Bad)
-            else Btn("Breed", enabled = ha >= g && hb >= g && f.cash >= f.breedFee(s), color = Gold, icon = Sprites.flask) {
-                val r = f.breed(s.id)
-                if (r == Result.OK) { Audio.play(Sfx.UNLOCK); Store.toast("New strain: ${s.name}!") }
+            else Btn("Breed", enabled = f.research == null && ha >= g && hb >= g && f.cash >= f.breedFee(s), color = Gold, icon = Sprites.flask) {
+                val r = f.breed(s.id, Store.now())
+                if (r == Result.OK) { Audio.play(Sfx.UNLOCK); Store.toast("Researching ${s.name}: ${dur((f.researchAt - Store.now()) / 1000)}") }
                 report(r)
             }
         }

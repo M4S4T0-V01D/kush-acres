@@ -97,6 +97,7 @@ object Store {
             is FarmEvent.Harvest -> { pending += e; if (e.golden) Audio.play(Sfx.GOLDEN) else Audio.vary(Sfx.HARVEST) }
             is FarmEvent.Gems -> { toast("+${e.amount} Kush Gem${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Award -> { toast("Trophy: ${e.trophy.title}  +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
+            is FarmEvent.Bred -> { toast("Research done: ${e.strain.name}! Its seeds are in the shop"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Goal -> { toast("${e.site}: ${e.goal.title}!  +1 gem, +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Bucks -> if (e.token == null) { toast("+${e.amount} Pot Buck${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
                 else if (e.amount > 1) toast("+${e.amount} ${dev.m4s4t0.kushacres.model.Holiday[e.token]?.tokens?.lowercase() ?: e.token}")

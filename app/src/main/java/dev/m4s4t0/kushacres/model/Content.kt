@@ -147,6 +147,7 @@ enum class Helper(val title: String, val job: String, val level: Int, val cost: 
  * one doubles its effect ([staffed]); the bunkhouse makes room for two more workers on its farm instead.
  */
 enum class WorkHouse(val title: String, val desc: String, val staffed: String, val level: Int, val cost: Long, val reach: Int) {
+    STORE("Lab Storefront", "Sells your lab-bred bud by itself, even while you're away. Upgrades from a stand to a flagship store", "Sells 50% faster", 8, 10_000, 0),
     TOWER("Water Tower", "Keeps plots within 2 squares wet", "Reach 3 squares", 9, 8_000, 2),
     GROW("Grow House", "Plots within 2 squares grow 20% faster", "40% faster", 11, 15_000, 2),
     BUNK("Bunkhouse", "Room for 2 more workers on this farm", "No worker needed", 13, 20_000, 0),
@@ -182,7 +183,7 @@ enum class Crew(val title: String, val desc: String, val level: Int, val max: In
     GUARD("Guard", "Clears bugs and mould on this farm as soon as they show", 17, 2),
     DRIVER("Driver", "Vehicles on this farm do their job 40% sooner", 20, 1),
     BOTANIST("Botanist", "Plants on this farm grow 10% faster each", 24, 2),
-    CHEMIST("Lab Chemist", "Facilities on this farm cook 30% faster", 28, 1),
+    CHEMIST("Lab Chemist", "Facilities on this farm cook 30% faster, and the Lab researches 50% faster", 28, 1),
 }
 
 /** Timed boosts from events and the black market. */

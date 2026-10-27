@@ -33,6 +33,7 @@ import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.WorkHouse
 import kotlin.math.roundToInt
 
@@ -67,7 +68,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.SHACK, Kind.PART -> "Shack"
                 Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: "Vehicle"
                 Kind.FACILITY -> Facility.of(tile.item)?.title ?: "Facility"
-                Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: "Building"
+                Kind.HOUSE -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: "Building"
                 Kind.POWER -> Generator.of(tile.item)?.title ?: "Generator"
                 Kind.SPECIAL -> Special.of(tile.item)?.title ?: "Special"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: "Decor"

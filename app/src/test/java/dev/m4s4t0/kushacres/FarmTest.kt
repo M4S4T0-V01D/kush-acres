@@ -26,6 +26,7 @@ import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Save
 import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.Supply
 import dev.m4s4t0.kushacres.model.Upgrade
 import dev.m4s4t0.kushacres.model.WorkHouse
@@ -319,16 +320,25 @@ class FarmTest {
         val s = Strains[r.id]!!
         f.cash = 1_000_000_000
         f.level = Progress.BREED_LEVEL - 1
-        assertEquals(Result.LOCKED, f.breed(r.id))
+        assertEquals(Result.LOCKED, f.breed(r.id, t0))
         f.level = 80
-        assertEquals(Result.NO_BUD, f.breed(r.id))
+        assertEquals(Result.NO_BUD, f.breed(r.id, t0))
         val g = f.breedGrams(s)
         f.stash[r.a] = g; f.stash[r.b] = g + 5
-        assertEquals(Result.OK, f.breed(r.id))
-        assertTrue(r.id in f.bred)
+        f.tick(t0)
+        assertEquals(Result.OK, f.breed(r.id, t0))
+        // The parents go now; the strain comes once the research is done.
+        assertFalse(r.id in f.bred)
+        assertEquals(r.id, f.research)
         assertEquals(null, f.stash[r.a])
         assertEquals(5, f.stash[r.b])
-        assertEquals(Result.BLOCKED, f.breed(r.id))
+        assertEquals(Result.BLOCKED, f.breed(r.id, t0))
+        assertEquals(Result.BUSY, f.breed(Hybrids.recipes[1].id, t0))
+        f.tick(f.researchAt + 1)
+        assertTrue(r.id in f.bred)
+        assertEquals(null, f.research)
+        assertTrue(f.events.any { it is FarmEvent.Bred })
+        assertEquals(Result.BLOCKED, f.breed(r.id, t0))
         assertEquals(1, f.stat(Stat.BRED))
         assertEquals(r, Hybrids.of(r.b, r.a))
     }
@@ -926,6 +936,40 @@ class FarmTest {
         assertEquals(1L, f.stat(Stat.CONTRACTS))
         // A new day brings new offers.
         assertFalse(Contracts.offers(f, "home", t0 + 86_400_000L) === offers)
+    }
+
+    @Test fun storefrontSellsLabBudAndSpeedsResearch() {
+        val f = farm()
+        f.level = 30; f.cash = 1_000_000_000
+        val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
+        assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.STORE))
+        assertEquals(1, f.tile(x, y).lvl)
+        val slow = Storefronts.researchMillis(f, Strains.hybridList.first())
+        // Nothing to sell: the shelf stays empty and no sales pile up for later.
+        val hr = 3_600_000L
+        f.tick(t0); f.tick(t0 + hr)
+        assertTrue(f.tile(x, y).progress < 1.0)
+        val h = Strains.hybridList.first()
+        f.stash.clear(); f.stash[h.id] = 100; f.stash["ditch"] = 50
+        val cash = f.cash
+        f.tick(t0 + 2 * hr)
+        assertEquals(80, f.stash[h.id])
+        assertEquals(50, f.stash["ditch"])
+        assertEquals(Math.round(20 * h.price * f.priceMult() * Storefronts.premium(1)).toDouble(), (f.cash - cash).toDouble(), 2.0)
+        assertEquals(20, f.stat(Stat.STORE_GRAMS))
+        // Growing it: each step needs the level, and the top is a flagship.
+        f.level = 10
+        assertEquals(Result.LOCKED, Storefronts.upgrade(f, x, y))
+        f.level = 80
+        repeat(4) { assertEquals(Result.OK, Storefronts.upgrade(f, x, y)) }
+        assertEquals(Result.LIMIT, Storefronts.upgrade(f, x, y))
+        assertEquals("Flagship Store", Storefronts.name(f.tile(x, y).lvl))
+        assertTrue(Storefronts.researchMillis(f, Strains.hybridList.first()) < slow)
+        assertEquals(1.5, Storefronts.researchSpeed(f), 1e-9)
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(5, g.site.tiles.first { Storefronts.isStore(it) }.lvl)
+        assertEquals(Save.write(f), Save.write(g))
     }
 
     @Test fun contractsLapseDropAndSave() {

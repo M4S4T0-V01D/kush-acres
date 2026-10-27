@@ -140,6 +140,20 @@ fun fmt(n: Long): String {
 
 fun money(n: Long) = "$" + fmt(n)
 
+/** Short amounts for the top bar: 999, 1.2K, 45.6K, 789K, 1.23M, 12.3B. */
+fun short(n: Long): String {
+    val a = abs(n)
+    if (a < 1000) return "$n"
+    var v = a.toDouble(); var u = 0
+    while (v >= 999.5 && u < 4) { v /= 1000; u++ }
+    val s = when {
+        v >= 99.95 -> "%.0f".format(java.util.Locale.US, v)
+        v >= 9.995 -> "%.1f".format(java.util.Locale.US, v)
+        else -> "%.2f".format(java.util.Locale.US, v)
+    }.let { if ('.' in it) it.trimEnd('0').trimEnd('.') else it } + " KMBT"[u]
+    return if (n < 0) "-$s" else s
+}
+
 fun dur(seconds: Long): String {
     val s = maxOf(0, seconds)
     return when {
@@ -281,7 +295,13 @@ private fun Hud(ui: UiState) {
         Row(Modifier.weight(1f).woodBox().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.coin, 20.dp)
             Spacer(Modifier.width(6.dp))
-            T(money(shown), 16.sp, Gold, Modifier.scale(bounce))
+            T("$" + short(shown), 16.sp, Gold, Modifier.scale(bounce))
+        }
+        Spacer(Modifier.width(6.dp))
+        Row(Modifier.woodBox().clickable { ui.panel = Panel.BUCKS }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Px(dev.m4s4t0.kushacres.art.Coins.bucks, 20.dp)
+            Spacer(Modifier.width(4.dp))
+            T(short(f.potBucks), 14.sp, Color(0xFF8AE07A))
         }
         Spacer(Modifier.width(6.dp))
         val used = f.stashUsed(); val cap = f.stashCap()

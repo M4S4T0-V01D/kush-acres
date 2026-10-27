@@ -677,4 +677,10 @@ class FarmTest {
         val look = Farmer("Willow", hair = 3, hat = 7)
         assertEquals(look, Farmer.decode(look.name, look.encode()))
     }
+
+    @Test fun shortAmounts() {
+        val cases = listOf(0L to "0", 999L to "999", 1000L to "1K", 1250L to "1.25K", 45_600L to "45.6K", 789_000L to "789K",
+            999_600L to "1M", 1_230_000L to "1.23M", 12_300_000_000L to "12.3B", -2500L to "-2.5K")
+        for ((n, s) in cases) assertEquals(s, dev.m4s4t0.kushacres.ui.short(n))
+    }
 }

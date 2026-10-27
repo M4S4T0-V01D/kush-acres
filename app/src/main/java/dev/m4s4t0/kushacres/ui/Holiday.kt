@@ -25,25 +25,22 @@ import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
 
-/** Pot Bucks, the holiday's tokens and a running festival, in a row under the weather. Tap one to open its shop. */
+/** The holiday's tokens and a running festival, in a row under the weather. Tap one to open its shop. */
 @Composable
 internal fun Currencies(ui: UiState) {
     val f = Store.farm
     Store.rev
     val now = Store.now()
     val h = Holiday.at(now)
+    if (h == null && !f.festivalOn(now)) return
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Chip(Modifier.clickable { ui.panel = Panel.BUCKS }) {
-            Px(Coins.bucks, 18.dp); Spacer(Modifier.width(4.dp)); T("${f.potBucks}", 13.sp, Color(0xFF8AE07A))
-        }
         if (h != null) {
-            Spacer(Modifier.width(6.dp))
             Chip(Modifier.clickable { ui.panel = Panel.HOLIDAY }) {
-                Px(Coins.token(h), 18.dp); Spacer(Modifier.width(4.dp)); T("${f.tokens(h)} · ${h.title} shop", 13.sp, Color(h.main))
+                Px(Coins.token(h), 18.dp); Spacer(Modifier.width(4.dp)); T("${short(f.tokens(h))} · ${h.title} shop", 13.sp, Color(h.main))
             }
         }
         if (f.festivalOn(now)) {
-            Spacer(Modifier.width(6.dp))
+            if (h != null) Spacer(Modifier.width(6.dp))
             Chip(Modifier.clickable { Store.toast("Festival on! Prices ×1.5 for another ${dur((f.festivalUntil - now) / 1000)}.") }) {
                 T("☮ ${dur((f.festivalUntil - now) / 1000)}", 13.sp, Color(0xFFF06AB0))
             }

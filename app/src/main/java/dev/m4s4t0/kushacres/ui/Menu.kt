@@ -51,9 +51,9 @@ import dev.m4s4t0.kushacres.audio.Sfx
 
 /** The Farm Book: everything that isn't the farm itself. */
 @Composable
-internal fun MenuPanel(ui: UiState) {
+internal fun MenuPanel(ui: UiState, start: Int = 0) {
     Store.rev
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(start) }
     val f = Store.farm
     val now = Store.now()
     val dot = { b: Boolean, n: String -> if (b) "$n •" else n }

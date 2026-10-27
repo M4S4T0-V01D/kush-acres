@@ -178,7 +178,8 @@ fun dur(seconds: Long): String {
     return when {
         s < 60 -> "${s}s"
         s < 3600 -> "${s / 60}m %02ds".format(s % 60)
-        else -> "${s / 3600}h %02dm".format(s / 60 % 60)
+        s < 48 * 3600 -> "${s / 3600}h %02dm".format(s / 60 % 60)
+        else -> "${s / 86_400}d ${s / 3600 % 24}h"
     }
 }
 

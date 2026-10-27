@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.debounce
 @OptIn(FlowPreview::class)
 fun main() {
     System.getenv("KUSH_SPRITES")?.let { dumpSprites(it); return }
+    System.getenv("KUSH_PANELS")?.let { dumpPanels(it); return }
     val act = Activity()
     val view = View(act)
     Audio.init(act)

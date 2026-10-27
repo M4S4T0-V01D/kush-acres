@@ -362,8 +362,9 @@ internal fun Card(icon: android.graphics.Bitmap, title: String, desc: String, su
 
 @Composable
 internal fun Tabs(names: List<String>, tab: Int, onTab: (Int) -> Unit) {
-    // More than four tabs wrap into two rows, so the names stay readable.
-    val per = if (names.size > 4) (names.size + 1) / 2 else names.size
+    // More than four tabs wrap into even rows of at most four, so the names stay readable.
+    val rows = (names.size + 3) / 4
+    val per = (names.size + rows - 1) / rows
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         names.indices.chunked(per).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

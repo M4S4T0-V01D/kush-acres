@@ -87,6 +87,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
       mould, up to 2), Driver (20, vehicles 40% sooner) (0.10.0)
 - [x] Weekly Cannabis Cup (Farm Book → Cup, Lv 10): a class each week, three rival growers, three entries paid in
       grams of bud, cash/Bucks/gem/XP prizes for better placings, Blue Ribbon and Cup Legend trophies (0.10.2)
+- [x] Two more crew: Botanist (Lv 24, plants here grow 10% faster each, up to 2) and Lab Chemist (28, facilities
+      here cook 30% faster); crews and vehicles show in the level-up unlock list
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics

@@ -779,6 +779,26 @@ class FarmTest {
         assertEquals(1, g.crew(Crew.DRIVER))
     }
 
+    @Test fun botanistsAndChemistSpeedUpTheirFarm() {
+        val f = farm()
+        f.cash = 1_000_000_000; f.level = 30
+        assertEquals(Result.OK, f.buildFacility(4, 4, Facility.ROLLER))
+        val (x, y) = freeSpot(f)
+        assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.RV, t0))
+        val before = f.speed(4, 4)
+        assertEquals(Result.OK, f.hireCrew(Crew.BOTANIST))
+        assertEquals(Result.OK, f.hireCrew(Crew.BOTANIST))
+        assertEquals(Result.LIMIT, f.hireCrew(Crew.BOTANIST))
+        assertEquals(before * 1.2, f.speed(4, 4), 1e-9)
+        f.stash["ditch"] = 100; f.buySupply(Supply.PAPERS, 2)
+        assertEquals(Result.OK, f.startBatch(4, 4, "ditch", t0))
+        val plain = f.tile(4, 4).doneAt - t0
+        f.collect(4, 4, t0 + plain)
+        assertEquals(Result.OK, f.hireCrew(Crew.CHEMIST))
+        assertEquals(Result.OK, f.startBatch(4, 4, "ditch", t0))
+        assertEquals(plain / 1.3, (f.tile(4, 4).doneAt - t0).toDouble(), 2.0)
+    }
+
     @Test fun farmGoalsAndGrownSaveAndAward() {
         val f = farm()
         f.site.harvests = 99

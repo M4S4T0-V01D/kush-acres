@@ -494,7 +494,7 @@ class Farm(var rng: Random = Random.Default) {
     fun speed(x: Int, y: Int): Double = (1 + 0.06 * up(Upgrade.NUTRIENTS)) * (1 + LAMP_BOOST * lamps(x, y)) *
         (1 + 0.05 * decorAround(x, y, Decor.GNOME) + 0.10 * decorAround(x, y, Decor.TIKI) + 0.15 * decorAround(x, y, Decor.LAVA) +
             0.20 * decorAround(x, y, Decor.WINDMILL) + 0.25 * decorAround(x, y, Decor.UFO) + perkNear(x, y, Perk.GROW)) *
-        (1 + 0.2 * houseNear(x, y, WorkHouse.GROW)) *
+        (1 + 0.2 * houseNear(x, y, WorkHouse.GROW)) * (1 + 0.1 * crew(Crew.BOTANIST)) *
         (1 + 0.1 * legacy) * when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 } *
         (if (here(Special.VAULT)) 1.3 else 1.0) * (if (built(Special.TEMPLE)) 1.1 else 1.0)
 
@@ -995,6 +995,8 @@ class Farm(var rng: Random = Random.Default) {
         Decor.entries.filter { it.level == lvl && !it.black }.forEach { out += it.title }
         Helper.entries.filter { it.level == lvl }.forEach { out += it.title }
         WorkHouse.entries.filter { it.level == lvl }.forEach { out += it.title }
+        Crew.entries.filter { it.level == lvl }.forEach { out += it.title + " (crew)" }
+        Vehicle.entries.filter { it.level == lvl }.forEach { out += it.title }
         Generator.entries.filter { it.level == lvl }.forEach { out += it.title }
         Special.entries.filter { it.level == lvl }.forEach { out += "${it.title} (special)" }
         if (lvl == WORKER_LEVEL) out += "Workers"
@@ -1602,7 +1604,8 @@ class Farm(var rng: Random = Random.Default) {
         supplies[f.supply.ordinal]--
         if (have == need) stash.remove(strain) else stash[strain] = have - need
         t.strain = strain; t.last = strain
-        t.doneAt = now + (f.millis(t.lvl) / (1 + 0.25 * houseNear(x, y, WorkHouse.DRYING)) / (if (here(Special.FACTORY)) 1.4 else 1.0)).toLong(); t.amount = f.units(t.lvl)
+        t.doneAt = now + (f.millis(t.lvl) / (1 + 0.25 * houseNear(x, y, WorkHouse.DRYING)) / (if (here(Special.FACTORY)) 1.4 else 1.0) /
+            (if (crew(Crew.CHEMIST) > 0) 1.3 else 1.0)).toLong(); t.amount = f.units(t.lvl)
         return Result.OK
     }
 

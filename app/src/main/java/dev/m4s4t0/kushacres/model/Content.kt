@@ -181,6 +181,8 @@ enum class Crew(val title: String, val desc: String, val level: Int, val max: In
     TRIMMER("Trimmer", "Harvests on this farm yield 8% more each", 14, 3),
     GUARD("Guard", "Clears bugs and mould on this farm as soon as they show", 17, 2),
     DRIVER("Driver", "Vehicles on this farm do their job 40% sooner", 20, 1),
+    BOTANIST("Botanist", "Plants on this farm grow 10% faster each", 24, 2),
+    CHEMIST("Lab Chemist", "Facilities on this farm cook 30% faster", 28, 1),
 }
 
 /** Timed boosts from events and the black market. */

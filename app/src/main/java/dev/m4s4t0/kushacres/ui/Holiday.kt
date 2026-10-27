@@ -1,6 +1,5 @@
 package dev.m4s4t0.kushacres.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -33,29 +32,28 @@ internal fun Currencies(ui: UiState) {
     Store.rev
     val now = Store.now()
     val h = Holiday.at(now)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Chip(Modifier.clickable { ui.panel = Panel.BUCKS }) {
-            Px(Coins.bucks, 14.dp); Spacer(Modifier.width(3.dp)); T("${f.potBucks}", 11.sp, Color(0xFF8AE07A))
+            Px(Coins.bucks, 18.dp); Spacer(Modifier.width(4.dp)); T("${f.potBucks}", 13.sp, Color(0xFF8AE07A))
         }
         if (h != null) {
-            Spacer(Modifier.width(4.dp))
-            Chip(Modifier.clickable { ui.panel = Panel.HOLIDAY }, Color(h.main)) {
-                Px(Coins.token(h), 14.dp); Spacer(Modifier.width(3.dp)); T("${f.tokens(h)} · ${h.title} shop", 11.sp, Color(h.main))
+            Spacer(Modifier.width(6.dp))
+            Chip(Modifier.clickable { ui.panel = Panel.HOLIDAY }) {
+                Px(Coins.token(h), 18.dp); Spacer(Modifier.width(4.dp)); T("${f.tokens(h)} · ${h.title} shop", 13.sp, Color(h.main))
             }
         }
         if (f.festivalOn(now)) {
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(6.dp))
             Chip(Modifier.clickable { Store.toast("Festival on! Prices ×1.5 for another ${dur((f.festivalUntil - now) / 1000)}.") }) {
-                T("☮ ${dur((f.festivalUntil - now) / 1000)}", 11.sp, Color(0xFFF06AB0))
+                T("☮ ${dur((f.festivalUntil - now) / 1000)}", 13.sp, Color(0xFFF06AB0))
             }
         }
     }
 }
 
 @Composable
-private fun Chip(mod: Modifier, edge: Color = Color(0x00000000), content: @Composable () -> Unit) {
-    Row(mod.background(Color(0xAA1C1A14)).then(if (edge.alpha > 0f) Modifier.frame(Color(0xAA1C1A14), edge) else Modifier)
-        .padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+private fun Chip(mod: Modifier, content: @Composable () -> Unit) {
+    Row(Modifier.woodBox().then(mod).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) { content() }
 }
 
 /** The holiday shop: its farm, strains, decor and pet, all paid in the holiday's tokens and kept for good. */

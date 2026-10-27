@@ -5,6 +5,15 @@ package dev.m4s4t0.kushacres.model
  * faster. Each strain earns more per hour than the one before it, and gives a bit more XP per hour, so the newest
  * unlock is always worth planting, while the short ones stay best for active play (one watering covers the whole grow).
  */
+/** A strain's genes. Breeding two strains passes both parents' traits on to the hybrid. */
+enum class Trait(val label: String, val desc: String) {
+    FAST("Fast", "Grows 10% faster"),
+    BIG("Big", "12% more bud"),
+    GOLDEN("Lucky", "Half again the golden chance"),
+    HARDY("Hardy", "Never gets bugs or mould"),
+    THRIFTY("Thrifty", "Seeds cost a quarter less"),
+}
+
 class Strain(
     val id: String,
     val name: String,
@@ -32,7 +41,10 @@ class Strain(
     val holiday: String? = null,
     /** Pot Bucks strains (holiday "bucks"): unlocked for good for this many Pot Bucks. */
     val bucks: Long = 0,
+    /** Hybrids carry both parents' traits; everything else gets one of its own. */
+    inherit: Set<Trait>? = null,
 ) {
+    val traits: Set<Trait> = inherit ?: setOf(Trait.entries[Math.floorMod(id.hashCode(), Trait.entries.size)])
     val seconds: Long get() = minutes * 60L
     val hybrid: Boolean get() = parents != null
     /** How long moving a growing plant of this strain sets it back, as a share of its grow time. */
@@ -222,6 +234,32 @@ object Strains {
         }
     }
 
+    /**
+     * Each town's back-alley strain: exotic seeds only that town's dealer sells, which only take in that farm's soil.
+     * Two thirds the grow time of the ladder strain at the farm's level, four more grams and half as much again per gram.
+     */
+    private val smuggled: List<Strain> = run {
+        class S(val site: String, val level: Int, val id: String, val name: String, val leaf: Long, val bud: Long, val hair: Long, val blurb: String)
+        val ss = listOf(
+            S("redwood", 15, "bigfoot", "Bigfoot Kush", 0xFF3A4A2A, 0xFF8A5A3A, 0xFFE0C08A, "Blurry photos only. The dealer swears it's real."),
+            S("mesa", 19, "rattler", "Rattlesnake Rush", 0xFF6A5A2A, 0xFFE0B05A, 0xFFFF5A2A, "Shakes its tail before it bites."),
+            S("bayou", 23, "gatorbite", "Gator Bite", 0xFF2A4A2A, 0xFF5A8A3A, 0xFFFFE05A, "Snaps shut on your lungs."),
+            S("coast", 27, "mermaid", "Mermaid Tears", 0xFF1E5A5A, 0xFF7AF0E0, 0xFFFFB0E0, "Salty, shimmering and a little sad."),
+            S("frost", 31, "polarvortex", "Polar Vortex", 0xFF2A3A5A, 0xFFC0E8FF, 0xFF5AA0FF, "Freezes your face in a grin."),
+            S("emerald", 35, "truffle", "Triangle Truffle", 0xFF1E4A2A, 0xFF4A3A2A, 0xFF3AFF8A, "Dug up by a pig who won't say where."),
+            S("volcano", 40, "pele", "Pele's Fire", 0xFF2A1E1E, 0xFFFF2A1E, 0xFFFFA01E, "A gift from the mountain. Don't make it angry."),
+            S("neon", 45, "glowstick", "Glowstick OG", 0xFF1E2A1E, 0xFF5AFF2A, 0xFFFF2AFF, "Crack it and shake it."),
+            S("highland", 51, "nessie", "Loch Ness Haze", 0xFF1E3A3A, 0xFF3A7A8A, 0xFFC0FFE0, "Surfaces once in a while. Nobody believes you."),
+            S("crater", 58, "abduction", "Alien Abduction", 0xFF1E1E3A, 0xFF8AFF5A, 0xFFE0E0FF, "Lost time, found bud."),
+        )
+        val ladder = base.filter { !it.exotic }
+        ss.map { s ->
+            val l = ladder.last { it.level <= s.level }
+            Strain(s.id, s.name, l.minutes * 2 / 3, s.level, 0, l.yield + 4, l.price * 3 / 2, l.xp * 3 / 2,
+                s.leaf.toInt(), s.bud.toInt(), s.hair.toInt(), s.blurb, exotic = true, site = s.site)
+        }
+    }
+
     private class Cross(val a: String, val b: String, val id: String, val name: String, val blurb: String)
 
     /** Lab recipes, in the order the parents unlock. Later crosses can use earlier hybrids. */
@@ -296,17 +334,19 @@ object Strains {
                 price = ((a.price + b.price) / 2.0 * 1.3).toLong(),
                 xp = ((a.xp + b.xp) / 2.0 * 1.25).toInt(),
                 leaf = mix(a.leaf, b.leaf, 0.5f), bud = mix(a.bud, b.bud, 0.6f), hair = a.hair,
-                blurb = c.blurb, parents = c.a to c.b,
+                blurb = c.blurb, parents = c.a to c.b, inherit = a.traits + b.traits,
             ).also { known[it.id] = it }
         }
     }
 
-    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + native + festive + premium
+    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + smuggled + native + festive + premium
 
     /** The strains you buy seeds for with cash, in unlock order. */
     val ladder = all.filter { !it.exotic && !it.hybrid && it.site == null && it.holiday == null }
     /** Strains that only grow on their own farm site. */
     val natives = native
+    /** Town dealers' strains, one per farm town. */
+    val townList = smuggled
     /** Holiday strains, kept for good once bought. */
     val holidays = festive
     /** Pot Bucks strains, kept for good once bought. */

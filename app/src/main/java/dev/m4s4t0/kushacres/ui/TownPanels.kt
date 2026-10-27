@@ -388,7 +388,7 @@ private fun ShadeShop() {
         items(stock.indices.toList()) { i ->
             Store.rev
             val item = stock[i]
-            val sold = i in f.bmBought
+            val sold = f.bmSold(i)
             val c = item.price(f.level)
             val icon = when {
                 item.strain != null -> Strains[item.strain]?.let { Sprites.strainIcon(it) } ?: Sprites.bag

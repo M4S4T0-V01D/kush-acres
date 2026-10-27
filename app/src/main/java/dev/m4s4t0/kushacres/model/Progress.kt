@@ -59,6 +59,21 @@ enum class QuestKind(val stat: Stat, val text: String) {
 /** One of the day's three jobs. Progress is how far the [stat][QuestKind.stat] has moved since [base]. */
 class Quest(val kind: QuestKind, val target: Long, val base: Long, val cash: Long, val xp: Long, var claimed: Boolean = false)
 
+/** Goals for each farm on its own: reached once per farm, for a gem and some XP. */
+enum class FarmGoal(val title: String, val desc: String, val target: Long, val value: (Farm, Site) -> Long) {
+    HARVEST_100("Growing Season", "Harvest 100 plants on this farm", 100, { _, s -> s.harvests }),
+    HARVEST_1K("Breadbasket", "Harvest 1,000 plants on this farm", 1_000, { _, s -> s.harvests }),
+    NATIVES("Local Flavour", "Harvest both of this farm's own strains", 2, { f, s -> Strains.all.count { it.site == s.def.id && !it.hybrid && it.id in f.grown }.toLong() }),
+    TOWN("Company Town", "Have 5 work buildings on this farm", 5, { _, s -> s.tiles.count { it.kind == Kind.HOUSE }.toLong() }),
+    CREW("Full Crew", "Hire one of every kind of crew here", Crew.entries.size.toLong(), { _, s -> s.crew.count { it > 0 }.toLong() }),
+    FLEET("Fleet", "Park every vehicle on this farm", Vehicle.entries.size.toLong(), { _, s -> s.tiles.count { it.kind == Kind.VEHICLE }.toLong() });
+
+    /** Home Acres has no strains of its own. */
+    fun applies(s: Site) = this != NATIVES || Strains.all.any { it.site == s.def.id && !it.hybrid }
+
+    companion object { fun of(id: String) = entries.firstOrNull { it.name == id } }
+}
+
 /**
  * Trophies: lifetime goals that unlock on their own. [value] reads how far along the farm is; [target] is the goal.
  */
@@ -138,7 +153,7 @@ object Progress {
             3 -> DailyReward(d, cash, Buff.JUICE, 30)
             5 -> DailyReward(d, cash, Buff.DUST, 20)
             7 -> {
-                val ex = BmItem.entries.filter { it.strain != null && it.level <= maxOf(6, f.level) }.last()
+                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(6, f.level) }.last()
                 DailyReward(d, cash, seeds = ex.strain, seedCount = 3)
             }
             else -> DailyReward(d, cash)

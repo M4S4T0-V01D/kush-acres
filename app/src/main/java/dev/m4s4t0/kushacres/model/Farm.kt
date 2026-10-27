@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /** ROCK can be cleared for cash; WATER stays and keeps the plots beside it wet. */
-enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL }
+enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB }
 
 /**
  * One square of land. Plots grow things; sprinklers, lamps and decor help the squares around them. The shack covers
@@ -36,7 +36,9 @@ class Tile {
     var lvl = 1
     /** Bugs! The plant stops growing until they're cleared. */
     var pest = false
-    /** For [Kind.PART]: index of the shack's anchor square. */
+    /** Mould from damp weather: like bugs, the plant stops until it's scraped off. */
+    var mould = false
+    /** For [Kind.PART] and [Kind.CAB]: index of the shack's or vehicle's anchor square. */
     var anchor = -1
 
     fun ready(): Boolean {
@@ -47,12 +49,12 @@ class Tile {
 
     fun clear() {
         kind = Kind.GRASS; strain = null; progress = 0.0; wetUntil = 0; last = null
-        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; anchor = -1
+        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1
     }
 
     fun copyFrom(o: Tile) {
         kind = o.kind; strain = o.strain; progress = o.progress; wetUntil = o.wetUntil; last = o.last
-        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; anchor = o.anchor
+        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor
     }
 }
 
@@ -79,6 +81,7 @@ sealed class FarmEvent {
     class Harvest(val x: Int, val y: Int, val grams: Int, val xp: Int, val golden: Boolean) : FarmEvent()
     class Cash(val amount: Long) : FarmEvent()
     class Award(val trophy: Trophy, val xp: Long) : FarmEvent()
+    class Goal(val goal: FarmGoal, val site: String, val xp: Long) : FarmEvent()
 }
 
 enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEEDS, SHACK, LIMIT, NO_BUD, NO_SUPPLY, BUSY, NO_POWER }
@@ -86,7 +89,11 @@ enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEED
 /** What the helpers got done while you were away. */
 class Away(var millis: Long = 0, var harvests: Int = 0, var grams: Int = 0, var replants: Int = 0, var xp: Long = 0,
            var sold: Long = 0, var batches: Int = 0) {
-    fun any() = harvests > 0 || sold > 0 || batches > 0
+    /** Filled in by the caller after catching up: cash gained, levels gained, plants ripe and waiting. */
+    var earned = 0L
+    var levels = 0
+    var ripe = 0
+    fun any() = harvests > 0 || sold > 0 || batches > 0 || levels > 0 || (millis >= 10 * 60_000L && (earned > 0 || ripe > 0))
 }
 
 /**
@@ -114,6 +121,8 @@ class Farm(var rng: Random = Random.Default) {
         val MANAGER_LEVEL = Helper.MANAGER.level
         val MANAGER_COST = Helper.MANAGER.cost
         const val GOLDEN_CHANCE = 0.04
+        const val FAVOURITE_PRICE = 1.3
+        const val FAVOURITE_GROW = 1.15
         const val BLACK_MARKET_LEVEL = 6
         const val EVENT_LEVEL = 3
         const val RUNNER_MILLIS = 6 * 60_000L
@@ -206,6 +215,8 @@ class Farm(var rng: Random = Random.Default) {
     val trophies = LinkedHashSet<String>()
     /** Hybrids made in the lab; they stay unlocked for good. */
     val bred = LinkedHashSet<String>()
+    /** Every strain ever harvested, for the collection book. */
+    val grown = LinkedHashSet<String>()
     var legacy = 0
     var bestLevel = 1
     var streak = 0
@@ -290,7 +301,8 @@ class Farm(var rng: Random = Random.Default) {
         if (Decor.FROG in have) deco += 0.08
         if (Decor.KOI in have) deco += 0.10
         if (Decor.DISCO in have) deco += 0.10
-        return (1 + 0.05 * shack) * (1 + deco) * (1 + 0.1 * legacy) * (if (on(Buff.FOCUS)) 1.5 else 1.0) *
+        val rvs = sites.count { s -> s.tiles.any { it.kind == Kind.VEHICLE && it.item == Vehicle.RV.name } }
+        return (1 + 0.05 * shack) * (1 + deco + 0.05 * rvs) * (1 + 0.1 * legacy) * (if (on(Buff.FOCUS)) 1.5 else 1.0) *
             (if (built(Special.ACADEMY)) 1.25 else 1.0) * (if (built(Special.MONUMENT)) 1.1 else 1.0)
     }
     /** Farm-wide holiday decor bonus of kind [p]: each kind of decor counts once, from any farm. */
@@ -307,7 +319,7 @@ class Farm(var rng: Random = Random.Default) {
     fun unlocked(s: Strain) = when {
         s.holiday != null -> s.id in unlockedStrains
         s.hybrid -> s.id in bred
-        s.exotic -> true
+        s.exotic -> s.site == null || site.def.id == s.site
         s.site != null -> s.level <= level && site.def.id == s.site
         else -> s.level <= level
     }
@@ -419,8 +431,24 @@ class Farm(var rng: Random = Random.Default) {
 
     fun price(strain: String): Double {
         val s = Strains[strain] ?: return 0.0
-        return s.price * priceMult() * (demand[strain] ?: 1.0)
+        return s.price * priceMult() * (demand[strain] ?: 1.0) * (if (favourite(s)) FAVOURITE_PRICE else 1.0)
     }
+
+    /** This week's in-season strains: three of the ones you can buy, sell for more and grow faster. */
+    fun favourites(): Set<String> {
+        val key = lastTick / Season.WEEK * 1000 + level
+        if (key != favKey) {
+            val pool = Strains.all.filter { !it.exotic && it.holiday == null && it.bucks == 0L && it.site == null && it.level <= max(level, 3) }
+            favCache = pool.shuffled(Random(key / 1000 * 31 + 7)).take(3).map { it.id }.toSet(); favKey = key
+        }
+        return favCache
+    }
+    private var favKey = -1L
+    private var favCache = emptySet<String>()
+    fun favourite(s: Strain) = s.id in favourites()
+    /** Growth from the strain's own genes and the season. */
+    fun genes(s: Strain) = (if (Trait.FAST in s.traits) 1.1 else 1.0) * (if (favourite(s)) FAVOURITE_GROW else 1.0)
+    fun seedCost(s: Strain): Long = if (Trait.THRIFTY in s.traits) max(1, s.seed * 3 / 4) else s.seed
 
     fun goodsKey(f: Facility, strain: String) = "${f.name}:$strain"
     fun goodsParts(key: String): Pair<Facility, Strain>? {
@@ -497,7 +525,7 @@ class Farm(var rng: Random = Random.Default) {
 
     // ---- Time ----
 
-    private fun anyHelper() = helpers.any { it } || sites.any { it.workers > 0 }
+    private fun anyHelper() = helpers.any { it } || sites.any { s -> s.workers > 0 || s.crew.any { it > 0 } || s.tiles.any { it.kind == Kind.VEHICLE } }
 
     fun tick(now: Long) {
         if (lastTick == 0L || now <= lastTick) { lastTick = now; return }
@@ -532,11 +560,11 @@ class Farm(var rng: Random = Random.Default) {
         val dt = (t1 - t0) / 1000.0
         val b = boost(t0, t1)
         eachLand { x, y, t ->
-            if (t.kind != Kind.PLOT || t.pest) return@eachLand
+            if (t.kind != Kind.PLOT || t.pest || t.mould) return@eachLand
             val s = t.strain?.let { Strains[it] } ?: return@eachLand
             if (t.progress >= s.seconds) return@eachLand
             val wet = if (sprinkled(x, y)) dt else ((min(t.wetUntil, t1) - t0) / 1000.0).coerceIn(0.0, dt)
-            t.progress = min(s.seconds.toDouble(), t.progress + (wet * WET_BOOST + (dt - wet)) * speed(x, y) * b)
+            t.progress = min(s.seconds.toDouble(), t.progress + (wet * WET_BOOST + (dt - wet)) * speed(x, y) * genes(s) * b)
         }
     }
 
@@ -572,6 +600,12 @@ class Farm(var rng: Random = Random.Default) {
             if (s !== active) for (i in events.size - 1 downTo before) if (events[i] is FarmEvent.Harvest) events.removeAt(i)
         }
         eachSite { s -> if (s.workers > 0) waterIdle(now) }
+        eachSite { s ->
+            if (s.crew[Crew.GUARD.ordinal] > 0) eachLand { _, _, t -> if (t.pest || t.mould) { t.pest = false; t.mould = false; bump(Stat.PESTS) } }
+            val before = events.size
+            drive(now)
+            if (s !== active) for (i in events.size - 1 downTo before) if (events[i] is FarmEvent.Cash) events.removeAt(i)
+        }
         if (has(Helper.FETCHER)) fetch()
         if (has(Helper.RUNNER) && runnerOn && now >= runnerAt) {
             runnerAt = now + runnerMillis()
@@ -583,7 +617,7 @@ class Farm(var rng: Random = Random.Default) {
     private fun pick(now: Long) {
         eachLand { x, y, t ->
             if (t.kind != Kind.PLOT) return@eachLand
-            if (t.pest) { t.pest = false; bump(Stat.PESTS); return@eachLand }
+            if (t.pest || t.mould) { t.pest = false; t.mould = false; bump(Stat.PESTS); return@eachLand }
             if (!t.ready()) return@eachLand
             val before = events.size
             if (harvest(x, y, now, byHand = false) != Result.OK) return
@@ -646,11 +680,11 @@ class Farm(var rng: Random = Random.Default) {
     fun delayEvents(now: Long) { nextEventAt = now + (3 + rng.nextInt(4)) * 60_000L }
 
     private fun growing() = (0 until land * land).map { ox + it % land to oy + it / land }
-        .filter { (x, y) -> tile(x, y).let { it.kind == Kind.PLOT && it.strain != null && !it.ready() && !it.pest } }
+        .filter { (x, y) -> tile(x, y).let { it.kind == Kind.PLOT && it.strain != null && !it.ready() && !it.pest && !it.mould } }
 
     fun makeEvent(now: Long, force: EventKind? = null): Happening? {
         val dog = placed(Decor.DOG)
-        val pests = growing().filter { (x, y) -> !protected(x, y) }
+        val pests = growing().filter { (x, y) -> !protected(x, y) && !hardy(x, y) }
         val choices = ArrayList<Pair<EventKind, Int>>()
         if (level >= 5 && cash >= 500 && !built(Special.TEMPLE)) choices += EventKind.RAID to (if (dog) 1 else 2)
         if (pests.isNotEmpty()) choices += EventKind.PESTS to 3
@@ -693,7 +727,7 @@ class Farm(var rng: Random = Random.Default) {
             EventKind.VIBES -> { addBuff(Buff.VIBES, now, 10); Happening(kind, amount = 10) }
             EventKind.HIPPIES -> { addBuff(Buff.HIPPIES, now, 10); Happening(kind, amount = 10) }
             EventKind.STRANGER -> {
-                val item = BmItem.entries.filter { it.strain != null && it.level <= level }.randomOrNull(rng) ?: return null
+                val item = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= level }.randomOrNull(rng) ?: return null
                 Happening(kind, amount = nice(item.price(level) / BmItem.EXOTIC_PACK * STRANGER_SEEDS * 0.6), strain = item.strain, grams = STRANGER_SEEDS)
             }
             EventKind.CELEB -> {
@@ -840,10 +874,10 @@ class Farm(var rng: Random = Random.Default) {
             if (n <= 0) return Result.NO_SEEDS
             if (n == 1) seeds.remove(strain) else seeds[strain] = n - 1
         } else {
-            if (cash < s.seed) return Result.NO_CASH
-            spend(s.seed)
+            if (cash < seedCost(s)) return Result.NO_CASH
+            spend(seedCost(s))
         }
-        t.strain = strain; t.progress = 0.0; t.last = strain; t.pest = false
+        t.strain = strain; t.progress = 0.0; t.last = strain; t.pest = false; t.mould = false
         bump(Stat.PLANTED)
         return Result.OK
     }
@@ -857,6 +891,9 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
+    /** Plots on this farm with a ripe plant waiting. */
+    fun ripeCount(): Int { var n = 0; eachLand { _, _, t -> if (t.ready()) n++ }; return n }
+
     /** Rain waters every growing plant for free; how many it reached that were dry. */
     fun rain(now: Long): Int {
         var n = 0
@@ -868,10 +905,27 @@ class Farm(var rng: Random = Random.Default) {
         return n
     }
 
+    /** Damp weather (rain, fog, storms) now and then grows mould on a half-grown plant with no lamp over it. Once a minute. */
+    fun damp(now: Long, w: Weather): Int {
+        if (level < EVENT_LEVEL || now < mouldAt) return 0
+        mouldAt = now + 60_000L
+        val odds = when (w) { Weather.RAIN -> 0.08; Weather.FOG -> 0.12; Weather.STORM -> 0.2; else -> return 0 }
+        if (Random.nextDouble() >= odds) return 0
+        val (x, y) = growing().filter { (x, y) ->
+            val t = tile(x, y); val s = Strains[t.strain!!] ?: return@filter false
+            t.progress >= s.seconds / 2 && lamps(x, y) == 0 && Trait.HARDY !in s.traits
+        }.randomOrNull() ?: return 0
+        tile(x, y).mould = true
+        return 1
+    }
+    private var mouldAt = 0L
+    private fun hardy(x: Int, y: Int) = tile(x, y).strain?.let { Strains[it] }?.let { Trait.HARDY in it.traits } == true
+
+    /** Shoos bugs or scrapes off mould. */
     fun clearPest(x: Int, y: Int): Result {
         val t = tile(x, y)
-        if (!t.pest) return Result.BLOCKED
-        t.pest = false
+        if (!t.pest && !t.mould) return Result.BLOCKED
+        t.pest = false; t.mould = false
         bump(Stat.PESTS)
         addXp(1)
         return Result.OK
@@ -882,8 +936,8 @@ class Farm(var rng: Random = Random.Default) {
         if (t.kind != Kind.PLOT) return Result.BLOCKED
         val s = t.strain?.let { Strains[it] } ?: return Result.BLOCKED
         if (!t.ready()) return Result.NOT_READY
-        val golden = rng.nextDouble() < goldenChance(x, y)
-        val mult = yieldMult() * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
+        val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0)
+        val mult = yieldMult() * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
             0.25 * decorAround(x, y, Decor.CRYSTAL) + perkNear(x, y, Perk.YIELD)) * (1 + 0.15 * houseNear(x, y, WorkHouse.TRIM)) *
             (if (here(Special.TERRACE)) 1.25 else 1.0)
         var grams = max(1, (s.yield * mult * (0.9 + rng.nextDouble() * 0.25)).roundToLong().toInt())
@@ -892,6 +946,8 @@ class Farm(var rng: Random = Random.Default) {
         stash[s.id] = (stash[s.id] ?: 0) + grams
         t.strain = null; t.progress = 0.0
         totalHarvests++
+        site.harvests++
+        grown += s.id
         bump(Stat.HARVESTS); bump(Stat.GRAMS, grams.toLong())
         if (golden) bump(Stat.GOLDEN)
         if (s.exotic) bump(Stat.EXOTIC)
@@ -995,7 +1051,7 @@ class Farm(var rng: Random = Random.Default) {
     fun demolish(x: Int, y: Int): Result {
         val t = tile(x, y)
         when (t.kind) {
-            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL -> return Result.BLOCKED
+            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB -> return Result.BLOCKED
             Kind.PLOT -> if (t.strain != null || count(Kind.PLOT) <= 1) return Result.BLOCKED
             Kind.DECOR, Kind.PATH -> { val d = t.item ?: ""; decorInv[d] = (decorInv[d] ?: 0) + 1 }
             else -> {}
@@ -1044,6 +1100,17 @@ class Farm(var rng: Random = Random.Default) {
             placeShack(ax, ay)
             return Result.BLOCKED
         }
+        if (from.kind == Kind.VEHICLE || from.kind == Kind.CAB) {
+            val a = if (from.kind == Kind.CAB) from.anchor else fy * MAX + fx
+            val ax = a % MAX; val ay = a / MAX
+            val v = Vehicle.of(tile(ax, ay).item) ?: return Result.BLOCKED
+            if (tx == ax && ty == ay) return Result.BLOCKED
+            val due = tile(ax, ay).doneAt
+            clearVehicle(ax, ay)
+            if (placeVehicle(tx, ty, v, due)) { layoutRev++; return Result.OK }
+            placeVehicle(ax, ay, v, due)
+            return Result.BLOCKED
+        }
         if (from.kind == Kind.GRASS || from.kind == Kind.ROCK || from.kind == Kind.WATER || !inLand(tx, ty)) return Result.BLOCKED
         val to = tile(tx, ty)
         if (to.kind != Kind.GRASS) return Result.BLOCKED
@@ -1069,7 +1136,7 @@ class Farm(var rng: Random = Random.Default) {
     fun uproot(x: Int, y: Int): Result {
         val t = tile(x, y)
         if (!inLand(x, y) || t.kind != Kind.PLOT || t.strain == null) return Result.BLOCKED
-        t.strain = null; t.progress = 0.0; t.pest = false
+        t.strain = null; t.progress = 0.0; t.pest = false; t.mould = false
         return Result.OK
     }
 
@@ -1159,7 +1226,7 @@ class Farm(var rng: Random = Random.Default) {
         when {
             item.buff != null -> addBuff(item.buff, now, item.minutes)
             item == BucksItem.SEEDS -> {
-                val ex = BmItem.entries.filter { it.strain != null && it.level <= maxOf(6, level) }.last()
+                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(6, level) }.last()
                 seeds[ex.strain!!] = (seeds[ex.strain] ?: 0) + BmItem.EXOTIC_PACK
             }
             item == BucksItem.ENVELOPE -> envelopes++
@@ -1217,7 +1284,7 @@ class Farm(var rng: Random = Random.Default) {
         for (i in old.indices) {
             val t = tile(nx + i % n, ny + i / n)
             t.copyFrom(old[i])
-            if (t.kind == Kind.PART) t.anchor += dy * MAX + dx
+            if (t.kind == Kind.PART || t.kind == Kind.CAB) t.anchor += dy * MAX + dx
         }
         s.spots = null
         return Result.OK
@@ -1232,7 +1299,7 @@ class Farm(var rng: Random = Random.Default) {
         stash.clear(); goods.clear(); seeds.clear(); decorInv.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmRot = -1L
-        totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear()
+        totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
         legacy = 0; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
@@ -1385,20 +1452,113 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
-    /** Workers the active farm has beds for: one, plus two per bunkhouse. */
-    fun workerCap() = 1 + 2 * count(WorkHouse.BUNK)
+    /** Workers (and crew) the active farm has beds for: one, plus two per bunkhouse and two for an RV. */
+    fun workerCap() = 1 + 2 * count(WorkHouse.BUNK) + (if (vehicleAt(Vehicle.RV) != null) 2 else 0)
+    /** Beds taken on the active farm, by workers and crew. */
+    fun beds() = site.workers + site.crew.sum()
     fun totalWorkers() = sites.sumOf { it.workers }
     fun workerCost(): Long = nice(5_000 * 2.5.pow(totalWorkers()))
 
     fun hireWorker(): Result {
         if (level < WORKER_LEVEL) return Result.LOCKED
-        if (site.workers >= workerCap()) return Result.LIMIT
+        if (beds() >= workerCap()) return Result.LIMIT
         val c = workerCost()
         if (cash < c) return Result.NO_CASH
         spend(c)
         site.workers++
         site.spots = null
         return Result.OK
+    }
+
+    // ---- Crew ----
+
+    fun crew(c: Crew) = site.crew[c.ordinal]
+    fun crewCost(c: Crew): Long = nice(workerCost() * (1.5 + 0.5 * c.ordinal))
+    fun hireCrew(c: Crew): Result {
+        if (level < c.level) return Result.LOCKED
+        if (crew(c) >= c.max) return Result.LIMIT
+        if (beds() >= workerCap()) return Result.LIMIT
+        val k = crewCost(c)
+        if (cash < k) return Result.NO_CASH
+        spend(k)
+        site.crew[c.ordinal]++
+        return Result.OK
+    }
+
+    // ---- Vehicles ----
+
+    /** The anchor (top-left) square of vehicle [v] on the active farm, or null when it hasn't got one. */
+    fun vehicleAt(v: Vehicle): Pair<Int, Int>? {
+        val i = tiles.indexOfFirst { it.kind == Kind.VEHICLE && it.item == v.name }
+        return if (i < 0) null else (i % MAX) to (i / MAX)
+    }
+    /** The vehicle covering x,y on the active farm, if any. */
+    fun vehicleOn(x: Int, y: Int): Vehicle? {
+        val t = tile(x, y)
+        return when (t.kind) {
+            Kind.VEHICLE -> Vehicle.of(t.item)
+            Kind.CAB -> tiles.getOrNull(t.anchor)?.let { Vehicle.of(it.item) }
+            else -> null
+        }
+    }
+
+    /** Buys vehicle [v] and parks it with its top-left at x,y on the active farm. */
+    fun buyVehicle(x: Int, y: Int, v: Vehicle, now: Long): Result {
+        if (level < v.level) return Result.LOCKED
+        if (vehicleAt(v) != null) return Result.LIMIT
+        if (cash < v.cost) return Result.NO_CASH
+        if (!placeVehicle(x, y, v, now + v.minutes * 60_000L)) return Result.BLOCKED
+        spend(v.cost)
+        layoutRev++
+        return Result.OK
+    }
+
+    private fun placeVehicle(x: Int, y: Int, v: Vehicle, due: Long): Boolean {
+        val cells = listOf(x to y, x + 1 to y, x to y + 1, x + 1 to y + 1)
+        if (cells.any { (cx, cy) -> !inLand(cx, cy) || tile(cx, cy).kind != Kind.GRASS }) return false
+        val a = y * MAX + x
+        cells.forEachIndexed { i, (cx, cy) ->
+            tile(cx, cy).apply { clear(); kind = if (i == 0) Kind.VEHICLE else Kind.CAB; anchor = a }
+        }
+        tile(x, y).apply { item = v.name; doneAt = due }
+        site.spots = null
+        return true
+    }
+
+    private fun clearVehicle(ax: Int, ay: Int) {
+        val a = ay * MAX + ax
+        tiles.forEach { if ((it.kind == Kind.VEHICLE || it.kind == Kind.CAB) && it.anchor == a) it.clear() }
+    }
+
+    /** How long vehicle [v] waits between jobs on the active farm. */
+    fun vehicleMillis(v: Vehicle): Long = (v.minutes * 60_000L * (if (crew(Crew.DRIVER) > 0) 0.6 else 1.0)).toLong()
+
+    /** Vehicles on the active farm do their jobs when they're due. */
+    private fun drive(now: Long) {
+        for (v in Vehicle.entries) {
+            if (v.minutes == 0) continue
+            val (ax, ay) = vehicleAt(v) ?: continue
+            val t = tile(ax, ay)
+            if (now < t.doneAt) continue
+            t.doneAt = now + vehicleMillis(v)
+            when (v) {
+                Vehicle.TRUCK -> {
+                    val got = sellAllGoods()
+                    val tip = (got * 0.1).roundToLong()
+                    if (tip > 0) earn(tip)
+                    away.sold += got + tip
+                }
+                Vehicle.TRACTOR -> eachLand { x, y, p ->
+                    val last = p.last
+                    if (p.kind == Kind.PLOT && p.strain == null && last != null && plant(x, y, last, now) == Result.OK) away.replants++
+                }
+                Vehicle.VAN -> {
+                    val slot = orders.indices.firstOrNull { i -> orders[i]?.let { canFill(it) } == true && !delivering(i) }
+                    if (slot != null) deliver(slot, now)
+                }
+                Vehicle.RV -> {}
+            }
+        }
     }
 
     /** How often the runner goes to town: tool sheds on any farm speed it up. */
@@ -1494,19 +1654,27 @@ class Farm(var rng: Random = Random.Default) {
     fun bmStock(now: Long): List<BmItem> {
         val rot = now / BM_ROTATION
         if (rot != bmRot) { bmRot = rot; bmBought.clear() }
-        return BmItem.entries.shuffled(Random(rot * 7919 + 13)).filter { it.level <= level }.take(if (level >= 30) 5 else 4)
+        // Each town's dealer stocks their own mix, with the town's special always first.
+        val here = site.def.id
+        val local = BmItem.entries.filter { it.site == here && it.level <= level }
+        val rest = BmItem.entries.filter { it.site == null && it.level <= level }.shuffled(Random(rot * 7919 + 13 + here.hashCode() * 31L))
+        return (local + rest).take(if (level >= 30) 5 else 4)
     }
+
+    /** Whether [slot] of this town's black-market shelf has been bought this rotation. */
+    fun bmSold(slot: Int) = bmKey(slot) in bmBought
+    private fun bmKey(slot: Int) = sites.indexOf(site) * 100 + slot
 
     fun bmRefreshIn(now: Long): Long = BM_ROTATION - now % BM_ROTATION
 
     fun bmBuy(slot: Int, now: Long): Result {
         if (level < BLACK_MARKET_LEVEL) return Result.LOCKED
         val item = bmStock(now).getOrNull(slot) ?: return Result.BLOCKED
-        if (slot in bmBought) return Result.BLOCKED
+        if (bmSold(slot)) return Result.BLOCKED
         val c = item.price(level)
         if (cash < c) return Result.NO_CASH
         spend(c)
-        bmBought += slot
+        bmBought += bmKey(slot)
         when {
             item.strain != null -> seeds[item.strain] = (seeds[item.strain] ?: 0) + BmItem.EXOTIC_PACK
             item.buff != null -> addBuff(item.buff, now, item.minutes)
@@ -1683,6 +1851,15 @@ class Farm(var rng: Random = Random.Default) {
             if (silent) continue
             val xp = max(5L, (xpNeed(level) * 0.05).roundToLong())
             events += FarmEvent.Award(t, xp)
+            gems++
+            addXp(xp)
+        }
+        for (s in sites) for (g in FarmGoal.entries) {
+            if (g.name in s.goals || !g.applies(s) || g.value(this, s) < g.target) continue
+            s.goals += g.name
+            if (silent) continue
+            val xp = max(5L, (xpNeed(level) * 0.04).roundToLong())
+            events += FarmEvent.Goal(g, s.def.name, xp)
             gems++
             addXp(xp)
         }

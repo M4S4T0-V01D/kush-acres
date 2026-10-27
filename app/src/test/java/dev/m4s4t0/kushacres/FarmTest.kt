@@ -25,6 +25,10 @@ import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Supply
 import dev.m4s4t0.kushacres.model.Upgrade
 import dev.m4s4t0.kushacres.model.WorkHouse
+import dev.m4s4t0.kushacres.model.Vehicle
+import dev.m4s4t0.kushacres.model.Crew
+import dev.m4s4t0.kushacres.model.FarmEvent
+import dev.m4s4t0.kushacres.model.FarmGoal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -726,5 +730,70 @@ class FarmTest {
         val cases = listOf(0L to "0", 999L to "999", 1000L to "1K", 1250L to "1.25K", 45_600L to "45.6K", 789_000L to "789K",
             999_600L to "1M", 1_230_000L to "1.23M", 12_300_000_000L to "12.3B", -2500L to "-2.5K")
         for ((n, s) in cases) assertEquals(s, dev.m4s4t0.kushacres.ui.short(n))
+    }
+
+    /** The first spot on the active farm whose 2×2 is all grass. */
+    private fun freeSpot(f: Farm): Pair<Int, Int> {
+        for (y in f.oy until f.oy + f.land - 1) for (x in f.ox until f.ox + f.land - 1)
+            if (listOf(x to y, x + 1 to y, x to y + 1, x + 1 to y + 1).all { (a, b) -> f.tile(a, b).kind == Kind.GRASS }) return x to y
+        error("no room")
+    }
+
+    @Test fun vehiclesParkOnTwoByTwoMoveAndSave() {
+        val f = farm()
+        f.cash = 100_000_000; f.level = 30
+        val (x, y) = freeSpot(f)
+        assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.TRUCK, t0))
+        assertEquals(Result.LIMIT, f.buyVehicle(x, y, Vehicle.TRUCK, t0))
+        assertEquals(Vehicle.TRUCK, f.vehicleOn(x + 1, y + 1))
+        assertEquals(Result.BLOCKED, f.demolish(x + 1, y))
+        val (nx, ny) = freeSpot(f)
+        assertEquals(Result.OK, f.move(x + 1, y + 1, nx, ny))
+        assertEquals(nx to ny, f.vehicleAt(Vehicle.TRUCK))
+        assertEquals(4, f.tiles.count { it.kind == Kind.VEHICLE || it.kind == Kind.CAB })
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(nx to ny, g.vehicleAt(Vehicle.TRUCK))
+        // The truck sells goods by itself when it's due.
+        f.goods["PRESS:ditch"] = 5
+        val cash = f.cash
+        f.tick(t0 + 6 * 60_000L)
+        assertTrue(f.goods.isEmpty())
+        assertTrue(f.cash > cash)
+    }
+
+    @Test fun rvAddsBedsAndCrewTakesThem() {
+        val f = farm()
+        f.cash = 100_000_000; f.level = 30
+        val cap = f.workerCap()
+        val (x, y) = freeSpot(f)
+        assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.RV, t0))
+        assertEquals(cap + 2, f.workerCap())
+        assertEquals(Result.OK, f.hireCrew(Crew.DRIVER))
+        assertEquals(Result.LIMIT, f.hireCrew(Crew.DRIVER))
+        while (f.beds() < f.workerCap()) assertEquals(Result.OK, f.hireCrew(Crew.TRIMMER).takeIf { it == Result.OK } ?: f.hireWorker())
+        assertEquals(Result.LIMIT, f.hireWorker())
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(1, g.crew(Crew.DRIVER))
+    }
+
+    @Test fun farmGoalsAndGrownSaveAndAward() {
+        val f = farm()
+        f.site.harvests = 99
+        f.checkTrophies(false)
+        assertTrue("HARVEST_100" !in f.site.goals)
+        f.site.harvests = 100
+        f.grown += "ditch"
+        val gems = f.gems
+        f.checkTrophies(false)
+        assertTrue("HARVEST_100" in f.site.goals)
+        assertEquals(gems + 1, f.gems)
+        assertTrue(f.events.any { it is FarmEvent.Goal })
+        assertTrue(!FarmGoal.NATIVES.applies(f.site))
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(100L, g.site.harvests)
+        assertTrue("HARVEST_100" in g.site.goals && "ditch" in g.grown)
     }
 }

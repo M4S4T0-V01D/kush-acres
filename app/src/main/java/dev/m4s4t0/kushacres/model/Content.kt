@@ -136,7 +136,7 @@ enum class Perk { GROW, YIELD, GOLD, XP, SELL }
 enum class Helper(val title: String, val job: String, val level: Int, val cost: Long, val shack: Int) {
     RUNNER("Runner", "Sells spare bud and goods in town every 6 minutes, even while you're away", 8, 2_500, 1),
     FETCHER("Fetcher", "Keeps facility supplies stocked from Violet's (10% tip)", 10, 5_000, 1),
-    FARMHAND("Farmhand", "Picks everything ready and shoos pests, even while you're away", 12, 6_000, 0),
+    FARMHAND("Farmhand", "Picks everything ready, shoos pests and scrapes mould, even while you're away", 12, 6_000, 0),
     COOK("Cook", "Collects facility batches and starts the same again", 16, 40_000, 2),
     LOOKOUT("Lookout", "Spots raids early so they never cost you a thing", 20, 120_000, 3),
     MANAGER("Grow Manager", "Replants the same strain the moment it's picked", 22, 150_000, 0),
@@ -162,6 +162,25 @@ enum class WorkHouse(val title: String, val desc: String, val staffed: String, v
         /** Each farm can hold this many of one kind. */
         const val MAX_EACH = 6
     }
+}
+
+/** Big rigs parked on a farm: each covers 2×2 squares and does a job for that farm. One of each per farm. */
+enum class Vehicle(val title: String, val desc: String, val level: Int, val cost: Long, val minutes: Int) {
+    RV("RV", "Beds for 2 more workers here, and 5% more XP", 18, 400_000, 0),
+    TRUCK("Food Truck", "Sells all your cooked goods every 5 minutes, at 10% more", 22, 1_500_000, 5),
+    TRACTOR("Tractor", "Every 10 minutes, replants each empty plot here with what grew there last", 26, 6_000_000, 10),
+    VAN("Delivery Van", "Sends out a ready order on delivery every 5 minutes", 30, 20_000_000, 5);
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.name == id }
+    }
+}
+
+/** Specialist workers hired for one farm. They sleep in the same beds as ordinary workers. */
+enum class Crew(val title: String, val desc: String, val level: Int, val max: Int) {
+    TRIMMER("Trimmer", "Harvests on this farm yield 8% more each", 14, 3),
+    GUARD("Guard", "Clears bugs and mould on this farm as soon as they show", 17, 2),
+    DRIVER("Driver", "Vehicles on this farm do their job 40% sooner", 20, 1),
 }
 
 /** Timed boosts from events and the black market. */
@@ -269,7 +288,7 @@ val DIRT_COLORS = listOf(
 const val GROUND_BUCKS = 8L
 
 /** Black-market goods. Seed packs give [EXOTIC_PACK] seeds; prices scale with your level except for seeds. */
-enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0) {
+enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0, val site: String? = null) {
     GHOST("Ghost Train seeds", "5 exotic seeds. 40 min, huge yield", 6, 2_500.0, strain = "ghost"),
     DRAGON("Dragon's Breath seeds", "5 exotic seeds. 3 h, fire bud", 12, 40_000.0, strain = "dragon"),
     UNICORN("Unicorn Poop seeds", "5 exotic seeds. 8 h, sparkles", 20, 280_000.0, strain = "unicorn"),
@@ -285,9 +304,25 @@ enum class BmItem(val title: String, val desc: String, val level: Int, val base:
     ALIEN("Alien Statue", "Decor: neighbours +6% golden chance", 6, 900.0, decor = Decor.ALIEN),
     DISCO("Disco Ball", "Decor: +10% XP", 30, 600.0, decor = Decor.DISCO),
     UFO("Crashed UFO", "Decor: neighbours grow 25% faster", 40, 300.0, decor = Decor.UFO),
-    CRYSTAL("Grow Crystal", "Decor: neighbours yield 25% more", 50, 120.0, decor = Decor.CRYSTAL);
+    CRYSTAL("Grow Crystal", "Decor: neighbours yield 25% more", 50, 120.0, decor = Decor.CRYSTAL),
+    // Town specials: always first on their own town's shelf, and the seeds only grow on that farm.
+    BIGFOOT("Bigfoot Kush seeds", "Local special. Only grows on Redwood Hollow", 15, 0.0, strain = "bigfoot", site = "redwood"),
+    RATTLER("Rattlesnake Rush seeds", "Local special. Only grows on Dusty Mesa", 19, 0.0, strain = "rattler", site = "mesa"),
+    GATOR("Gator Bite seeds", "Local special. Only grows on Bayou Bend", 23, 0.0, strain = "gatorbite", site = "bayou"),
+    MERMAID("Mermaid Tears seeds", "Local special. Only grows on Sunset Coast", 27, 0.0, strain = "mermaid", site = "coast"),
+    VORTEX("Polar Vortex seeds", "Local special. Only grows on Frostpeak", 31, 0.0, strain = "polarvortex", site = "frost"),
+    TRUFFLE("Triangle Truffle seeds", "Local special. Only grows on Emerald Triangle", 35, 0.0, strain = "truffle", site = "emerald"),
+    PELE("Pele's Fire seeds", "Local special. Only grows on Volcano Isle", 40, 0.0, strain = "pele", site = "volcano"),
+    GLOWSTICK("Glowstick OG seeds", "Local special. Only grows on Neon Valley", 45, 0.0, strain = "glowstick", site = "neon"),
+    NESSIE("Loch Ness Haze seeds", "Local special. Only grows on Highland Terraces", 51, 0.0, strain = "nessie", site = "highland"),
+    ABDUCTION("Alien Abduction seeds", "Local special. Only grows on Cosmic Crater", 58, 0.0, strain = "abduction", site = "crater");
 
-    fun price(playerLevel: Int): Long = if (strain != null) nice(base) else nice(base * 1.22.pow(playerLevel))
+    /** Town specials cost about a third of what a pack grows into at full price. */
+    fun price(playerLevel: Int): Long = when {
+        site != null && strain != null -> Strains[strain]?.let { nice(EXOTIC_PACK * it.yield * it.price / 3.0) } ?: 0L
+        strain != null -> nice(base)
+        else -> nice(base * 1.22.pow(playerLevel))
+    }
 
     companion object {
         const val EXOTIC_PACK = 5

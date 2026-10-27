@@ -62,16 +62,18 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Updater takes `KushAcres-linux.tar.gz` from the same GitHub releases and swaps the installed folder
 - [x] `desktop/install.sh`: installs to `~/.local/lib/kush-acres`, icon + start-menu entry (Games)
 - [x] `release.sh` attaches the Linux tarball too
+- [x] Keyboard: arrows/WASD pan, +/− zoom, Q/E rotate, F11 full screen; window size and spot remembered (0.10.0)
 - Note: the desktop farm is its own save (`~/.local/share/kush-acres`), separate from the phone's.
 
 ## Phase 5 — Per-farm towns
 - [x] Each site: town name, keepers with their own names, lines and looks (0.9.0)
-- [ ] Back-alley stock per town
-- [ ] Strain sets per site (site-exclusive strains, like levels)
+- [x] Back-alley stock per town (0.10.0)
+- [x] Strain sets per site (site-exclusive strains, like levels) (0.10.0)
 
 ## Phase 6 — Vehicles
-- [ ] Multi-tile vehicle placement (generalise shack footprint)
-- [ ] RV, food truck, tractor, delivery van, … each with an effect
+- [x] Multi-tile vehicle placement: 2×2 like the shack, movable, saved (0.10.0)
+- [x] RV (Lv 18, +2 beds, +5% XP), Food Truck (22, sells cooked goods every 5 min, +10%), Tractor (26, replants
+      empty plots every 10 min), Delivery Van (30, sends a ready order every 5 min) (0.10.0)
 
 ## Phase 7 — Workers + activities
 - [x] Work buildings (Build → Work tab), up to 6 of each per farm, unlocked by level: Water Tower (Lv 9, keeps
@@ -81,12 +83,13 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Hire workers per farm (cap grows with Bunkhouses); they walk the farm, staying near the building they staff
 - [x] Share card (Menu → Share card): picture card themed by the current farm with lifetime stats; saves to
       Pictures/KushAcres on the phone, ~/Pictures/KushAcres on desktop
-- [ ] More helper types / per-farm crews
+- [x] Per-farm crews sharing the worker beds: Trimmer (Lv 14, +8% yield each, up to 3), Guard (17, clears bugs and
+      mould, up to 2), Driver (20, vehicles 40% sooner) (0.10.0)
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics
 - [ ] Redraw decor at higher detail
-- [ ] Overhaul ground, plants, buildings, lighting
+- [~] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0)
 
 ## Phase 9 — Holidays, farmers, Pot Bucks (0.8.0)
 - [x] Right-click / long-press tile menu: move (stunts growing plants, by strain) or destroy plants and decor
@@ -114,6 +117,15 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Upgrades and the shack belong to each farm; the stash adds up every farm's storage
 - [ ] Listen to the area tunes and test power, deliveries and specials by hand
 
+## Phase 11 — Weather, breeding, collection (0.10.0)
+- [x] Storms besides rain; damp weather can grow mould on ripe plants (clear it from the tile menu)
+- [x] Strain traits (hardy, fast, heavy, …) that hybrids inherit from their parents
+- [x] Each season favours some strains: bigger harvests while they are in season
+- [x] "While you were away" summary: cash earned, levels gained, plants ripe, sales and replants by helpers
+- [x] Collection book marks every strain you have grown and shows its traits
+- [x] Per-farm goals (Trophies tab): 100 and 1,000 harvests, both local strains, 5 work buildings, full crew, fleet; a gem and XP each
+- [ ] Try weather, vehicles and crews by hand in the running app
+
 ## Release log
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
@@ -127,3 +139,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.8.2 — Pot Bucks, holiday token and festival chips get the same wood box as the money
 - 0.8.3 — Pot Bucks sit next to the money in the top bar; big amounts shortened to K, M and B
 - 0.9.0 — settings button, cosmetics and grass/dirt colours, deliveries, gems and 15 specials, electricity, new keeper portraits, reggae music per area, each town has its own keepers, upgrades and shack per farm, more holiday tokens, camera remembered per farm
+- 0.10.0 — desktop keys and window memory, per-town back alleys and strains, vehicles, crews, storms and mould, strain traits, seasonal favourites, away summary, collection book, per-farm goals, ground shadows

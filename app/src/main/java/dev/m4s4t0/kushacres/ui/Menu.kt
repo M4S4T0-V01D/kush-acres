@@ -40,6 +40,7 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Stat
 import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.FarmGoal
 import dev.m4s4t0.kushacres.model.Trophy
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
@@ -192,6 +193,7 @@ private fun Lab() {
             Column(Modifier.weight(1f)) {
                 T(if (have || open) s.name else "???", 13.sp, if (have) Color(0xFF5CD0E0) else if (open) Cream else Dim)
                 T("${a.name} × ${b.name}", 10.sp, Dim, bold = false)
+                if (have || open) T("Genes: " + s.traits.joinToString(", ") { it.label }, 9.sp, Color(0xFF9FD86A), bold = false)
                 if (!have && open) T("${g}g each (have ${ha}g, ${hb}g)  ${money(f.breedFee(s))}", 10.sp, if (ha >= g && hb >= g) Leaf else Bad, bold = false)
                 if (have) T("${dur(s.minutes * 60L)}  ·  ${money(s.price)}/g", 10.sp, Sky, bold = false)
             }
@@ -212,7 +214,7 @@ private fun StrainBook() {
     val f = Store.farm
     val all = Strains.all
     val known = all.count { f.unlocked(it) || it.id in f.bred }
-    T("$known of ${all.size} strains discovered", 12.sp, Sky)
+    T("$known of ${all.size} strains discovered · ${f.grown.size} grown", 12.sp, Sky)
     Spacer(Modifier.height(6.dp))
     for (s in all) {
         val seen = (if (s.exotic) (f.seeds[s.id] ?: 0) > 0 || f.stash.containsKey(s.id) else f.unlocked(s))
@@ -223,7 +225,9 @@ private fun StrainBook() {
                 T(if (seen) s.name else "???", 12.sp, if (!seen) Dim else if (s.exotic) Color(0xFFD86AF0) else if (s.hybrid) Color(0xFF5CD0E0) else Cream)
                 val kind = if (s.exotic) "Exotic" else if (s.hybrid) "Hybrid" else "Lv ${s.level}"
                 T(if (seen) "$kind · ${dur(s.minutes * 60L)} · ${s.yield}g · ${money(s.price)}/g" else kind, 9.sp, Dim, bold = false)
+                if (seen) T(s.traits.joinToString(" · ") { it.label }, 9.sp, Sky, bold = false)
             }
+            if (s.id in f.grown) T("✓ Grown", 10.sp, Leaf)
         }
     }
 }
@@ -247,6 +251,25 @@ private fun Trophies() {
                 T(t.title, 12.sp, if (got) Gold else Cream)
                 T(t.desc, 9.sp, Dim, bold = false)
                 if (!got && t.target > 1) { Spacer(Modifier.height(3.dp)); Bar(v.toFloat() / t.target, Sky) }
+            }
+        }
+    }
+    for (site in f.sites) {
+        val goals = FarmGoal.entries.filter { it.applies(site) }
+        Spacer(Modifier.height(10.dp))
+        T("${site.def.name} · ${site.goals.size} of ${goals.size} goals", 12.sp, Gold)
+        for (g in goals) {
+            val got = g.name in site.goals
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 2.dp).frame(WoodIn, if (got) Gold else WoodEdge).padding(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    T(g.title, 11.sp, if (got) Gold else Cream)
+                    T(g.desc, 9.sp, Dim, bold = false)
+                    if (!got) { Spacer(Modifier.height(3.dp)); Bar(minOf(g.value(f, site), g.target).toFloat() / g.target, Sky) }
+                }
+                if (got) T("✓", 14.sp, Gold)
             }
         }
     }
@@ -306,7 +329,7 @@ internal fun Settings(ui: UiState) {
     }
     Level("Music", Audio.music) { Audio.changeMusic(it) }
     Level("Sounds", Audio.sound) { Audio.changeSound(it); Audio.play(Sfx.COIN) }
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    if (Audio.CAN_BUZZ) Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         T("Vibration", 14.sp, Cream, Modifier.weight(1f))
         Btn(if (Audio.haptics) "On" else "Off", color = if (Audio.haptics) Leaf else WoodEdge) { Audio.changeHaptics(!Audio.haptics) }
     }

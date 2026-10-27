@@ -196,6 +196,11 @@ class Site(val def: SiteDef) {
     var wall = def.wall
     /** Workers hired for this farm; they staff its work buildings in order and water plots when there's no building free. */
     var workers = 0
+    /** Crew hired for this farm, by [Crew] ordinal. */
+    val crew = IntArray(Crew.entries.size)
+    /** Plants harvested on this farm, and the [FarmGoal]s it has reached. */
+    var harvests = 0L
+    val goals = LinkedHashSet<String>()
     /** The shack's tier and Violet's upgrades bought for this farm. */
     var shack = 0
     val upgrades = IntArray(Upgrade.entries.size)

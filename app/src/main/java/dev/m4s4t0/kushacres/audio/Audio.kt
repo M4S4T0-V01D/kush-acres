@@ -20,6 +20,8 @@ import kotlin.concurrent.thread
 object Audio {
     /** Bump when Synth changes, so the cached WAVs are rendered again. */
     private const val VERSION = 2
+    /** Phones can vibrate; the desktop build has no such setting. */
+    const val CAN_BUZZ = true
 
     var music by mutableFloatStateOf(0.5f); private set
     var sound by mutableFloatStateOf(0.8f); private set

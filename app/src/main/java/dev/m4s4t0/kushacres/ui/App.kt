@@ -78,6 +78,8 @@ import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
+import dev.m4s4t0.kushacres.model.Vehicle
+import dev.m4s4t0.kushacres.model.Crew
 import dev.m4s4t0.kushacres.model.Strains
 import kotlinx.coroutines.delay
 import java.util.IdentityHashMap
@@ -92,6 +94,7 @@ sealed class Mode {
     data class PlaceHouse(val h: WorkHouse) : Mode()
     data class PlacePower(val g: Generator) : Mode()
     data class PlaceSpecial(val s: Special) : Mode()
+    data class PlaceVehicle(val v: Vehicle) : Mode()
     /** Pick something up, then tap where it goes. */
     data class Move(val from: Pair<Int, Int>? = null) : Mode()
     data object Demolish : Mode()
@@ -119,6 +122,16 @@ class UiState {
     var mover by mutableStateOf(false)
     var menuAt by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
+}
+
+/**
+ * Keyboard camera controls (the desktop build feeds these; the phone never touches them). [dx]/[dy] say which way the
+ * pan keys are held, [zoom] which way the zoom keys are, and [turns] are quarter turns waiting to be applied.
+ */
+object Keys {
+    var dx = 0; var dy = 0; var zoom = 0
+    var turns by mutableIntStateOf(0)
+    val held get() = dx != 0 || dy != 0 || zoom != 0
 }
 
 // Wood-and-parchment pixel palette. The wood follows the farm you're on (see Theme).
@@ -339,6 +352,7 @@ private fun SkyChip(ui: UiState) {
     val icon = when (w) {
         Weather.RAIN -> if (snow) Sprites.snow else Sprites.rain
         Weather.FOG -> Sprites.fog
+        Weather.STORM -> Sprites.rain
         Weather.CLOUDY -> Sprites.cloud
         Weather.CLEAR -> if (night) Sprites.moon else Sprites.sun
     }
@@ -368,7 +382,8 @@ private fun SkyChip(ui: UiState) {
             Modifier.background(Color(0xAA1C1A14)).clickable {
                 Store.toast("${season.title}: ${season.desc}. " + when (w) {
                     Weather.RAIN -> if (snow) "Snow is watering every plant for you" else "Rain is watering every plant for you"
-                    Weather.FOG -> "Foggy out. Fewer eyes on your farm"
+                    Weather.FOG -> "Foggy out. Fewer eyes on your farm. Damp, so watch for mould"
+                    Weather.STORM -> "Storm! Everything gets watered, but mould loves it. Lamps keep it off"
                     Weather.CLOUDY -> "Clouds rolling over"
                     Weather.CLEAR -> if (night) "A clear night. Lamps and lights glow" else "Clear skies"
                 } + ".")
@@ -429,6 +444,7 @@ private fun BottomBar(ui: UiState) {
                 }
                 is Mode.PlaceFacility -> "Tap grass to build the ${m.f.title}: ${money(f.facilityCost(m.f))}"
                 is Mode.PlaceHouse -> "Tap grass to build the ${m.h.title}: ${money(f.houseCost(m.h))}"
+                is Mode.PlaceVehicle -> "Tap where the ${m.v.title}'s back corner goes (it needs 2×2 grass): ${money(m.v.cost)}"
                 is Mode.PlacePower -> "Tap grass to build the ${m.g.title}: ${money(f.generatorCost(m.g))}"
                 is Mode.PlaceSpecial -> "Tap grass to build the ${m.s.title}: ${m.s.gems} gems + ${money(m.s.cash)}"
                 is Mode.PlaceDecor -> {
@@ -447,7 +463,7 @@ private fun BottomBar(ui: UiState) {
     val seed = Strains[ui.seed]!!
     val ready = f.orders.withIndex().count { (i, o) -> i < f.orderSlots() && o != null && f.canFill(o) }
     Row(Modifier.fillMaxWidth().frame(Wood, WoodEdge, 3.dp).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), seed.name, if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(seed.seed)) { ui.panel = Panel.SEEDS }
+        BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), seed.name, if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(f.seedCost(seed))) { ui.panel = Panel.SEEDS }
         BarButton(Modifier.weight(1f), Sprites.bag, "Orders", if (ready > 0) "$ready ready" else null, badge = ready > 0) { ui.panel = Panel.ORDERS }
         BarButton(Modifier.weight(1f), Sprites.stall, "Town", null) { ui.shop = null; ui.panel = Panel.TOWN }
         BarButton(Modifier.weight(1f), Sprites.hammer, "Build", null) { ui.panel = Panel.BUILD }
@@ -488,6 +504,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: ""
                 Kind.POWER -> Generator.of(tile.item)?.title ?: ""
                 Kind.SPECIAL -> Special.of(tile.item)?.title ?: ""
+                Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: ""
                 else -> ""
             }
             T(title, 15.sp, Gold, Modifier.weight(1f))
@@ -497,6 +514,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
             Kind.PLOT -> {
                 val s = tile.strain?.let { Strains[it] }
                 if (tile.pest) T("Bugs! Tap to shoo them off. It won't grow until you do.", 12.sp, Bad)
+                else if (tile.mould) T("Mould! Tap to scrape it off. It won't grow until you do.", 12.sp, Bad)
                 else if (s == null) T("Tap it to plant your selected seed.", 12.sp, Dim)
                 else if (tile.ready()) T("Ripe! Tap to harvest.", 12.sp, Leaf)
                 else {
@@ -538,6 +556,13 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
             }
             Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
             Kind.HOUSE -> WorkHouse.of(tile.item)?.let { HouseInfo(ui, x, y, it) }
+            Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.let { v ->
+                T(v.desc + ".", 12.sp, Cream)
+                f.vehicleAt(v)?.let { (ax, ay) ->
+                    if (v.minutes > 0) T("Next run in " + dur(((f.tile(ax, ay).doneAt - Store.now()) / 1000).coerceAtLeast(0)) +
+                        if (f.crew(Crew.DRIVER) > 0) " · a driver keeps it moving" else " · a driver would make it 40% quicker", 11.sp, Dim)
+                }
+            }
             else -> {}
         }
     }
@@ -571,9 +596,11 @@ private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
 @Composable
 internal fun WorkerButton(modifier: Modifier) {
     val f = Store.farm
-    val full = f.site.workers >= f.workerCap()
+    val full = f.beds() >= f.workerCap()
     val c = f.workerCost()
-    T("Workers here: ${f.site.workers} / ${f.workerCap()}" + if (full) " · build a Bunkhouse for more beds" else "", 11.sp, Cream)
+    val crew = f.site.crew.sum()
+    T("Beds used here: ${f.beds()} / ${f.workerCap()}" + (if (crew > 0) " (${f.site.workers} workers, $crew crew)" else "") +
+        if (full) " · build a Bunkhouse or park an RV for more" else "", 11.sp, Cream)
     if (!full) Btn("Hire a worker · ${money(c)}", modifier, enabled = f.cash >= c && f.level >= Farm.WORKER_LEVEL, color = Gold) {
         val r = f.hireWorker()
         if (r == Result.OK) { Store.toast("A worker moved in! They staff a building or water plots."); Store.changed() } else report(r)

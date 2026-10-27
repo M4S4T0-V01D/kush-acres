@@ -1,5 +1,6 @@
 package dev.m4s4t0.kushacres.ui
 
+import kotlin.random.Random
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -56,6 +57,7 @@ import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
+import dev.m4s4t0.kushacres.model.Vehicle
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Farm
@@ -207,8 +209,17 @@ class World {
 
     /** Draws a sprite standing on tile x,y (mirrored about the tile's centre on odd turns) and remembers it for touches. */
     private fun stand(x: Int, y: Int, bmp: Bitmap, left: Int, top: Int) {
+        ground(centerX(x, y).toFloat(), centerY(x, y).toFloat(), minOf(bmp.width / S * 0.42f, TW * 0.44f))
         val (b, l) = put(bmp, centerX(x, y), left, top)
         hits += Hit(x, y, b, l, top)
+    }
+
+    /** A soft contact shadow, squashed to the ground's 2:1 slope and nudged away from the afternoon sun. */
+    private fun ground(cx: Float, cy: Float, half: Float) {
+        fill.color = 0x30000000
+        canvas.drawOval(cx - half + 1, cy - half * 0.5f + 1, cx + half + 1, cy + half * 0.5f + 1, fill)
+        fill.color = 0x22000000
+        canvas.drawOval(cx - half * 0.6f + 1, cy - half * 0.3f + 1, cx + half * 0.6f + 1, cy + half * 0.3f + 1, fill)
     }
 
     private fun solid(b: Bitmap, px: Int, py: Int) = px in 0 until b.width && py in 0 until b.height && (b.getPixel(px, py) ushr 24) > 40
@@ -370,9 +381,15 @@ class World {
         }
         moveFrom?.let { (mx, my) ->
             val t0 = f.tile(mx, my)
-            val cells = if (t0.kind == Kind.SHACK || t0.kind == Kind.PART) f.shackAt()?.let { (ax, ay) ->
-                listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1)
-            } ?: emptyList() else listOf(mx to my)
+            val cells = when (t0.kind) {
+                Kind.SHACK, Kind.PART -> f.shackAt()?.let { (ax, ay) -> listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1) } ?: emptyList()
+                Kind.VEHICLE, Kind.CAB -> {
+                    val a = if (t0.kind == Kind.CAB) t0.anchor else my * Farm.MAX + mx
+                    val ax = a % Farm.MAX; val ay = a / Farm.MAX
+                    listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1)
+                }
+                else -> listOf(mx to my)
+            }
             val c = if ((t * 3).toInt() % 2 == 0) 0xFF7BD34B.toInt() else 0xFFB6F27A.toInt()
             cells.forEach { (x, y) -> blit(Sprites.cursor(c), tileX(x, y).toFloat(), tileY(x, y).toFloat()) }
         }
@@ -392,10 +409,25 @@ class World {
         val shackV = shackAt?.let { (ax, ay) -> minOf(viewV(ax, ay), viewV(ax + 1, ay + 1)) } ?: 0
         // Turned a half or quarter round the other way, the door (+y side) faces away: show the back.
         val shackBack = rot == 1 || rot == 2
+        // Vehicles cover 2×2 like the shack: each is drawn once, at the diagonal past its footprint.
+        val vehicles = Vehicle.entries.mapNotNull { v -> f.vehicleAt(v)?.let { (ax, ay) ->
+            val u = minOf(viewU(ax, ay), viewU(ax + 1, ay + 1)); val w = minOf(viewV(ax, ay), viewV(ax + 1, ay + 1))
+            Triple(v, ax to ay, u to w)
+        } }
         for (s in 0..(Farm.MAX - 1) * 2) {
+          for ((v, a, uw) in vehicles) {
+              val (u, w) = uw
+              if (s != u + w + 2) continue
+              val bx = OX + (u - w) * (TW / 2); val by = OY + (u + w) * (TH / 2) + 32
+              val top = by - Buildings.VEH_AY
+              ground(bx.toFloat(), by - TH.toFloat(), TW * 0.82f)
+              val (art, sl) = put(Buildings.vehicle(v), bx, bx - Buildings.VEH_AX, top)
+              hits += Hit(a.first, a.second, art, sl, top)
+          }
           if (shackAt != null && s == shackU + shackV + 2) {
               val (ax, ay) = shackAt
               val bx = OX + (shackU - shackV) * (TW / 2); val by = OY + (shackU + shackV) * (TH / 2) + 32
+              ground(bx.toFloat(), by - TH.toFloat(), TW * 0.9f)
               val (art, sl) = put(Buildings.shack(f.shack, f.roof, f.wall, shackBack), bx, bx - Buildings.SHACK_AX, by - Buildings.SHACK_AY)
               val st = by - Buildings.SHACK_AY
               hits += Hit(ax, ay, art, sl, st)
@@ -512,6 +544,7 @@ class World {
                 else -> {}
             }
             if (tile.pest && tile.kind == Kind.PLOT) drawPests(cx, cy, t, hash(x, y))
+            if (tile.mould && tile.kind == Kind.PLOT) drawMould(cx, cy, t, hash(x, y))
           }
           walkers[s]?.forEach { drawWalker(it, t) }
         }
@@ -593,6 +626,19 @@ class World {
         canvas.drawRect(cx - 1f, cy - 32f, cx + 1f, cy - 28f, fill)
         canvas.drawRect(cx - 1f, cy - 27f, cx + 1f, cy - 25f, fill)
     }
+
+    /** Grey-white fuzz clumped over the plant, with a slow pulsing spore or two. */
+    private fun drawMould(cx: Int, cy: Int, t: Float, seed: Int) {
+        val r = Random(seed)
+        for (k in 0 until 9) {
+            val bx = cx - 7 + r.nextInt(14); val by = cy - 18 + r.nextInt(14)
+            fill.color = if (k % 3 == 0) 0xFFB8BFAE.toInt() else 0xFFD9DED0.toInt()
+            canvas.drawRect(bx.toFloat(), by.toFloat(), bx + 2f, by + 1f, fill)
+        }
+        fill.color = 0xFF7E8A70.toInt()
+        val sx = cx - 3 + (seed % 7); val sy = cy - 22 - ((t * 4 + seed % 5) % 8)
+        canvas.drawRect(sx.toFloat(), sy, sx + 1f, sy + 1, fill)
+    }
 }
 
 private const val HOLD_MS = 140L
@@ -643,6 +689,24 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             offset = Offset(wPx / 2 - wx * scale, hPx * 0.5f - wy * scale)
         }
         if (ui.rot < 0) ui.rot = prefs.getInt("rot", 0)
+        if (Keys.turns != 0) { ui.turn(Keys.turns); Keys.turns = 0 }
+        // Held pan/zoom keys move the camera a little every frame, at the same speed whatever the zoom.
+        LaunchedEffect(wPx, hPx) {
+            var last = 0L
+            while (true) withFrameMillis { ms ->
+                val dt = if (last == 0L) 16f else (ms - last).coerceIn(1, 50).toFloat()
+                last = ms
+                if (scale == 0f || !Keys.held) return@withFrameMillis
+                if (Keys.zoom != 0) {
+                    val c = Offset(wPx / 2, hPx / 2)
+                    val ns = (scale * 1.0025f.pow(Keys.zoom * dt)).coerceIn(minScale(), 12f)
+                    offset = c - (c - offset) * (ns / scale); scale = ns
+                }
+                val step = 0.9f * dt
+                offset -= Offset(Keys.dx * step, Keys.dy * step)
+                clamp()
+            }
+        }
         if (world.rot != ui.rot) {
             // Turn about whatever is in the middle of the screen.
             val mid = (Offset(wPx / 2, hPx / 2) - offset) / scale
@@ -704,11 +768,11 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (!f.inLand(x, y)) return null
             return when (ui.mode) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
-                is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial -> null
+                is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial, is Mode.PlaceVehicle -> null
                 is Mode.Move -> null
                 Mode.Demolish -> null
                 Mode.Farm -> when {
-                    tile.pest -> Act.SHOO
+                    tile.pest || tile.mould -> Act.SHOO
                     tile.kind == Kind.FACILITY -> if (tile.strain != null && now >= tile.doneAt) Act.COLLECT else null
                     tile.kind != Kind.PLOT -> null
                     tile.ready() -> Act.HARVEST
@@ -790,6 +854,15 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     else if (r == Result.LIMIT) Store.toast("That's the most of those one farm can hold")
                     else complain(r)
                 }
+                is Mode.PlaceVehicle -> {
+                    val r = f.buyVehicle(x, y, m.v, Store.now())
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) + 4f)
+                        Store.toast("${m.v.title} parked! ${m.v.desc}."); ui.mode = Mode.Farm; Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast("It needs a free 2×2 grass spot with its back corner here")
+                    else if (r == Result.LIMIT) Store.toast("This farm already has one of those")
+                    else complain(r)
+                }
                 is Mode.PlaceFacility -> {
                     val r = f.buildFacility(x, y, m.f)
                     if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
@@ -836,8 +909,11 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     else {
                         val r = f.move(from.first, from.second, x, y)
                         if (r == Result.OK) { buzz(); ui.mode = Mode.Move(); Store.changed() }
-                        else Store.toast(if (f.tile(from.first, from.second).kind.let { it == Kind.SHACK || it == Kind.PART })
-                            "The shack needs a free 2×2 spot with its back corner here" else "Pick an empty grass square")
+                        else Store.toast(when (f.tile(from.first, from.second).kind) {
+                            Kind.SHACK, Kind.PART -> "The shack needs a free 2×2 spot with its back corner here"
+                            Kind.VEHICLE, Kind.CAB -> "It needs a free 2×2 spot with its back corner here"
+                            else -> "Pick an empty grass square"
+                        })
                     }
                 }
                 Mode.Farm -> when (tile.kind) {

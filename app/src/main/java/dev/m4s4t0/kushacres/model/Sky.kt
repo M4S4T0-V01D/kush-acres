@@ -3,7 +3,7 @@ package dev.m4s4t0.kushacres.model
 import kotlin.math.cos
 import kotlin.math.PI
 
-enum class Weather(val label: String) { CLEAR("Clear"), CLOUDY("Cloudy"), RAIN("Rain"), FOG("Fog") }
+enum class Weather(val label: String) { CLEAR("Clear"), CLOUDY("Cloudy"), RAIN("Rain"), FOG("Fog"), STORM("Storm") }
 
 /** The sky over the farm: real-time day and night, and weather that changes every couple of hours. */
 object Sky {
@@ -36,7 +36,8 @@ object Sky {
         return when {
             n < 56 -> Weather.CLEAR
             n < 76 -> Weather.CLOUDY
-            n < 90 -> Weather.RAIN
+            n < 87 -> Weather.RAIN
+            n < 90 -> Weather.STORM
             else -> Weather.FOG
         }
     }

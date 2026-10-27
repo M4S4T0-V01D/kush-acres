@@ -22,7 +22,8 @@ class Light(val night: Float, val tint: Int, val rain: Float, val fog: Float, va
             val h = Sky.hour(now)
             val d = Sky.daylight(h)
             val g = Sky.golden(h)
-            val rain = Sky.amount(now, Weather.RAIN)
+            val storm = Sky.amount(now, Weather.STORM)
+            val rain = maxOf(Sky.amount(now, Weather.RAIN), storm)
             val fog = Sky.amount(now, Weather.FOG)
             val cloud = Sky.amount(now, Weather.CLOUDY)
             fun mix(a: Float, b: Float, k: Float) = a + (b - a) * k
@@ -32,6 +33,13 @@ class Light(val night: Float, val tint: Int, val rain: Float, val fog: Float, va
             r *= mix(1f, 0.84f, cloud); gg *= mix(1f, 0.86f, cloud); b *= mix(1f, 0.9f, cloud)
             r *= mix(1f, 0.68f, rain); gg *= mix(1f, 0.72f, rain); b *= mix(1f, 0.84f, rain)
             r *= mix(1f, 0.9f, fog); gg *= mix(1f, 0.91f, fog); b *= mix(1f, 0.93f, fog)
+            if (storm > 0f) {
+                r *= mix(1f, 0.85f, storm); gg *= mix(1f, 0.85f, storm); b *= mix(1f, 0.9f, storm)
+                // Lightning: a quick double flash somewhere in most 9-second windows.
+                val slot = now / 9000; val at = Random(slot).nextLong(9000); val t = now % 9000 - at
+                val flash = storm * when (t) { in 0L..80L -> 1f; in 160L..260L -> 0.6f; else -> 0f } * (if (slot % 3 == 0L) 0f else 1f)
+                r = mix(r, 1.2f, flash); gg = mix(gg, 1.2f, flash); b = mix(b, 1.3f, flash)
+            }
             val season = Season.at(now)
             when (season) {
                 Season.WINTER -> { r *= 0.93f; gg *= 0.97f; b *= 1.04f }

@@ -65,6 +65,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.ROCK -> "Boulder"
                 Kind.WATER -> "Water"
                 Kind.SHACK, Kind.PART -> "Shack"
+                Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: "Vehicle"
                 Kind.FACILITY -> Facility.of(tile.item)?.title ?: "Facility"
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.title ?: "Building"
                 Kind.POWER -> Generator.of(tile.item)?.title ?: "Generator"
@@ -102,6 +103,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                         report(f.harvest(x, y, Store.now())); Store.changed(); close()
                     }
                     if (tile.pest) item("Shoo the bugs", Gold) { f.clearPest(x, y); Store.changed(); close() }
+                    if (tile.mould) item("Scrape off the mould", Gold) { f.clearPest(x, y); Store.changed(); close() }
                     if (strain != null && !tile.ready() && !f.wet(x, y, Store.now())) item("Water", Sky) {
                         report(f.water(x, y, Store.now())); Audio.vary(Sfx.WATER); Store.changed(); close()
                     }
@@ -128,6 +130,10 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 }
                 Kind.FACILITY -> {
                     item("Open", Gold) { ui.fac = x to y; ui.panel = Panel.FACILITY; close() }
+                    item("Move") { moveIt() }
+                }
+                Kind.VEHICLE, Kind.CAB -> {
+                    f.vehicleOn(x, y)?.let { T(it.desc + ".", 12.sp, Cream) }
                     item("Move") { moveIt() }
                 }
                 Kind.HOUSE, Kind.POWER, Kind.SPECIAL -> {

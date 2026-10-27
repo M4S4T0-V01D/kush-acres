@@ -57,7 +57,9 @@ object Store {
     /** Catches up on the time the app was closed and reports what the farmhand did. */
     fun resume() {
         farm.away = Away()
+        val cash0 = farm.cash; val level0 = farm.level
         farm.tick(now())
+        farm.away.earned = farm.cash - cash0; farm.away.levels = farm.level - level0; farm.away.ripe = farm.ripeCount()
         if (farm.away.any()) awayReport = farm.away
         farm.away = Away()
         farm.delayEvents(now())
@@ -68,9 +70,11 @@ object Store {
         farm.tick(now())
         val hour = Sky.hour(now()).toInt()
         val sky = Sky.weather(now())
-        Audio.ambience(if (sky == Weather.RAIN) Amb.RAIN else if (hour in 6..19) Amb.DAY else Amb.NIGHT)
-        if (sky == Weather.RAIN && farm.rain(now()) > 0) { dirty = true; if (!rainSaid) toast(if (farm.season() == Season.WINTER) "Snow! Your plants are watered" else "Rain! Your plants are watered") ; rainSaid = true }
-        if (sky != Weather.RAIN) rainSaid = false
+        val wet = sky == Weather.RAIN || sky == Weather.STORM
+        Audio.ambience(if (wet) Amb.RAIN else if (hour in 6..19) Amb.DAY else Amb.NIGHT)
+        if (wet && farm.rain(now()) > 0) { dirty = true; if (!rainSaid) toast(if (farm.season() == Season.WINTER) "Snow! Your plants are watered" else if (sky == Weather.STORM) "Storm! Everything's watered, but watch for mould" else "Rain! Your plants are watered") ; rainSaid = true }
+        if (!wet) rainSaid = false
+        if (farm.damp(now(), sky) > 0) { dirty = true; toast("Mould on a plant! Tap it to scrape it off") }
         if (farm.rollEvent(now())) {
             dirty = true
             Audio.play(if (farm.happening?.kind == EventKind.RAID) Sfx.RAID else Sfx.EVENT)
@@ -93,6 +97,7 @@ object Store {
             is FarmEvent.Harvest -> { pending += e; if (e.golden) Audio.play(Sfx.GOLDEN) else Audio.vary(Sfx.HARVEST) }
             is FarmEvent.Gems -> { toast("+${e.amount} Kush Gem${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Award -> { toast("Trophy: ${e.trophy.title}  +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
+            is FarmEvent.Goal -> { toast("${e.site}: ${e.goal.title}!  +1 gem, +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Bucks -> if (e.token == null) { toast("+${e.amount} Pot Buck${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
                 else if (e.amount > 1) toast("+${e.amount} ${dev.m4s4t0.kushacres.model.Holiday[e.token]?.tokens?.lowercase() ?: e.token}")
         }

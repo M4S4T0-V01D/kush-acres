@@ -27,6 +27,7 @@ object Save {
                 if (t.amount > 0) put("a", t.amount)
                 if (t.lvl > 1) put("lv", t.lvl)
                 if (t.pest) put("pe", true)
+                if (t.mould) put("mo", true)
                 if (t.anchor >= 0) put("an", t.anchor)
             })
         }
@@ -51,17 +52,26 @@ object Save {
             tile.item = t.optString("it", "").takeIf { it.isNotEmpty() }
             tile.doneAt = t.optLong("d"); tile.amount = t.optInt("a")
             tile.lvl = t.optInt("lv", 1).coerceIn(1, Facility.MAX_LEVEL)
-            tile.pest = t.optBoolean("pe"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
+            tile.pest = t.optBoolean("pe"); tile.mould = t.optBoolean("mo"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
             val bad = when (tile.kind) {
                 Kind.FACILITY -> Facility.of(tile.item) == null
                 Kind.HOUSE -> WorkHouse.of(tile.item) == null
                 Kind.POWER -> Generator.of(tile.item) == null
                 Kind.SPECIAL -> Special.of(tile.item) == null
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item) == null
+                Kind.VEHICLE -> Vehicle.of(tile.item) == null
                 else -> false
             }
             if (bad) tile.clear()
         }
+        // A vehicle needs all four of its squares; drop any half-parked one.
+        for ((i, t) in tiles.withIndex()) if (t.kind == Kind.VEHICLE) t.anchor = i
+        for ((i, t) in tiles.withIndex()) {
+            if (t.kind != Kind.VEHICLE) continue
+            val parts = tiles.count { it.kind == Kind.CAB && it.anchor == i }
+            if (parts != 3) tiles.forEach { if ((it.kind == Kind.CAB || it.kind == Kind.VEHICLE) && it.anchor == i) it.clear() }
+        }
+        tiles.forEach { t -> if (t.kind == Kind.CAB && tiles.getOrNull(t.anchor)?.kind != Kind.VEHICLE) t.clear() }
     }
 
     fun write(f: Farm): String {
@@ -82,7 +92,7 @@ object Save {
         o.put("sites", JSONArray().apply {
             f.sites.forEach { st ->
                 put(JSONObject().put("id", st.def.id).put("land", st.land).put("roof", st.roof).put("wall", st.wall)
-                    .put("workers", st.workers).put("shack", st.shack).put("up", ups(st.upgrades)).put("tiles", writeTiles(st.tiles))
+                    .put("workers", st.workers).put("crew", JSONArray(st.crew.toList())).put("hv", st.harvests).put("goals", JSONArray(st.goals.toList())).put("shack", st.shack).put("up", ups(st.upgrades)).put("tiles", writeTiles(st.tiles))
                     .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) }; st.grass?.let { put("grass", it) }; st.dirt?.let { put("dirt", it) } })
             }
         })
@@ -100,7 +110,7 @@ object Save {
         }
         o.put("orders", orders)
         o.put("stats", JSONObject().apply { Stat.entries.forEach { if (f.stat(it) > 0) put(it.name, f.stat(it)) } })
-        o.put("trophies", JSONArray(f.trophies.toList())); o.put("bred", JSONArray(f.bred.toList()))
+        o.put("trophies", JSONArray(f.trophies.toList())); o.put("bred", JSONArray(f.bred.toList())); o.put("grown", JSONArray(f.grown.toList()))
         o.put("legacy", f.legacy); o.put("bestLevel", maxOf(f.bestLevel, f.level))
         o.put("streak", f.streak); o.put("bestStreak", f.bestStreak); o.put("lastDay", f.lastDay)
         o.put("questDay", f.questDay); o.put("questBonus", f.questBonus)
@@ -155,6 +165,7 @@ object Save {
         }
         strings("trophies", f.trophies) { Trophy.of(it) != null }
         strings("bred", f.bred) { Strains[it]?.hybrid == true }
+        strings("grown", f.grown) { Strains[it] != null }
         strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
         f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
@@ -201,6 +212,9 @@ object Save {
             val st = if (def === Sites.HOME) home else Site(def)
             st.land = land(so.optInt("land", 6)); st.roof = so.optInt("roof", def.roof); st.wall = so.optInt("wall", def.wall)
             st.workers = so.optInt("workers").coerceIn(0, 99)
+            st.harvests = so.optLong("hv")
+            so.optJSONArray("goals")?.let { a -> for (k in 0 until a.length()) FarmGoal.of(a.optString(k))?.let { st.goals += it.name } }
+            so.optJSONArray("crew")?.let { a -> for (k in Crew.entries) st.crew[k.ordinal] = a.optInt(k.ordinal).coerceIn(0, k.max) }
             st.shack = if (so.has("shack")) so.optInt("shack").coerceIn(0, SHACKS.size - 1) else oldShack
             readUps(if (so.has("up")) so.optJSONObject("up") else oldUp, st.upgrades)
             if (so.has("grass")) st.grass = so.optInt("grass")

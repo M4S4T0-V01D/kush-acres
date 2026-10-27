@@ -75,6 +75,8 @@ import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.WorkHouse
+import dev.m4s4t0.kushacres.model.Vehicle
+import dev.m4s4t0.kushacres.model.Crew
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Kind
@@ -252,10 +254,12 @@ private fun SeedCell(ui: UiState, s: Strain, edge: Color) {
         if (open) {
             T(dur(s.seconds), 10.sp, Sky)
             if (s.exotic) T("${f.seeds[s.id] ?: 0} seeds", 11.sp, Color(0xFFD86AF0))
-            else T(money(s.seed), 11.sp, Gold)
+            else T(money(f.seedCost(s)), 11.sp, Gold)
             T("${s.yield}g × ${money(s.price)}", 9.sp, Dim, bold = false)
+            T(s.traits.joinToString(" · ") { it.label }, 8.sp, Color(0xFF9FD86A), bold = false, align = TextAlign.Center)
+            if (f.favourite(s)) T("★ In season", 9.sp, Gold, align = TextAlign.Center)
             s.parents?.let { (a, b) -> T("${Strains[a]?.name} × ${Strains[b]?.name}", 8.sp, Color(0xFF5CD0E0), bold = false, align = TextAlign.Center) }
-        } else T("Lv ${s.level}", 11.sp, Bad)
+        } else T(s.site?.takeIf { s.exotic }?.let { "Only on " + (dev.m4s4t0.kushacres.model.Sites[it]?.name ?: it) } ?: "Lv ${s.level}", if (s.exotic) 9.sp else 11.sp, Bad, align = TextAlign.Center)
     }
 }
 
@@ -453,6 +457,24 @@ internal fun WorkList(ui: UiState) {
             val n = f.count(h)
             Card(Buildings.house(h), h.title, h.desc + ". Staffed: " + h.staffed.lowercase() + ".", "You have $n here" + if (n >= WorkHouse.MAX_EACH) " (max)" else "",
                 money(c), f.cash >= c && n < WorkHouse.MAX_EACH, if (f.level < h.level) h.level else null) { startPlacing(ui, Mode.PlaceHouse(h)) }
+        }
+        items(Crew.entries) { k ->
+            Store.rev
+            val c = f.crewCost(k)
+            val n = f.crew(k)
+            val room = f.beds() < f.workerCap()
+            Card(People.worker(k.ordinal + 3, 0), k.title, k.desc + ". Takes a bed like a worker.",
+                "On this farm: $n / ${k.max}" + if (n < k.max && !room) " · no free bed" else "",
+                if (n >= k.max) "Full" else money(c), f.cash >= c && n < k.max && room, if (f.level < k.level) k.level else null) {
+                val r = f.hireCrew(k)
+                if (r == Result.OK) { Store.toast("A ${k.title.lowercase()} joined this farm's crew!"); Store.changed() } else report(r)
+            }
+        }
+        items(Vehicle.entries) { v ->
+            Store.rev
+            val here = f.vehicleAt(v) != null
+            Card(Buildings.vehicle(v), v.title, v.desc + ". Covers 2×2 squares; one per farm.", if (here) "Parked on this farm" else null,
+                if (here) "Owned" else money(v.cost), f.cash >= v.cost && !here, if (f.level < v.level) v.level else null) { startPlacing(ui, Mode.PlaceVehicle(v)) }
         }
     }
 }
@@ -717,6 +739,10 @@ fun Dialogs() {
             if (away.batches > 0) T("${away.batches} batches cooked", 13.sp, Cream)
             if (away.sold > 0) T("Runner sold ${money(away.sold)}", 13.sp, Gold)
             if (away.xp > 0) T("+${away.xp} xp", 13.sp, Sky)
+            if (away.levels > 0) T("Reached level ${Store.farm.level}!", 13.sp, Gold)
+            if (away.earned > 0) T("Cash up ${money(away.earned)} in all", 13.sp, Gold)
+            if (away.ripe > 0) T("${away.ripe} plants ripe and waiting", 12.sp, Leaf)
+            if (!Store.farm.has(dev.m4s4t0.kushacres.model.Helper.FARMHAND)) T("Hire a farmhand and runner and they'll work while you're gone", 11.sp, Dim, bold = false, align = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
             Btn("Back to work", Modifier.fillMaxWidth(), color = Gold) { Store.awayReport = null }
         }

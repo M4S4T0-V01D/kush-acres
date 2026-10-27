@@ -16,6 +16,8 @@ import kotlin.concurrent.thread
  * mixed in software into one Java sound line: effects as voices, the music and the chosen ambience as loops.
  */
 object Audio {
+    /** No vibration on a computer, so Settings hides the switch. */
+    const val CAN_BUZZ = false
     var music by mutableFloatStateOf(0.5f); private set
     var sound by mutableFloatStateOf(0.8f); private set
     var haptics by mutableStateOf(true); private set

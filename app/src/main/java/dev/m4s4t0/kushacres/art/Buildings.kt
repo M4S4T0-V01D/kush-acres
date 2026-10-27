@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Special
+import dev.m4s4t0.kushacres.model.Vehicle
 import dev.m4s4t0.kushacres.model.ROOF_COLORS
 import dev.m4s4t0.kushacres.model.WALL_COLORS
 import dev.m4s4t0.kushacres.model.WorkHouse
@@ -557,6 +558,72 @@ object Buildings {
                 px.poly(leaf, 16, 20, 7, 10, 9, 15); px.poly(shade(leaf, 0.85f), 16, 20, 25, 10, 23, 15)
                 px.poly(leaf, 16, 22, 5, 17, 9, 20); px.poly(shade(leaf, 0.85f), 16, 22, 27, 17, 23, 20)
                 px.set(15, 6, 0xFFFFFFC0.toInt()); px.set(9, 12, 0xFFFFFFC0.toInt())
+            }
+        }
+        px.outline(OUT)
+        px.bitmap()
+    }
+
+    const val VEH_W = 68
+    const val VEH_H = 60
+    /** The 2×2 footprint's front (bottom) corner sits on this pixel. */
+    const val VEH_AX = 34
+    const val VEH_AY = 56
+
+    private val vehicleCache = HashMap<Vehicle, Bitmap>()
+
+    /** A vehicle parked across a 2×2 footprint, its long side along the left face. */
+    fun vehicle(v: Vehicle): Bitmap = vehicleCache.getOrPut(v) {
+        val px = Px(VEH_W, VEH_H)
+        // Body box centred on the footprint: [wl] long, [wr] wide.
+        val wl = 28; val wr = 14
+        val cx = VEH_AX + (wl - wr) / 2; val by = VEH_AY - 16 + (wl + wr) / 4
+        val lx = cx - wl; val ly = by - wl / 2
+        /** A strip on the left face from [d0] to [d1] along it, [z0] to [z1] up. */
+        fun face(d0: Int, d1: Int, z0: Int, z1: Int, c: Int) =
+            px.poly(c, lx + d0, ly + d0 / 2 - z0, lx + d1, ly + d1 / 2 - z0, lx + d1, ly + d1 / 2 - z1, lx + d0, ly + d0 / 2 - z1)
+        fun wheel(d: Int, r: Int) {
+            val x = lx + d; val y = ly + d / 2
+            px.rect(x - r, y - r - 1, r * 2 + 1, r * 2 + 1, 0xFF26221E.toInt())
+            px.rect(x - r / 2, y - r / 2 - 1, r + 1, r + 1, 0xFF8A8A90.toInt())
+        }
+        val glass = 0xFF9ED8F0.toInt()
+        when (v) {
+            Vehicle.RV -> {
+                val c = 0xFFF0E6CC.toInt()
+                box(px, cx, by - 3, wl, wr, 16, shade(c, 1.06f), c, shade(c, 0.78f))
+                face(1, wl - 1, 5, 7, 0xFF3E7D8A.toInt()); face(1, wl - 1, 8, 9, 0xFFE0703A.toInt())
+                for (d in intArrayOf(4, 10)) face(d, d + 4, 11, 16, glass)
+                face(16, 20, 3, 15, 0xFF8A6238.toInt())
+                box(px, cx + 3, by - 6, 6, 8, 3, 0xFFC8C8CC.toInt(), 0xFFA0A0A8.toInt(), 0xFF80808A.toInt()) // roof vent
+                wheel(6, 3); wheel(22, 3)
+            }
+            Vehicle.TRUCK -> {
+                val c = 0xFFE84A4A.toInt()
+                box(px, cx, by - 3, wl, wr, 18, 0xFFF4F4F0.toInt(), c, shade(c, 0.75f))
+                face(5, 20, 7, 15, 0xFF2A1E18.toInt())
+                face(4, 21, 15, 18, 0xFFF2C440.toInt())
+                for (d in 6..18 step 4) face(d, d + 2, 15, 18, 0xFFFFFFFF.toInt())
+                face(7, 10, 8, 11, 0xFFFFC870.toInt()); face(13, 17, 8, 10, 0xFF6AB84A.toInt())
+                face(22, 26, 10, 15, glass)
+                wheel(6, 3); wheel(23, 3)
+            }
+            Vehicle.TRACTOR -> {
+                val c = 0xFF4FA03C.toInt()
+                box(px, cx - 2, by - 5, 18, 10, 8, shade(c, 1.15f), c, shade(c, 0.75f))
+                box(px, cx - 14, by - 11, 9, 9, 18, 0xFFF2C440.toInt(), shade(glass, 0.9f), shade(glass, 0.7f))
+                px.rect(cx - 6, by - 26, 2, 7, 0xFF3A3A3E.toInt())
+                wheel(7, 6); wheel(22, 3)
+                px.rect(lx + 27, ly + 3, 6, 2, 0xFFF2C440.toInt())
+            }
+            Vehicle.VAN -> {
+                val c = 0xFFF4F4F0.toInt()
+                box(px, cx, by - 3, wl, wr, 17, shade(c, 0.95f), c, shade(c, 0.78f))
+                face(0, wl, 6, 9, 0xFF3A6EC8.toInt())
+                box(px, cx + 2, by - 13, 6, 6, 4, 0xFFC89A5A.toInt(), 0xFFB07A4A.toInt(), 0xFF8A5A34.toInt()) // parcel logo up top
+                face(22, 27, 10, 16, glass)
+                face(8, 14, 11, 15, 0xFFB07A4A.toInt())
+                wheel(6, 3); wheel(22, 3)
             }
         }
         px.outline(OUT)

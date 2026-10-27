@@ -225,6 +225,9 @@ class Farm(var rng: Random = Random.Default) {
     var questDay = -1L
     val quests = ArrayList<Quest>()
     var questBonus = false
+    /** The Cannabis Cup week the entries in [cupScores] belong to, and each entry (strain id, judged score). */
+    var cupWeek = -1L
+    val cupScores = ArrayList<Pair<String, Int>>()
     var away = Away()
     val events = ArrayList<FarmEvent>()
     /** Pot Bucks: the rare currency from level-ups, dailies, challenges, events and lucky harvests. */
@@ -1000,6 +1003,7 @@ class Farm(var rng: Random = Random.Default) {
         if (lvl == BLACK_MARKET_LEVEL) out += "The black market"
         if (lvl == EVENT_LEVEL) out += "Random events"
         if (lvl == Progress.BREED_LEVEL) out += "The breeding lab"
+        if (lvl == Cup.LEVEL) out += "The Cannabis Cup"
         if (lvl == Progress.LEGACY_LEVEL) out += "Selling the farm for a legacy bonus"
         if (lvl % 6 == 0 && 2 + lvl / 6 <= MAX_ORDERS) out += "Another order slot"
         return out

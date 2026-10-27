@@ -1,6 +1,7 @@
 package dev.m4s4t0.kushacres
 
 import dev.m4s4t0.kushacres.model.BmItem
+import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Buff
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
@@ -795,5 +796,53 @@ class FarmTest {
         Save.read(Save.write(f), g)
         assertEquals(100L, g.site.harvests)
         assertTrue("HARVEST_100" in g.site.goals && "ditch" in g.grown)
+    }
+
+    @Test fun cupWeeksStartMondayAndRivalsAreFixed() {
+        val tz = java.util.TimeZone.getDefault()
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+        try {
+            val day = 86_400_000L
+            // 4 Jan 1970 was a Sunday, 5 Jan a Monday.
+            assertEquals(Cup.week(3 * day + day - 1) + 1, Cup.week(4 * day))
+            assertEquals(7 * day, Cup.endsIn(4 * day))
+            assertEquals(Cup.week(4 * day), Cup.week(10 * day + day - 1))
+        } finally { java.util.TimeZone.setDefault(tz) }
+        val r = Cup.rivals(2900)
+        assertEquals(r, Cup.rivals(2900))
+        assertTrue(r[0].second > r[1].second && r[1].second > r[2].second)
+        assertEquals(1, Cup.place(2900, r[0].second + 1))
+        assertEquals(4, Cup.place(2900, r[2].second))
+    }
+
+    @Test fun cupEntriesPayOncePerBetterPlaceAndSave() {
+        val f = farm()
+        val s = Strains.ladder.first()
+        f.stash[s.id] = Cup.grams(s) * 10
+        assertEquals(Result.LOCKED, Cup.enter(f, s.id, t0))
+        f.level = Cup.LEVEL
+        val bucks = f.potBucks; val gems = f.gems
+        repeat(Cup.ENTRIES) { assertEquals(Result.OK, Cup.enter(f, s.id, t0)) }
+        assertEquals(Result.LIMIT, Cup.enter(f, s.id, t0))
+        assertEquals(Cup.grams(s) * (10 - Cup.ENTRIES), f.stash[s.id])
+        val wk = Cup.week(t0)
+        val base = Cup.base(f, s, wk)
+        assertTrue(f.cupScores.all { it.second in base..base + Cup.LUCK })
+        // Prizes: one for each time the best placing improved.
+        var best = 4; var wantBucks = 0L; var wantGems = 0L; var ribbons = 0L
+        for ((_, sc) in f.cupScores) { val pl = minOf(4, Cup.place(wk, sc)); if (pl < best) { best = pl; wantBucks += Cup.prize(f, pl).bucks; wantGems += Cup.prize(f, pl).gems; ribbons++ } }
+        assertEquals(bucks + wantBucks, f.potBucks)
+        assertEquals(gems + wantGems, f.gems)
+        assertEquals(ribbons, f.stat(Stat.PLACED))
+        assertEquals(if (best == 1) 1L else 0L, f.stat(Stat.CUPS))
+        assertEquals(best, Cup.best(f, t0))
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(f.cupScores, g.cupScores)
+        assertEquals(0, Cup.left(g, t0))
+        // A new week clears the entries.
+        assertEquals(Cup.ENTRIES, Cup.left(g, t0 + 7 * 86_400_000L))
+        assertEquals(Result.OK, Cup.enter(g, s.id, t0 + 7 * 86_400_000L))
+        assertEquals(1, g.cupScores.size)
     }
 }

@@ -41,6 +41,8 @@ import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Stat
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.FarmGoal
+import dev.m4s4t0.kushacres.model.Cup
+import dev.m4s4t0.kushacres.model.CupClass
 import dev.m4s4t0.kushacres.model.Trophy
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
@@ -54,15 +56,16 @@ internal fun MenuPanel(ui: UiState) {
     val now = Store.now()
     val dot = { b: Boolean, n: String -> if (b) "$n •" else n }
     Tabs(listOf(dot(f.canClaimDaily(now), "Daily"), dot(f.quests.any { !it.claimed && f.questDone(it) } || f.canClaimQuestBonus(), "Quests"),
-        "Lab", "Strains", "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
+        "Lab", dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"), "Strains", "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         when (tab) {
             0 -> Daily()
             1 -> Quests()
             2 -> Lab()
-            3 -> StrainBook()
-            4 -> Trophies()
-            5 -> Stats()
+            3 -> CupTab()
+            4 -> StrainBook()
+            5 -> Trophies()
+            6 -> Stats()
             else -> Settings(ui)
         }
     }
@@ -203,6 +206,76 @@ private fun Lab() {
                 val r = f.breed(s.id)
                 if (r == Result.OK) { Audio.play(Sfx.UNLOCK); Store.toast("New strain: ${s.name}!") }
                 report(r)
+            }
+        }
+    }
+}
+
+private fun ordinal(n: Int) = when (n) { 1 -> "1st"; 2 -> "2nd"; 3 -> "3rd"; else -> "No ribbon" }
+
+@Composable
+private fun CupTab() {
+    Store.rev
+    val f = Store.farm
+    val now = Store.now()
+    if (f.level < Cup.LEVEL) {
+        T("The Cannabis Cup opens at level ${Cup.LEVEL}.", 14.sp, Dim)
+        T("Every week growers bring their best bud to the judges. Place for cash, Pot Bucks and Kush gems.", 11.sp, Dim, bold = false)
+        return
+    }
+    val wk = Cup.week(now)
+    val theme = Cup.theme(wk)
+    val best = Cup.best(f, now)
+    T("This week: ${theme.title}", 14.sp, Gold)
+    T(theme.desc + (if (theme != CupClass.OPEN) " score +${Cup.THEME_BONUS}" else "") + "  ·  ends in ${dur(Cup.endsIn(now) / 1000)}", 10.sp, Dim, bold = false)
+    Spacer(Modifier.height(6.dp))
+    T("Rivals", 12.sp, Sky)
+    for ((n, r) in Cup.rivals(wk).withIndex()) Row2("${ordinal(n + 1)}  ${r.first}", "${r.second}")
+    Spacer(Modifier.height(4.dp))
+    T("Prizes (paid once per place, when you beat your best this week)", 10.sp, Dim, bold = false)
+    for (pl in 1..3) {
+        val p = Cup.prize(f, pl)
+        Row2(ordinal(pl), listOfNotNull(money(p.cash), "${p.bucks} Bucks", if (p.gems > 0) "${p.gems} gems" else null, "${p.xp} XP").joinToString(" · "),
+            if (best <= pl) Leaf else Cream)
+    }
+    Spacer(Modifier.height(6.dp))
+    val mine = if (f.cupWeek == wk) f.cupScores else emptyList()
+    T("Your entries: ${mine.size} of ${Cup.ENTRIES}" + if (best <= 3) "  ·  best ${ordinal(best)}" else "", 12.sp, Sky)
+    for ((id, score) in mine) Row2(Strains[id]?.name ?: id, "$score  ${ordinal(Cup.place(wk, score))}", if (Cup.place(wk, score) <= 3) Leaf else Cream)
+    Spacer(Modifier.height(6.dp))
+    val left = Cup.left(f, now)
+    if (left <= 0) { T("That's all your entries this week. A new cup opens Monday.", 11.sp, Dim, bold = false); return }
+    if (best == 1) T("You won this week's cup! Entries left still earn a little XP.", 11.sp, Leaf, bold = false)
+    // Every strain in the stash, best prospects first.
+    val picks = f.stash.keys.mapNotNull { Strains[it] }.sortedByDescending { Cup.base(f, it, wk) }
+    if (picks.isEmpty()) T("Nothing in the stash to enter. Harvest something first!", 11.sp, Dim, bold = false)
+    for (s in picks) {
+        val g = Cup.grams(s)
+        val have = f.stash[s.id] ?: 0
+        val base = Cup.base(f, s, wk)
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 2.dp).frame(WoodIn, if (theme.fits(s)) Gold else WoodEdge).padding(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Px(Sprites.strainIcon(s), 28.dp)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                T(s.name, 12.sp, Cream)
+                T("Scores $base–${base + Cup.LUCK}  ·  ${g}g (have ${have}g)", 10.sp, if (have >= g) Leaf else Bad, bold = false)
+            }
+            Btn("Enter", enabled = have >= g, color = Gold, icon = Sprites.trophy) {
+                val r = Cup.enter(f, s.id, now)
+                if (r == Result.OK) {
+                    val score = f.cupScores.last().second
+                    val pl = Cup.place(wk, score)
+                    Audio.play(if (pl < best) Sfx.UNLOCK else Sfx.TAP)
+                    Store.toast("${s.name} scored $score: " + when {
+                        pl < best && pl <= 3 -> "${ordinal(pl)} place!"
+                        pl <= 3 -> "${ordinal(pl)}, no better than before"
+                        else -> "no ribbon this time"
+                    })
+                    Store.changed()
+                } else report(r)
             }
         }
     }

@@ -85,6 +85,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
       Pictures/KushAcres on the phone, ~/Pictures/KushAcres on desktop
 - [x] Per-farm crews sharing the worker beds: Trimmer (Lv 14, +8% yield each, up to 3), Guard (17, clears bugs and
       mould, up to 2), Driver (20, vehicles 40% sooner) (0.10.0)
+- [x] Weekly Cannabis Cup (Farm Book → Cup, Lv 10): a class each week, three rival growers, three entries paid in
+      grams of bud, cash/Bucks/gem/XP prizes for better placings, Blue Ribbon and Cup Legend trophies (0.10.2)
 - [ ] More things to do (TBD while building)
 
 ## Phase 8 — Graphics
@@ -141,3 +143,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.9.0 — settings button, cosmetics and grass/dirt colours, deliveries, gems and 15 specials, electricity, new keeper portraits, reggae music per area, each town has its own keepers, upgrades and shack per farm, more holiday tokens, camera remembered per farm
 - 0.10.0 — desktop keys and window memory, per-town back alleys and strains, vehicles, crews, storms and mould, strain traits, seasonal favourites, away summary, collection book, per-farm goals, ground shadows
 - 0.10.1 — decor redrawn with light and shade, lit edges on buildings and vehicles
+- 0.10.2 — weekly Cannabis Cup; plants, trees, bushes, lamps and sprinklers shaded

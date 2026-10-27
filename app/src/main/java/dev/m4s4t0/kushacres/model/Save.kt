@@ -114,6 +114,7 @@ object Save {
         o.put("legacy", f.legacy); o.put("bestLevel", maxOf(f.bestLevel, f.level))
         o.put("streak", f.streak); o.put("bestStreak", f.bestStreak); o.put("lastDay", f.lastDay)
         o.put("questDay", f.questDay); o.put("questBonus", f.questBonus)
+        o.put("cupWeek", f.cupWeek); o.put("cup", JSONArray().apply { f.cupScores.forEach { put(JSONObject().put("s", it.first).put("p", it.second)) } })
         o.put("quests", JSONArray().apply {
             f.quests.forEach { q ->
                 put(JSONObject().put("k", q.kind.name).put("t", q.target).put("b", q.base).put("c", q.cash).put("x", q.xp).put("done", q.claimed))
@@ -178,6 +179,8 @@ object Save {
         f.bestLevel = maxOf(o.optInt("bestLevel", 1), f.level)
         f.streak = o.optInt("streak"); f.bestStreak = o.optInt("bestStreak"); f.lastDay = o.optLong("lastDay", -1)
         f.questDay = o.optLong("questDay", -1); f.questBonus = o.optBoolean("questBonus")
+        f.cupWeek = o.optLong("cupWeek", -1); f.cupScores.clear()
+        o.optJSONArray("cup")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { e -> f.cupScores += e.optString("s") to e.optInt("p") } }
         f.quests.clear()
         o.optJSONArray("quests")?.let { a ->
             for (j in 0 until a.length()) {

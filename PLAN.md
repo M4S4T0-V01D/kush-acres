@@ -149,3 +149,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.10.1 — decor redrawn with light and shade, lit edges on buildings and vehicles
 - 0.10.2 — weekly Cannabis Cup; plants, trees, bushes, lamps and sprinklers shaded
 - 0.10.3 — seed hunts, Botanist and Lab Chemist crew, crews and vehicles in the level-up list
+- 0.10.4 — Farm Book tabs wrap into even rows so names stay whole; timers over two days show days

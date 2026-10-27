@@ -215,6 +215,7 @@ object Buildings {
                 px.rect(cx + dx2, cy + dx2 / 3 - 6, 1, 3, gold)
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }
@@ -277,6 +278,7 @@ object Buildings {
                 px.rect(14, 16, 5, 4, 0xFFF2C440.toInt()); px.rect(18, 16, 1, 4, 0xFFB07A1C.toInt())
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }
@@ -350,6 +352,7 @@ object Buildings {
                 roof(px, cx, by, 12, 9, 3, 0xFF8A3A2E.toInt())
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }
@@ -417,6 +420,7 @@ object Buildings {
                 px.set(12, 12, 0xFFC8FFFF.toInt()); px.set(20, 24, 0xFFC8FFFF.toInt())
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }
@@ -560,6 +564,7 @@ object Buildings {
                 px.set(15, 6, 0xFFFFFFC0.toInt()); px.set(9, 12, 0xFFFFFFC0.toInt())
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }
@@ -626,6 +631,7 @@ object Buildings {
                 wheel(6, 3); wheel(22, 3)
             }
         }
+        px.light(bands = false)
         px.outline(OUT)
         px.bitmap()
     }

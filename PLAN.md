@@ -89,7 +89,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 
 ## Phase 8 — Graphics
 - [x] Decor shaded at fine-pixel detail: banded light across each piece, lit top-left rims, shaded lower edges
-- [~] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0)
+- [~] Overhaul ground, plants, buildings, lighting: soft ground shadows under everything standing on the farm (0.10.0); decor shading, lit edges on buildings and vehicles (0.10.1)
 
 ## Phase 9 — Holidays, farmers, Pot Bucks (0.8.0)
 - [x] Right-click / long-press tile menu: move (stunts growing plants, by strain) or destroy plants and decor
@@ -140,3 +140,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.8.3 — Pot Bucks sit next to the money in the top bar; big amounts shortened to K, M and B
 - 0.9.0 — settings button, cosmetics and grass/dirt colours, deliveries, gems and 15 specials, electricity, new keeper portraits, reggae music per area, each town has its own keepers, upgrades and shack per farm, more holiday tokens, camera remembered per farm
 - 0.10.0 — desktop keys and window memory, per-town back alleys and strains, vehicles, crews, storms and mould, strain traits, seasonal favourites, away summary, collection book, per-farm goals, ground shadows
+- 0.10.1 — decor redrawn with light and shade, lit edges on buildings and vehicles

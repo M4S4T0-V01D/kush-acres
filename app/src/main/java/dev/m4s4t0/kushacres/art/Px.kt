@@ -130,3 +130,38 @@ fun mix(a: Int, b: Int, t: Float): Int {
     fun ch(s: Int) = (((a shr s) and 255) * (1 - t) + ((b shr s) and 255) * t).toInt()
     return argb(255, ch(16), ch(8), ch(0))
 }
+
+/**
+ * Gives flat shapes some volume, at fine-pixel detail: every part's top edge catches the light and its lower edge
+ * darkens, and the outer rim is lit up-left and shaded down-right. With [bands] each row also rounds off from lit
+ * (left) to shaded (right); turn that off for art already shaded face by face.
+ */
+fun Px.light(bands: Boolean = true) {
+    val src = p.copyOf()
+    val w = fw; val h = fh
+    fun at(x: Int, y: Int) = if (x in 0 until w && y in 0 until h) src[y * w + x] else 0
+    fun solid(c: Int) = c ushr 24 != 0
+    for (y in 0 until h) {
+        var lo = -1; var hi = -1
+        for (x in 0 until w) if (solid(src[y * w + x])) { if (lo < 0) lo = x; hi = x }
+        if (lo < 0) continue
+        val span = maxOf(1, hi - lo)
+        for (x in lo..hi) {
+            val c = src[y * w + x]
+            if (!solid(c)) continue
+            // Three flat bands across the row (lit, base, shade) keep it looking like pixel art.
+            val t = (x - lo) / span.toFloat()
+            var f = if (!bands) 1f else if (t < 0.3f) 1.1f else if (t > 0.72f) 0.87f else 1f
+            val up = at(x, y - s); val down = at(x, y + s)
+            when {
+                !solid(at(x - s, y - s)) -> f += 0.16f
+                up != c && solid(up) -> f += 0.07f
+            }
+            when {
+                !solid(at(x + s, y + s)) -> f -= 0.18f
+                down != c && solid(down) -> f -= 0.08f
+            }
+            p[y * w + x] = (c and 0xFF000000.toInt()) or (shade(c, f) and 0xFFFFFF)
+        }
+    }
+}

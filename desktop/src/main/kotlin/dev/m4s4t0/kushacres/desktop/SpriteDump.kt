@@ -44,10 +44,13 @@ internal fun dumpSprites(path: String) {
         }
     }
     ImageIO.write(dimg, "png", File(path.removeSuffix(".png") + "-decor.png"))
-    // Generators, specials and the Pot Bucks decor.
+    // Generators, specials, the Pot Bucks decor, vehicles, work buildings and facilities.
     val builds = dev.m4s4t0.kushacres.model.Generator.entries.map { dev.m4s4t0.kushacres.art.Buildings.generator(it) } +
         dev.m4s4t0.kushacres.model.Special.entries.map { dev.m4s4t0.kushacres.art.Buildings.special(it) } +
-        Decor.entries.filter { it.bucks > 0 }.map { DecorArt.sprite(it) }
+        Decor.entries.filter { it.bucks > 0 }.map { DecorArt.sprite(it) } +
+        dev.m4s4t0.kushacres.model.Vehicle.entries.map { dev.m4s4t0.kushacres.art.Buildings.vehicle(it) } +
+        dev.m4s4t0.kushacres.model.WorkHouse.entries.map { dev.m4s4t0.kushacres.art.Buildings.house(it) } +
+        dev.m4s4t0.kushacres.model.Facility.entries.map { dev.m4s4t0.kushacres.art.Buildings.facility(it) }
     val bc = builds.maxOf { maxOf(it.width, it.height) } + 4; val bcols = 8; val bs = 2
     val bimg = BufferedImage(bcols * bc * bs, (builds.size + bcols - 1) / bcols * bc * bs, BufferedImage.TYPE_INT_ARGB)
     bimg.createGraphics().apply { color = java.awt.Color(0x6A, 0x9A, 0x4A); fillRect(0, 0, bimg.width, bimg.height); dispose() }

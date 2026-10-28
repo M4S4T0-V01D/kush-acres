@@ -296,6 +296,8 @@ class Farm(var rng: Random = Random.Default) {
     val unlockedStrains = LinkedHashSet<String>()
     /** Holiday pets owned, by name; they wander every farm. */
     val pets = LinkedHashSet<String>()
+    /** Holiday hats bought for the farmer, by name. */
+    val hats = LinkedHashSet<String>()
     /** Your farmer, or null until one has been made. */
     var farmer: Farmer? = null
     /** A hippie festival runs on [festivalSite] until [festivalUntil]. */
@@ -1382,7 +1384,13 @@ class Farm(var rng: Random = Random.Default) {
         tokens[h.id] = tokens(h) - n
         return Result.OK
     }
-    fun tokenPrice(s: Strain) = if (s.minutes <= 60) Holiday.QUICK else Holiday.LONG
+    fun tokenPrice(s: Strain) = when {
+        s.minutes <= 60 -> Holiday.QUICK
+        s.minutes <= 150 -> 150L
+        s.minutes <= 360 -> Holiday.LONG
+        s.minutes <= 720 -> 260L
+        else -> 340L
+    }
     fun buyHolidayStrain(h: Holiday, s: Strain): Result {
         if (s.holiday != h.id || s.id in unlockedStrains) return Result.BLOCKED
         payTokens(h, tokenPrice(s)).let { if (it != Result.OK) return it }
@@ -1403,10 +1411,9 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
     /** The holiday farm: like any other farm, but paid for in tokens. */
-    fun buyHolidayFarm(h: Holiday): Result {
-        val def = h.site
-        if (owns(def.id)) return Result.BLOCKED
-        payTokens(h, Holiday.FARM).let { if (it != Result.OK) return it }
+    fun buyHolidayFarm(h: Holiday, def: SiteDef = h.site): Result {
+        if (def.holiday != h.id || owns(def.id)) return Result.BLOCKED
+        payTokens(h, def.price).let { if (it != Result.OK) return it }
         addSite(def)
         return Result.OK
     }
@@ -1453,7 +1460,16 @@ class Farm(var rng: Random = Random.Default) {
     }
 
     /** Changes your farmer's look: free the first time, then cash or Pot Bucks. */
+    fun hasHat(i: Int) = i < Farmer.BASE_HATS || Farmer.HATS.getOrNull(i) in hats
+    fun buyHat(h: Holiday): Result {
+        if (h.hat in hats) return Result.BLOCKED
+        payTokens(h, Holiday.HAT).let { if (it != Result.OK) return it }
+        hats += h.hat
+        return Result.OK
+    }
+
     fun restyle(f: Farmer, bucks: Boolean): Result {
+        if (!hasHat(f.hat)) return Result.LOCKED
         if (farmer != null) {
             if (bucks) { if (potBucks < Farmer.RESTYLE_BUCKS) return Result.NO_CASH; potBucks -= Farmer.RESTYLE_BUCKS }
             else { val c = Farmer.restyleCost(level); if (cash < c) return Result.NO_CASH; spend(c) }
@@ -1518,7 +1534,7 @@ class Farm(var rng: Random = Random.Default) {
         totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
         legacy = 0; legacyPerks.clear(); heirlooms.clear(); finds.clear(); mothers.clear(); hunting.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
-        potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
+        potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear(); hats.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); chains.clear(); weekly.clear(); lastDeal = null; lapsed = 0
@@ -1587,7 +1603,7 @@ class Farm(var rng: Random = Random.Default) {
 
     private fun addSite(def: SiteDef) {
         val s = Site(def)
-        s.land = SiteDef.START_LAND
+        s.land = def.land
         Sites.carve(def, s.tiles, s.ox, s.oy, s.land)
         sites += s
         site = s

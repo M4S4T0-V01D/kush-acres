@@ -20,6 +20,7 @@ import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Holiday
+import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.BucksItem
 import dev.m4s4t0.kushacres.model.Hybrids
 import dev.m4s4t0.kushacres.model.Pet
@@ -909,6 +910,34 @@ class FarmTest {
             val g = farm(); Save.read(Save.write(f), g)
             assertTrue(g.unlocked(s)); assertTrue(Pet.CAT.name in g.pets); assertTrue(g.owns(h.site.id))
             assertEquals(f.tokens(h), g.tokens(h))
+        } finally { Holiday.force = null }
+    }
+
+    @Test fun everyHolidayHasMoreToWorkFor() {
+        for (h in Holiday.entries) {
+            assertEquals(h.name, 5, h.strains.size)
+            assertEquals(h.name, 2, h.sites.size)
+        }
+        val f = farm()
+        val h = Holiday.CHRISTMAS
+        Holiday.force = h
+        try {
+        val estate = h.sites.last()
+        f.addTokens(h, Holiday.ESTATE - 1)
+        assertEquals(Result.NO_CASH, f.buyHolidayFarm(h, estate))
+        assertEquals(Result.BLOCKED, f.buyHolidayFarm(Holiday.HALLOWEEN, estate))
+        f.addTokens(h, 1 + Holiday.HAT)
+        assertEquals(Result.OK, f.buyHolidayFarm(h, estate))
+        assertTrue(f.switchTo(estate.id))
+        assertEquals(SiteDef.ESTATE_LAND, f.site.land)
+        val santa = Farmer.HATS.indexOf(h.hat)
+        assertFalse(f.hasHat(santa))
+        assertEquals(Result.LOCKED, f.restyle(Farmer(hat = santa), false))
+        assertEquals(Result.OK, f.buyHat(h))
+        assertEquals(Result.BLOCKED, f.buyHat(h))
+        assertEquals(Result.OK, f.restyle(Farmer(hat = santa), false))
+        val g = farm(); Save.read(Save.write(f), g)
+        assertTrue(g.hasHat(santa)); assertTrue(g.owns(estate.id))
         } finally { Holiday.force = null }
     }
 

@@ -36,7 +36,11 @@ enum class Holiday(
     val strains get() = Strains.holidays.filter { it.holiday == id }
     val decor get() = Decor.entries.filter { it.holiday == id }
     val pet get() = Pet.entries.first { it.holiday == id }
-    val site get() = Sites.holidays.first { it.holiday == id }
+    val site get() = sites.first()
+    /** Its farms: the first, then the dearer, bigger estate. */
+    val sites get() = Sites.holidays.filter { it.holiday == id }
+    /** The hat sold in its shop for the farmer to wear. */
+    val hat get() = Farmer.HOLIDAY_HATS[ordinal]
 
     /** Whether the holiday is on at [now] (epoch ms, local calendar). */
     fun active(now: Long): Boolean {
@@ -90,5 +94,7 @@ enum class Holiday(
         const val LONG = 200L
         const val DECOR = 70L
         const val PET = 150L
+        const val ESTATE = 1200L
+        const val HAT = 120L
     }
 }

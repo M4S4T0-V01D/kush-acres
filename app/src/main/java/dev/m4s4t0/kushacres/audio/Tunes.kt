@@ -37,6 +37,15 @@ object Tunes {
         "liberty" to Tune(50, 76, false, intArrayOf(0, 4, 3, 4), Lead.HORN, 201),
         "harvest" to Tune(52, 70, false, intArrayOf(0, 3, 5, 4), Lead.GUITAR, 211),
         "zion" to Tune(52, 66, true, intArrayOf(0, 3), Lead.MELODICA, 221, bars = 2, dub = 0.6f),
+        "manor" to Tune(48, 60, true, intArrayOf(0, 1, 5, 4), Lead.ORGAN, 231, dub = 0.7f),
+        "workshop" to Tune(62, 82, false, intArrayOf(0, 4, 5, 3), Lead.BELL, 241, bubble = true),
+        "rooftop" to Tune(56, 84, true, intArrayOf(0, 5, 6, 4), Lead.SYNTH, 251),
+        "rosegarden" to Tune(53, 66, false, intArrayOf(0, 5, 3, 4), Lead.STEEL, 261),
+        "rainbowend" to Tune(57, 82, false, intArrayOf(0, 4, 0, 3), Lead.FLUTE, 271),
+        "cloudnine" to Tune(49, 62, false, intArrayOf(0, 3), Lead.SYNTH, 281, bars = 2, dub = 0.7f),
+        "warren" to Tune(58, 80, false, intArrayOf(0, 3, 4, 0), Lead.MELODICA, 291, bubble = true),
+        "frontier" to Tune(53, 78, false, intArrayOf(0, 3, 4, 4), Lead.GUITAR, 301),
+        "orchard" to Tune(55, 70, false, intArrayOf(0, 5, 3, 4), Lead.STEEL, 311),
     )
 
     val areas: Set<String> get() = byArea.keys

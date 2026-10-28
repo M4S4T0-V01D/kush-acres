@@ -97,7 +97,7 @@ internal fun Creator(ui: UiState) {
         Pick("Outfit", look.outfit, Farmer.OUTFITS.size, label = Farmer.OUTFITS[look.outfit]) { look = look.copy(outfit = it) }
         Pick("Top", look.shirt, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.shirt]) { look = look.copy(shirt = it) }
         Pick("Bottoms", look.pants, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.pants]) { look = look.copy(pants = it) }
-        Pick("Hat", look.hat, Farmer.HATS.size, label = Farmer.HATS[look.hat]) { look = look.copy(hat = it) }
+        Pick("Hat", look.hat, Farmer.HATS.size, label = Farmer.HATS[look.hat], ok = { f.hasHat(it) }) { look = look.copy(hat = it) }
         Pick("Face", look.face, Farmer.FACES.size, label = Farmer.FACES[look.face]) { look = look.copy(face = it) }
         Spacer(Modifier.height(8.dp))
         Btn("🎲 Random", Modifier.fillMaxWidth(), color = WoodEdge) { look = Farmer.random().copy(name = look.name) }
@@ -149,15 +149,17 @@ private fun Overlay(onBack: (() -> Unit)? = null, content: @Composable () -> Uni
 
 /** One option of the look: ‹ value › with a colour swatch or a name. */
 @Composable
-private fun Pick(name: String, v: Int, n: Int, swatch: Int? = null, label: String? = null, set: (Int) -> Unit) {
+private fun Pick(name: String, v: Int, n: Int, swatch: Int? = null, label: String? = null, ok: (Int) -> Boolean = { true }, set: (Int) -> Unit) {
+    // Steps past choices not owned yet (holiday hats until they're bought).
+    fun step(d: Int): Int { var i = v; do i = (i + d).mod(n) while (!ok(i) && i != v); return i }
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         T(name, 12.sp, Dim, Modifier.weight(1f))
-        Btn("‹", color = WoodEdge) { set((v - 1).mod(n)) }
+        Btn("‹", color = WoodEdge) { set(step(-1)) }
         Box(Modifier.width(96.dp), contentAlignment = Alignment.Center) {
             if (swatch != null) Box(Modifier.size(width = 60.dp, height = 18.dp).frame(Color(swatch), Color(0xFF14100B)))
             else T(label ?: "", 12.sp, Cream)
         }
-        Btn("›", color = WoodEdge) { set((v + 1).mod(n)) }
+        Btn("›", color = WoodEdge) { set(step(1)) }
     }
 }
 

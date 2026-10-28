@@ -37,10 +37,13 @@ class SiteDef(
     val features: List<Feature> = emptyList(),
     /** A holiday farm: bought from that holiday's shop for [price] tokens instead of cash. */
     val holiday: String? = null,
+    /** How big it starts out when bought. */
+    val land: Int = START_LAND,
 ) {
     companion object {
         /** How big a newly bought site starts. */
         const val START_LAND = 8
+        const val ESTATE_LAND = 12
         const val REALTOR_LEVEL = 15
     }
 }
@@ -115,6 +118,34 @@ object Sites {
         SiteDef("harvest", "Harvest Homestead", "Golden fields, red barns, a big table.", 1, 500, 0f, 1f,
             0xFFB8A050.toInt(), 0xFF8A7038.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFE0903A.toInt(), 3,
             roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f)), holiday = "thanksgiving"),
+        // Each holiday's estate: dearer, and it starts out bigger.
+        SiteDef("manor", "Haunted Manor", "A crooked mansion on the hill. The lights flicker on their own.", 1, Holiday.ESTATE, 0.3f, 0.2f,
+            0xFF4A5A34.toInt(), 0xFF26301E.toInt(), 0xFF140C1A.toInt(), 0xFF22142C.toInt(), 0xFFA43AFF.toInt(), 5,
+            roof = 3, wall = 5, features = listOf(Feature.Lake(0.7f, 0.3f, 2.5f), Feature.Rocks(0.06f)), holiday = "halloween", land = SiteDef.ESTATE_LAND),
+        SiteDef("workshop", "Santa's Workshop", "Toy sheds, reindeer stables and a chimney that never stops smoking.", 1, Holiday.ESTATE, 0.7f, 0.1f,
+            0xFFF4F8FA.toInt(), 0xFFD0DEE6.toInt(), 0xFF1E3A22.toInt(), 0xFF2A4E2E.toInt(), 0xFFF2C440.toInt(), 6, pines = true,
+            roof = 0, wall = 1, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f)), holiday = "christmas", land = SiteDef.ESTATE_LAND),
+        SiteDef("rooftop", "Rooftop Gardens", "Grow beds forty floors up, with the best view of the fireworks.", 1, Holiday.ESTATE, 0.3f, 0.7f,
+            0xFF6A9A7A.toInt(), 0xFF4A6A5A.toInt(), 0xFF181830.toInt(), 0xFF24244A.toInt(), 0xFFC0C8FF.toInt(), 1,
+            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.01f)), holiday = "newyear", land = SiteDef.ESTATE_LAND),
+        SiteDef("rosegarden", "Rose Garden Estate", "Hedge mazes, rose arbours and a fountain for wishes.", 1, Holiday.ESTATE, 0.2f, 0.3f,
+            0xFF6AB060.toInt(), 0xFF4A8A4A.toInt(), 0xFF4A1430.toInt(), 0xFF5E1E3E.toInt(), 0xFFFF3A6A.toInt(), 4,
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.25f, 0.75f, 3f)), holiday = "valentine", land = SiteDef.ESTATE_LAND),
+        SiteDef("rainbowend", "Rainbow's End", "The pot of gold is real. The leprechauns want it back.", 1, Holiday.ESTATE, 0.8f, 0.3f,
+            0xFF2EA040.toInt(), 0xFF1E7030.toInt(), 0xFF143A1A.toInt(), 0xFF1E4E26.toInt(), 0xFFFFD23A.toInt(), 3,
+            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.7f, 2f), Feature.Rocks(0.03f)), holiday = "stpatrick", land = SiteDef.ESTATE_LAND),
+        SiteDef("cloudnine", "Cloud Nine", "So high up the clouds roll through the rows.", 1, Holiday.ESTATE, 0.7f, 0.8f,
+            0xFF7ACE4A.toInt(), 0xFF5A9E3A.toInt(), 0xFF2A1A3A.toInt(), 0xFF3A2A52.toInt(), 0xFF8A4AE0.toInt(), 3,
+            roof = 2, wall = 4, features = listOf(Feature.Lake(0.8f, 0.8f, 3f)), holiday = "fourtwenty", land = SiteDef.ESTATE_LAND),
+        SiteDef("warren", "Bunny Warren", "Rolling hills riddled with burrows, and eggs in every one.", 1, Holiday.ESTATE, 0.3f, 0.3f,
+            0xFFA8DA8A.toInt(), 0xFF88BA6A.toInt(), 0xFF4A3A2A.toInt(), 0xFF5E4A36.toInt(), 0xFFFFE07A.toInt(), 4,
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f), Feature.Rocks(0.02f)), holiday = "easter", land = SiteDef.ESTATE_LAND),
+        SiteDef("frontier", "Frontier Ranch", "A thousand acres of open range and a flag on every post.", 1, Holiday.ESTATE, 0.7f, 0.7f,
+            0xFFB4B864.toInt(), 0xFF8A924A.toInt(), 0xFF3A1A14.toInt(), 0xFF4E241C.toInt(), 0xFF3A6AE0.toInt(), 1,
+            roof = 1, wall = 1, features = listOf(Feature.River(true, 0.8f, 2.5f), Feature.Rocks(0.03f)), holiday = "july4", land = SiteDef.ESTATE_LAND),
+        SiteDef("orchard", "Golden Orchard", "Apple trees in every direction and a cider press in the barn.", 1, Holiday.ESTATE, 0.3f, 0.8f,
+            0xFFC0A858.toInt(), 0xFF9A7E3E.toInt(), 0xFF3A200E.toInt(), 0xFF4E2E16.toInt(), 0xFFD04A2A.toInt(), 6,
+            roof = 0, wall = 5, features = listOf(Feature.Lake(0.2f, 0.8f, 2.5f)), holiday = "thanksgiving", land = SiteDef.ESTATE_LAND),
     )
 
     /** Farms bought with Pot Bucks (their price is in Pot Bucks). Not on the realtor's list either. */

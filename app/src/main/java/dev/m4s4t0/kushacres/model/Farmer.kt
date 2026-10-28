@@ -22,7 +22,10 @@ data class Farmer(
             0xFFE07A2A.toInt(), 0xFF2A2A30.toInt(), 0xFFE8E4DC.toInt(), 0xFF6A4A30.toInt(), 0xFF2AA0A0.toInt(), 0xFFFF7AB0.toInt(), 0xFF6A7A3A.toInt())
         val HAIRS = listOf("Short", "Long", "Bun", "Mohawk", "Afro", "Bald", "Ponytail", "Dreads")
         val OUTFITS = listOf("Tee", "Overalls", "Hoodie", "Flannel", "Tie-dye", "Dress")
-        val HATS = listOf("None", "Cap", "Straw hat", "Beanie", "Bandana", "Cowboy", "Bucket", "Witch")
+        /** Hats sold in each holiday's shop, in [Holiday] order; worn only once bought. */
+        val HOLIDAY_HATS = listOf("Party hat", "Heart band", "Leprechaun", "Leaf crown", "Bunny ears", "Uncle Sam", "Pumpkin", "Pilgrim", "Santa")
+        val HATS = listOf("None", "Cap", "Straw hat", "Beanie", "Bandana", "Cowboy", "Bucket", "Witch") + HOLIDAY_HATS
+        val BASE_HATS = HATS.size - HOLIDAY_HATS.size
         val FACES = listOf("Plain", "Beard", "Moustache", "Glasses", "Shades")
         val NAMES = listOf("Mary Jane", "Buddy", "Sage", "Willow", "Rusty", "Juniper", "Clay", "Indica", "Skye", "Dale", "Fern", "Roach")
 
@@ -40,6 +43,6 @@ data class Farmer(
 
         fun random(rnd: kotlin.random.Random = kotlin.random.Random) = Farmer(
             NAMES.random(rnd), rnd.nextInt(SKINS.size), rnd.nextInt(HAIRS.size), rnd.nextInt(HAIR_COLORS.size), rnd.nextInt(OUTFITS.size),
-            rnd.nextInt(CLOTH.size), rnd.nextInt(CLOTH.size), rnd.nextInt(HATS.size - 1), rnd.nextInt(FACES.size))
+            rnd.nextInt(CLOTH.size), rnd.nextInt(CLOTH.size), rnd.nextInt(BASE_HATS - 1), rnd.nextInt(FACES.size))
     }
 }

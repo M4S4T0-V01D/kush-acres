@@ -141,7 +141,7 @@ object Save {
         o.put("potBucks", f.potBucks)
         o.put("gems", f.gems); o.put("mineAt", f.mineAt)
         o.put("tokens", JSONObject().apply { f.tokens.forEach { (k, v) -> put(k, v) } })
-        o.put("holidayStrains", JSONArray(f.unlockedStrains.toList())); o.put("pets", JSONArray(f.pets.toList()))
+        o.put("holidayStrains", JSONArray(f.unlockedStrains.toList())); o.put("pets", JSONArray(f.pets.toList())); o.put("hats", JSONArray(f.hats.toList()))
         f.farmer?.let { o.put("farmerName", it.name); o.put("farmer", it.encode()) }
         o.put("festivalUntil", f.festivalUntil); f.festivalSite?.let { o.put("festivalSite", it) }
         return o.toString()
@@ -188,6 +188,7 @@ object Save {
         strings("grown", f.grown) { Strains[it] != null }
         strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
+        strings("hats", f.hats) { it in Farmer.HOLIDAY_HATS }
         f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
         f.gems = o.optLong("gems").coerceAtLeast(0); f.mineAt = o.optLong("mineAt")
         f.tokens.clear()

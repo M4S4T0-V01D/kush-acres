@@ -207,6 +207,55 @@ object People {
                 px.poly(hc, 4, 5, 6, -1, 8, -2, 7, 1, 10, 5)
                 px.rect(1, 4, 12, 1, hc); px.rect(2, 5, 10, 1, hcD); px.rect(5, 3, 4, 1, 0xFFFF8A1E.toInt()); px.set(6, 3, 0xFFF2C440.toInt())
             }
+            "Party hat" -> {
+                px.poly(0xFFFFD23A.toInt(), 4, 4, 7, 0, 10, 4)
+                px.rect(5, 3, 4, 1, 0xFF3A3AA0.toInt()); px.rect(6, 1, 2, 1, 0xFF3A3AA0.toInt()); px.set(7, 0, 0xFFFF4A7A.toInt())
+                px.rect(4, 4, 6, 1, 0xFFE0B020.toInt())
+            }
+            "Heart band" -> {
+                val p = 0xFFFF4A7A.toInt(); val l = 0xFFFFC0D8.toInt()
+                px.rect(4, 3, 6, 1, p)
+                for (hx in intArrayOf(3, 8)) { px.set(hx, 0, p); px.set(hx + 2, 0, p); px.rect(hx, 1, 3, 1, p); px.set(hx + 1, 2, p); px.set(hx, 0, l) }
+            }
+            "Leprechaun" -> {
+                val g = 0xFF2E9A3A.toInt()
+                px.rect(4, 0, 6, 4, g); px.set(5, 0, shade(g, 1.25f)); px.rect(9, 0, 1, 4, shade(g, 0.75f))
+                px.rect(4, 3, 6, 1, 0xFF1E1610.toInt()); px.set(7, 3, 0xFFF2C440.toInt())
+                px.rect(2, 4, 10, 1, shade(g, 0.75f))
+            }
+            "Leaf crown" -> {
+                val g = 0xFF5AC03A.toInt(); val d = 0xFF3A8A2A.toInt()
+                px.rect(4, 3, 6, 1, d)
+                px.set(4, 2, g); px.set(5, 1, g); px.set(6, 2, g); px.set(7, 0, g); px.set(7, 1, g); px.set(7, 2, g); px.set(8, 2, g); px.set(9, 1, g); px.set(10, 2, g)
+            }
+            "Bunny ears" -> {
+                val w = 0xFFF4F0F4.toInt(); val p = 0xFFFFA0C0.toInt()
+                px.rect(4, 3, 6, 1, w)
+                px.rect(5, 0, 1, 3, w); px.rect(8, 0, 2, 3, w); px.rect(4, 0, 1, 2, w); px.set(8, 1, p); px.set(5, 1, p); px.set(9, 0, shade(w, 0.85f))
+            }
+            "Uncle Sam" -> {
+                val w = 0xFFF4F4F0.toInt(); val r = 0xFFE03A3A.toInt(); val b = 0xFF3A5AC0.toInt()
+                px.rect(4, 0, 6, 3, w); px.rect(5, 0, 1, 3, r); px.rect(8, 0, 1, 3, r)
+                px.rect(4, 3, 6, 1, b); px.set(6, 3, w)
+                px.rect(2, 4, 10, 1, b)
+            }
+            "Pumpkin" -> {
+                val o = 0xFFFF8A1E.toInt()
+                px.rect(4, 1, 6, 4, o); px.rect(3, 2, 8, 2, o); px.rect(6, 1, 1, 4, shade(o, 0.8f)); px.rect(9, 1, 1, 4, shade(o, 0.75f)); px.set(4, 2, shade(o, 1.2f))
+                px.set(7, 0, 0xFF3A8A2A.toInt()); px.set(8, 0, 0xFF5AC03A.toInt())
+                px.set(5, 3, 0xFF2A1408.toInt()); px.set(8, 3, 0xFF2A1408.toInt())
+            }
+            "Pilgrim" -> {
+                val k = 0xFF2A2420.toInt()
+                px.rect(4, 0, 6, 4, k); px.set(5, 0, shade(k, 1.6f))
+                px.rect(4, 3, 6, 1, 0xFF6A4A30.toInt()); px.rect(6, 3, 2, 1, 0xFFF2C440.toInt())
+                px.rect(2, 4, 10, 1, k)
+            }
+            "Santa" -> {
+                val r = 0xFFE03A3A.toInt(); val w = 0xFFF4F4F0.toInt()
+                px.poly(r, 4, 4, 6, 0, 9, 1, 11, 3, 10, 4)
+                px.rect(3, 4, 8, 1, w); px.set(11, 3, w); px.set(12, 4, w); px.set(5, 2, shade(r, 1.2f))
+            }
         }
         if (outline) px.outline(OUT)
         return px

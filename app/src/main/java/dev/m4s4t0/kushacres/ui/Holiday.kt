@@ -37,6 +37,8 @@ import dev.m4s4t0.kushacres.model.GRASS_COLORS
 import dev.m4s4t0.kushacres.model.GROUND_BUCKS
 import dev.m4s4t0.kushacres.model.Ground
 import dev.m4s4t0.kushacres.model.Sites
+import dev.m4s4t0.kushacres.model.SiteDef
+import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
@@ -110,12 +112,14 @@ internal fun HolidayPanel(ui: UiState) {
             }
         }
         item { Section("Farm") }
-        item {
-            val def = h.site
+        items(h.sites) { def ->
+            Store.rev
             val owned = f.owns(def.id)
-            Card(DecorArt.sprite(h.decor.first()), def.name, def.blurb, if (owned) "Yours. Switch to it from Your farms." else null,
-                "${Holiday.FARM}", enabled = !owned && f.tokens(h) >= Holiday.FARM, actionIcon = tok) {
-                buy(f.buyHolidayFarm(h), "${def.name} is yours! Find it under Your farms.")
+            val big = if (def.land > SiteDef.START_LAND) " Starts at ${def.land}×${def.land}." else ""
+            Card(DecorArt.sprite(h.decor[h.sites.indexOf(def).coerceAtMost(h.decor.size - 1)]), def.name, def.blurb + big,
+                if (owned) "Yours. Switch to it from Your farms." else null,
+                "${def.price}", enabled = !owned && f.tokens(h) >= def.price, actionIcon = tok) {
+                buy(f.buyHolidayFarm(h, def), "${def.name} is yours! Find it under Your farms.")
             }
         }
         item { Section("Strains: unlocked for good") }
@@ -144,6 +148,16 @@ internal fun HolidayPanel(ui: UiState) {
             Card(People.pet(p, 0), p.title, "Wanders your farms. Every farm.", if (owned) "Yours" else null,
                 "${Holiday.PET}", enabled = !owned && f.tokens(h) >= Holiday.PET, actionIcon = tok) {
                 buy(f.buyPet(h), "Your ${p.title.lowercase()} moved in!")
+            }
+        }
+        item { Section("Farmer") }
+        item {
+            Store.rev
+            val owned = h.hat in f.hats
+            val look = (f.farmer ?: Farmer()).let { it.copy(hat = Farmer.HATS.indexOf(h.hat)) }
+            Card(People.farmer(look, 0), h.hat, "A ${h.title} hat for your farmer. Put it on from Menu › Restyle.", if (owned) "In your wardrobe" else null,
+                "${Holiday.HAT}", enabled = !owned && f.tokens(h) >= Holiday.HAT, actionIcon = tok) {
+                buy(f.buyHat(h), "${h.hat} bought! Wear it from Restyle.")
             }
         }
     }

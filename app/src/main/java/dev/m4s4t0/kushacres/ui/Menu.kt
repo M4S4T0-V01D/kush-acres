@@ -71,7 +71,7 @@ internal fun MenuPanel(ui: UiState, start: Int = 0) {
             1 -> Quests()
             2 -> CupTab()
             3 -> Trophies()
-            4 -> Stats()
+            4 -> Stats(ui)
             else -> Settings(ui)
         }
     }
@@ -462,7 +462,7 @@ private fun Trophies() {
 }
 
 @Composable
-private fun Stats() {
+private fun Stats(ui: UiState) {
     Store.rev
     val f = Store.farm
     LegacySection()
@@ -473,7 +473,13 @@ private fun Stats() {
     T("Lifetime", 14.sp, Gold)
     for (st in Stat.entries) Row2(st.title, if (st == Stat.EARNED || st == Stat.SPENT) money(f.stat(st)) else fmt(f.stat(st)))
     Spacer(Modifier.height(8.dp))
-    Btn("Share card", Modifier.fillMaxWidth(), color = Gold) { Store.shareCard = ShareCard.render(f) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Btn("Share card", Modifier.weight(1f), color = Gold) { Store.shareCard = ShareCard.render(f) }
+        Btn("Photo mode", Modifier.weight(1f), color = Gold) {
+            ui.panel = Panel.NONE; ui.selected = null; ui.menu = null; ui.mode = Mode.Farm; ui.photo = true
+            Store.toast("Pick the light, frame it up, then Snap")
+        }
+    }
     Row2("Best streak", "${f.bestStreak} days")
 }
 

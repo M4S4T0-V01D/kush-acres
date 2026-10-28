@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.HapticFeedbackConstants
@@ -43,6 +44,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import dev.m4s4t0.kushacres.art.Keeper
+import dev.m4s4t0.kushacres.SavePic
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
@@ -777,6 +779,8 @@ private class Floater(val wx: Float, val wy: Float, val text: String, val color:
 fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
     val world = remember { World() }
     val image = remember { arrayOfNulls<ImageBitmap>(1) }
+    /** The last photo-mode snap taken, so each bump of ui.snap saves one picture. */
+    val snapped = remember { intArrayOf(ui.snap) }
     val view = LocalView.current
     val prefs = remember { view.context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE) }
     var frame by remember { mutableLongStateOf(0L) }
@@ -891,7 +895,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         fun actFor(x: Int, y: Int): Act? {
             val now = Store.now()
             val tile = f.tile(x, y)
-            if (!f.inLand(x, y)) return null
+            if (!f.inLand(x, y) || ui.photo) return null
             return when (ui.mode) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
                 is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial, is Mode.PlaceVehicle, is Mode.PlaceStairs -> null
@@ -968,6 +972,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
 
         /** A plain tap that didn't do a farming action: place, move or show what's there. */
         fun tap(x0: Int, y0: Int) {
+            if (ui.photo) return
             // A work building's other squares stand for the building.
             val (x, y) = f.anchorOf(x0, y0)
             val tile = f.tile(x, y)
@@ -1088,7 +1093,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val downAt = System.nanoTime()
                     val start = tileAt(down.position)
                     fun openMenu(): Boolean {
-                        if (ui.mode != Mode.Farm || start == null || !f.inLand(start.first, start.second)) return false
+                        if (ui.mode != Mode.Farm || ui.photo || start == null || !f.inLand(start.first, start.second)) return false
                         if (f.tile(start.first, start.second).kind == Kind.GRASS) return false
                         ui.selected = null; ui.menuAt = down.position; ui.menu = f.anchorOf(start.first, start.second)
                         buzz(); Audio.play(Sfx.TAP)
@@ -1208,6 +1213,12 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light)
                 world.fx.drawHoliday(it.nativeCanvas, size.width, size.height, scale, t, light, f.holiday())
             }
+            if (ui.snap != snapped[0]) {
+                snapped[0] = ui.snap
+                val shot = photo(world, f, size.width.roundToInt(), size.height.roundToInt(), RectF(l.toFloat(), tp.toFloat(), r.toFloat(), b.toFloat()), scale, t, light)
+                val where = SavePic.save(shot, ShareCard.fileName(f))
+                Store.toast(if (where != null) "Saved to $where" else "Couldn't save the picture")
+            }
 
             textPaint.textSize = max(28f, scale * 6f)
             drawIntoCanvas { c ->
@@ -1232,6 +1243,19 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/** Photo mode's picture: what's on screen (the world as last rendered, drawn at [dst], plus the sky), without the floating numbers. */
+internal fun photo(world: World, f: Farm, w: Int, h: Int, dst: RectF, scale: Float, t: Float, light: Light): Bitmap {
+    val shot = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val c = Canvas(shot)
+    c.drawColor(backdrop(light.tint).toInt())
+    c.drawBitmap(world.bitmap, Rect(0, 0, world.vw * world.k, world.vh * world.k), dst, Paint().apply { isFilterBitmap = false })
+    if (f.floor == 0) {
+        world.fx.drawSky(c, w.toFloat(), h.toFloat(), scale, t, light)
+        world.fx.drawHoliday(c, w.toFloat(), h.toFloat(), scale, t, light, f.holiday())
+    }
+    return shot
 }
 
 /** The dark green beyond the trees, lit like the farm. */

@@ -174,7 +174,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Export/import the save as a file or code, to move between phone and desktop (Settings → Move your farm: Download/KushAcres file or a KUSH1: code; loading asks first)
 
 ## Phase 17 — Photo mode
-- [ ] Hide the HUD, pick the view and time of day, save a picture (builds on the share card)
+- [x] Hide the HUD, pick the time of day and sky (for the picture only), save a picture: Menu → Stats → Photo mode
 
 ## Phase 18 — Selling the game (itch.io first)
 - Goal: a small price (~$1.99–2.99) to cover running costs; no ads, no in-app purchases

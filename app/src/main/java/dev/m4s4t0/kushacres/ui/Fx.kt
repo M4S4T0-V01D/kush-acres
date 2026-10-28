@@ -19,14 +19,20 @@ import kotlin.random.Random
 /** [season] tints the light a little and turns rain to snow in winter. */
 class Light(val night: Float, val tint: Int, val rain: Float, val fog: Float, val cloud: Float, val season: Season = Season.SPRING) {
     companion object {
+        /** Photo mode's picks: change only how the farm looks, never the weather the plants get. */
+        var photoHour: Float? = null
+        var photoWeather: Weather? = null
+
         fun at(now: Long): Light {
-            val h = Sky.hour(now)
+            val h = photoHour ?: Sky.hour(now)
             val d = Sky.daylight(h)
             val g = Sky.golden(h)
-            val storm = Sky.amount(now, Weather.STORM)
-            val rain = maxOf(Sky.amount(now, Weather.RAIN), storm)
-            val fog = Sky.amount(now, Weather.FOG)
-            val cloud = Sky.amount(now, Weather.CLOUDY)
+            val pw = photoWeather
+            fun amount(w: Weather) = if (pw != null) (if (pw == w) 1f else 0f) else Sky.amount(now, w)
+            val storm = amount(Weather.STORM)
+            val rain = maxOf(amount(Weather.RAIN), storm)
+            val fog = amount(Weather.FOG)
+            val cloud = amount(Weather.CLOUDY)
             fun mix(a: Float, b: Float, k: Float) = a + (b - a) * k
             var r = mix(0.30f, 1f, d); var gg = mix(0.36f, 1f, d); var b = mix(0.68f, 1f, d)
             val gk = g * 0.55f

@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -127,6 +128,9 @@ class UiState {
     var menuAt by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
     /** A farm you don't own yet, shown by the side arrows with its price; null on your own farm. */
     var peek by mutableStateOf<dev.m4s4t0.kushacres.model.SiteDef?>(null)
+    /** Photo mode: the HUD hides, taps on the farm do nothing, and [snap] is bumped to save a picture. */
+    var photo by mutableStateOf(false)
+    var snap by mutableIntStateOf(0)
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
 }
 
@@ -198,8 +202,8 @@ fun Px(bmp: Bitmap, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun T(text: String, size: TextUnit = 14.sp, color: Color = Cream, modifier: Modifier = Modifier, align: TextAlign? = null, bold: Boolean = true) {
-    Text(text, modifier, color = color, textAlign = align,
+fun T(text: String, size: TextUnit = 14.sp, color: Color = Cream, modifier: Modifier = Modifier, align: TextAlign? = null, bold: Boolean = true, maxLines: Int = Int.MAX_VALUE) {
+    Text(text, modifier, color = color, textAlign = align, maxLines = maxLines, softWrap = maxLines > 1,
         style = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontSize = size, lineHeight = size * 1.2f,
             shadow = if (color.luminance() > 0.35f) TextShadow else null))
 }
@@ -261,7 +265,8 @@ fun App() {
     }
     Box(Modifier.fillMaxSize().background(Color(0xFF1B2A1E))) {
         FarmView(ui)
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        if (ui.photo) PhotoBar(ui)
+        else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Hud(ui)
             Hints(ui)
             Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.CenterStart)); FarmArrows(ui) }
@@ -276,6 +281,45 @@ fun App() {
         Creator(ui)
     }
 }
+
+private val PHOTO_HOURS = listOf("Now" to null, "Dawn" to 7f, "Noon" to 12f, "Dusk" to 18.5f, "Night" to 23f)
+private val PHOTO_SKIES = listOf("Now" to null, "Clear" to Weather.CLEAR, "Rain" to Weather.RAIN, "Fog" to Weather.FOG, "Storm" to Weather.STORM)
+
+/** Photo mode's strip: pick the light and the sky (for the picture only), then snap. Pan, zoom and turn still work. */
+@Composable
+internal fun PhotoBar(ui: UiState) {
+    var hour by remember { mutableStateOf(Light.photoHour) }
+    var sky by remember { mutableStateOf(Light.photoWeather) }
+    fun leave() { Light.photoHour = null; Light.photoWeather = null; ui.photo = false }
+    DisposableEffect(Unit) { onDispose { Light.photoHour = null; Light.photoWeather = null } }
+    androidx.activity.compose.BackHandler { leave() }
+    Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(8.dp).widthIn(max = 460.dp).fillMaxWidth().frame(WoodIn, WoodEdge).padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            T("Time", 11.sp, Dim)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for ((name, v) in PHOTO_HOURS) PhotoChip(name, v == hour, Modifier.weight(1f)) { hour = v; Light.photoHour = v }
+            }
+            T("Sky", 11.sp, Dim)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for ((name, v) in PHOTO_SKIES) PhotoChip(name, v == sky, Modifier.weight(1f)) { sky = v; Light.photoWeather = v }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PhotoChip("Done", false, Modifier.weight(1f)) { leave() }
+                PhotoChip("Snap", true, Modifier.weight(2f)) { ui.snap++ }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoChip(name: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) = Box(
+    modifier.frame(if (on) lerp(Wood, Gold, 0.32f) else Wood, if (on) Gold else WoodEdge)
+        .clickable { Audio.play(Sfx.TAP); onClick() }.padding(vertical = 5.dp),
+    contentAlignment = Alignment.Center,
+) { T(name, 12.sp, if (on) Cream else Dim, maxLines = 1) }
 
 /** Big things with their own sheets, down the left side of the farm: the Lab, the strain book and seed hunts. */
 @Composable

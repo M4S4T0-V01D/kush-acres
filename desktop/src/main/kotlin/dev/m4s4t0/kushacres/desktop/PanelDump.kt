@@ -100,6 +100,14 @@ internal fun dumpPanels(dir: String) {
         val soilImg = w.bitmap.asImageBitmap()
         shot("soil", 0, 340) { androidx.compose.foundation.Image(soilImg, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
         f.site.dirt = null
+        // Photo mode at dusk in the rain: the snap's own picture, as it would be saved.
+        dev.m4s4t0.kushacres.ui.Light.photoHour = 18.5f; dev.m4s4t0.kushacres.ui.Light.photoWeather = dev.m4s4t0.kushacres.model.Weather.RAIN
+        val dusk = dev.m4s4t0.kushacres.ui.Light.at(now)
+        dev.m4s4t0.kushacres.ui.Light.photoHour = null; dev.m4s4t0.kushacres.ui.Light.photoWeather = null
+        w.view(cx - 120, cy - 80, cx + 120, cy + 40, 2)
+        w.render(f, now, 1.3f, dusk, null, false)
+        val pic = dev.m4s4t0.kushacres.ui.photo(w, f, 720, 360, android.graphics.RectF(0f, 0f, 720f, 360f), 3f, 1.3f, dusk)
+        File(dir, "snap.png").writeBytes(pic.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes)
         shot("trim", 0, 300) { androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) { dev.m4s4t0.kushacres.ui.TrimGame { } } }
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
@@ -173,6 +181,7 @@ internal fun dumpPanels(dir: String) {
         }
     }
     shot("move", 0, 260) { dev.m4s4t0.kushacres.ui.MoveFarm(UiState()) }
+    shot("photo", 0, 360) { dev.m4s4t0.kushacres.ui.PhotoBar(UiState()) }
     shot("peek", 0, 560) {
         val ui = UiState().apply { peek = dev.m4s4t0.kushacres.model.Sites.all[3] }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { FarmArrows(ui) }

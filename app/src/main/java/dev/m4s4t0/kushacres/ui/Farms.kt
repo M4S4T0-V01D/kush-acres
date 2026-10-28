@@ -37,7 +37,7 @@ object Theme {
 }
 
 private fun go(ui: UiState, def: SiteDef) {
-    ui.selected = null; ui.mode = Mode.Farm; ui.shop = null; ui.panel = Panel.NONE
+    ui.selected = null; ui.mode = Mode.Farm; ui.shop = null; ui.panel = Panel.NONE; ui.peek = null
     ui.recenter++
     Theme.site = def
 }

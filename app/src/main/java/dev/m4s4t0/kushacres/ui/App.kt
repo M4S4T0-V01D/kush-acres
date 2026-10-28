@@ -125,6 +125,8 @@ class UiState {
     var buildTab by mutableIntStateOf(0)
     var mover by mutableStateOf(false)
     var menuAt by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
+    /** A farm you don't own yet, shown by the side arrows with its price; null on your own farm. */
+    var peek by mutableStateOf<dev.m4s4t0.kushacres.model.SiteDef?>(null)
     fun turn(d: Int) { rot = Math.floorMod(rot.coerceAtLeast(0) + d, 4) }
 }
 
@@ -262,7 +264,7 @@ fun App() {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Hud(ui)
             Hints(ui)
-            Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.CenterStart)) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.CenterStart)); FarmArrows(ui) }
             ui.selected?.let { InfoCard(ui, it) }
             BottomBar(ui)
         }
@@ -282,7 +284,7 @@ internal fun Rail(ui: UiState, modifier: Modifier) {
     Store.rev
     val now = Store.now()
     if (f.level < dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.level < dev.m4s4t0.kushacres.model.Hunt.LEVEL && f.grown.isEmpty()) return
-    Column(modifier.padding(start = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier.padding(start = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RailButton(Sprites.flask, "Lab", f.level >= dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.research == null && f.bred.size < dev.m4s4t0.kushacres.model.Strains.hybridList.size) { ui.panel = Panel.LAB }
         RailButton(Sprites.scroll, "Strains", false) { ui.panel = Panel.STRAINS }
         val H = dev.m4s4t0.kushacres.model.Hunt

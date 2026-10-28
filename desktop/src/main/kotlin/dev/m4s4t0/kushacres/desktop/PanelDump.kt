@@ -1,5 +1,6 @@
 package dev.m4s4t0.kushacres.desktop
 
+import dev.m4s4t0.kushacres.ui.FarmArrows
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -164,6 +165,16 @@ internal fun dumpPanels(dir: String) {
         val img = w.bitmap.asImageBitmap()
         shot("bunker", 0, 500) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
         f.goDown(0)
+    }
+    shot("hats", 0, 200) {
+        val hs = dev.m4s4t0.kushacres.model.Farmer.HOLIDAY_HATS
+        for (row in hs.chunked(5)) androidx.compose.foundation.layout.Row {
+            for (h in row) Px(dev.m4s4t0.kushacres.art.People.farmer(dev.m4s4t0.kushacres.model.Farmer(hat = dev.m4s4t0.kushacres.model.Farmer.HATS.indexOf(h)), 0), 48.dp)
+        }
+    }
+    shot("peek", 0, 560) {
+        val ui = UiState().apply { peek = dev.m4s4t0.kushacres.model.Sites.all[3] }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { FarmArrows(ui) }
     }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)

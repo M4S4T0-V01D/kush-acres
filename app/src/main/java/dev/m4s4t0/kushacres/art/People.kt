@@ -214,8 +214,8 @@ object People {
             }
             "Heart band" -> {
                 val p = 0xFFFF4A7A.toInt(); val l = 0xFFFFC0D8.toInt()
-                px.rect(4, 3, 6, 1, p)
-                for (hx in intArrayOf(3, 8)) { px.set(hx, 0, p); px.set(hx + 2, 0, p); px.rect(hx, 1, 3, 1, p); px.set(hx + 1, 2, p); px.set(hx, 0, l) }
+                px.rect(3, 3, 8, 1, p)
+                px.rect(5, 0, 2, 1, p); px.rect(8, 0, 2, 1, p); px.rect(5, 1, 5, 1, p); px.rect(6, 2, 3, 1, p); px.set(5, 0, l)
             }
             "Leprechaun" -> {
                 val g = 0xFF2E9A3A.toInt()
@@ -246,8 +246,8 @@ object People {
                 px.set(5, 3, 0xFF2A1408.toInt()); px.set(8, 3, 0xFF2A1408.toInt())
             }
             "Pilgrim" -> {
-                val k = 0xFF2A2420.toInt()
-                px.rect(4, 0, 6, 4, k); px.set(5, 0, shade(k, 1.6f))
+                val k = 0xFF4A4038.toInt()
+                px.rect(4, 0, 6, 4, k); px.rect(4, 0, 1, 3, shade(k, 1.3f)); px.rect(9, 0, 1, 3, shade(k, 0.7f))
                 px.rect(4, 3, 6, 1, 0xFF6A4A30.toInt()); px.rect(6, 3, 2, 1, 0xFFF2C440.toInt())
                 px.rect(2, 4, 10, 1, k)
             }

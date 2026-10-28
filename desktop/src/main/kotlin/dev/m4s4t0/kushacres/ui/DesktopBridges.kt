@@ -8,3 +8,6 @@ fun org.jetbrains.skia.Canvas.drawText(text: String, x: Float, y: Float, p: Pain
 
 fun Fx.drawSky(c: org.jetbrains.skia.Canvas, w: Float, h: Float, scale: Float, t: Float, light: Light) =
     drawSky(android.graphics.Canvas(c), w, h, scale, t, light)
+
+fun Fx.drawHoliday(c: org.jetbrains.skia.Canvas, w: Float, h: Float, scale: Float, t: Float, light: Light, holiday: dev.m4s4t0.kushacres.model.Holiday?) =
+    drawHoliday(android.graphics.Canvas(c), w, h, scale, t, light, holiday)

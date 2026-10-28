@@ -20,13 +20,15 @@ import kotlin.concurrent.thread
  */
 object Audio {
     /** Bump when Synth changes, so the cached WAVs are rendered again. */
-    private const val VERSION = 2
+    private const val VERSION = 3
     /** Phones can vibrate; the desktop build has no such setting. */
     const val CAN_BUZZ = true
 
     var music by mutableFloatStateOf(0.5f); private set
     var sound by mutableFloatStateOf(0.8f); private set
     var haptics by mutableStateOf(true); private set
+    /** The radio station: "local" (each place's own tune), "shuffle", or a track id (see [Radio]). */
+    var station by mutableStateOf("local"); private set
 
     private lateinit var app: Context
     private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
@@ -51,6 +53,7 @@ object Audio {
         app = ctx.applicationContext
         val p = prefs()
         music = p.getFloat("music", 0.5f); sound = p.getFloat("sound", 0.8f); haptics = p.getBoolean("haptics", true)
+        station = p.getString("station", "local") ?: "local"
         pool.setOnLoadCompleteListener { _, id, status -> if (status == 0) ids.indexOf(id).let { if (it >= 0) loaded[it] = true } }
         thread(name = "synth", priority = Thread.MIN_PRIORITY) {
             runCatching {
@@ -125,6 +128,7 @@ object Audio {
     fun changeMusic(v: Float) { music = v; prefs().edit().putFloat("music", v).apply(); refresh() }
     fun changeSound(v: Float) { sound = v; prefs().edit().putFloat("sound", v).apply() }
     fun changeHaptics(v: Boolean) { haptics = v; prefs().edit().putBoolean("haptics", v).apply() }
+    fun changeStation(v: String) { station = v; prefs().edit().putString("station", v).apply() }
 
     private fun refresh() {
         song?.let { p -> val v = music * 0.6f; p.setVolume(v, v); if (foreground && v > 0f) { if (!p.isPlaying) p.start() } else if (p.isPlaying) p.pause()

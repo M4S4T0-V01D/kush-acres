@@ -41,6 +41,15 @@ class SynthTest {
         assertEquals(sounds.size, sounds.toSet().size)
     }
 
+    @Test fun radioTracks() {
+        val all = Tunes.extras.map { it.third }
+        assertTrue(all.size >= 10)
+        for (style in dev.m4s4t0.kushacres.audio.Style.entries) assertTrue("no ${style.name}", all.any { it.style == style })
+        for ((id, _, t) in Tunes.extras) check("radio-$id", Synth.music(t))
+        val sounds = (Tunes.areas.map { Tunes.of(it) } + all).map { t -> listOf(t.root, t.bpm, t.minor, t.prog.toList(), t.lead, t.style) }
+        assertEquals(sounds.size, sounds.toSet().size)
+    }
+
     @Test fun wavHeader() {
         val w = Synth.wav(FloatArray(10))
         assertEquals("RIFF", String(w, 0, 4)); assertEquals(64, w.size)

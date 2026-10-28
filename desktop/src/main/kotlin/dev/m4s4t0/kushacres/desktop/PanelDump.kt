@@ -152,6 +152,14 @@ internal fun dumpPanels(dir: String) {
             snap("mark-${m.id}-night", mx - 110, my - 150, mx + 110, my + 50, 2, night, 400)
             } catch (e: Throwable) { File(dir, "mark-${m.id}.err").writeText(e.stackTraceToString()) }
         }
+        // The bare landmark sprites, plain and done up.
+        for (d in dev.m4s4t0.kushacres.model.Sites.all + dev.m4s4t0.kushacres.model.Sites.holidays + dev.m4s4t0.kushacres.model.Sites.premium) {
+            val m = d.landmark ?: continue
+            for (r in listOf(false, true)) {
+                val img = org.jetbrains.skia.Image.makeFromBitmap(dev.m4s4t0.kushacres.art.Landmarks.sprite(m.id, m.size, r).bitmap.sk)
+                File(dir, "raw-${m.id}${if (r) "+" else ""}.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
         f.switchTo(home); f.level = lvl; f.cash = cash
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id

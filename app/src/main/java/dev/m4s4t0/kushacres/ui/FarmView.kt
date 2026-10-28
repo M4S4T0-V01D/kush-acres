@@ -71,6 +71,7 @@ import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.WorkHouse
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Restore
 import dev.m4s4t0.kushacres.model.FarmEvent
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Kind
@@ -495,7 +496,7 @@ class World {
         val markV = mark?.let { minOf(viewV(it.x, it.y), viewV(it.x + it.size - 1, it.y + it.size - 1)) } ?: 0
         for (s in 0..(Farm.MAX - 1) * 2) {
           if (mark != null && s == markU + markV + 2 * mark.size - 2) {
-              val m = Landmarks.sprite(mark.id, mark.size)
+              val m = Landmarks.sprite(mark.id, mark.size, Restore.done(f, def.id))
               val bx = OX + (markU - markV) * (TW / 2); val by = OY + (markU + markV) * (TH / 2) + mark.size * TH
               val top = by - m.ay
               ground(bx.toFloat(), by - TH * mark.size / 2f, TW * mark.size / 2f)

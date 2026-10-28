@@ -128,7 +128,7 @@ object Save {
         }
         o.put("orders", orders)
         o.put("stats", JSONObject().apply { Stat.entries.forEach { if (f.stat(it) > 0) put(it.name, f.stat(it)) } })
-        o.put("trophies", JSONArray(f.trophies.toList())); o.put("bred", JSONArray(f.bred.toList())); o.put("grown", JSONArray(f.grown.toList()))
+        o.put("trophies", JSONArray(f.trophies.toList())); o.put("bred", JSONArray(f.bred.toList())); o.put("grown", JSONArray(f.grown.toList())); o.put("tracks", JSONArray(f.tracks.toList()))
         o.put("legacy", f.legacy); o.put("lperks", JSONArray(f.legacyPerks.map { it.name })); o.put("heirlooms", JSONArray(f.heirlooms.toList())); o.put("startMap", f.startMap.name)
         o.put("finds", JSONObject(f.finds.toMap())); o.put("mothers", JSONObject(f.mothers.toMap())); o.put("hunting", JSONArray(f.hunting.toList())); o.put("bestLevel", maxOf(f.bestLevel, f.level))
         o.put("streak", f.streak); o.put("bestStreak", f.bestStreak); o.put("lastDay", f.lastDay)
@@ -137,6 +137,8 @@ object Save {
         f.hunt?.let { o.put("hunt", it) }; o.put("huntBack", f.huntBack)
         f.research?.let { o.put("research", it) }; o.put("researchAt", f.researchAt)
         o.put("contracts", Contracts.save(f))
+        o.put("board", Board.save(f))
+        o.put("marks", Restore.save(f))
         o.put("quests", JSONArray().apply {
             f.quests.forEach { q ->
                 put(JSONObject().put("k", q.kind.name).put("t", q.target).put("b", q.base).put("c", q.cash).put("x", q.xp).put("done", q.claimed))
@@ -195,6 +197,7 @@ object Save {
         strings("trophies", f.trophies) { Trophy.of(it) != null }
         strings("bred", f.bred) { Strains[it]?.hybrid == true }
         strings("grown", f.grown) { Strains[it] != null }
+        strings("tracks", f.tracks) { id -> dev.m4s4t0.kushacres.audio.Tunes.extras.any { it.first == id } }
         strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
         strings("hats", f.hats) { it in Farmer.HOLIDAY_HATS }
@@ -223,6 +226,8 @@ object Save {
         f.hunt = Trip.of(o.optString("hunt", ""))?.name; f.huntBack = o.optLong("huntBack", 0)
         f.research = o.optString("research", "").takeIf { Strains[it]?.hybrid == true && it !in f.bred }; f.researchAt = o.optLong("researchAt", 0)
         Contracts.load(f, o.optJSONObject("contracts"))
+        Board.load(f, o.optJSONObject("board"))
+        Restore.load(f, o.optJSONObject("marks"))
         o.optJSONArray("cup")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { e -> f.cupScores += e.optString("s") to e.optInt("p") } }
         f.quests.clear()
         o.optJSONArray("quests")?.let { a ->

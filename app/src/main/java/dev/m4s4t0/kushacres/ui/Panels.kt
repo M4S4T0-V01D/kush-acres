@@ -142,6 +142,9 @@ fun PanelHost(ui: UiState) {
                 Panel.HOLIDAY -> Holiday.at(Store.now())?.let { "${it.title} shop" } ?: "Holidays"
                 Panel.BUCKS -> "Pot Bucks"
                 Panel.SETTINGS -> "Settings"
+                Panel.RADIO -> "Radio"
+                Panel.BOARD -> "Town Board"
+                Panel.LANDMARK -> Store.farm.site.def.landmark?.name ?: "Landmark"
                 Panel.LAB -> "Lab"
                 Panel.STRAINS -> "Strain Book"
                 Panel.HUNTS -> "Seed Hunts"
@@ -172,6 +175,9 @@ fun PanelHost(ui: UiState) {
                 Panel.HOLIDAY -> HolidayPanel(ui)
                 Panel.BUCKS -> BucksPanel(ui)
                 Panel.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState())) { Settings(ui) }
+                Panel.RADIO -> RadioPanel(ui)
+                Panel.BOARD -> BoardPanel()
+                Panel.LANDMARK -> LandmarkPanel()
                 Panel.LAB -> LabPanel()
                 Panel.STRAINS -> StrainsPanel()
                 Panel.HUNTS -> HuntsPanel()
@@ -699,7 +705,7 @@ private fun FacilityPanel(ui: UiState) {
             }
         }
         if (t.strain == null) {
-            val have = f.stash.entries.filter { it.value > 0 }.toList()
+            val have = f.stash.entries.filter { it.value > 0 }.sortedByDescending { it.value }
             if (have.isEmpty()) item { T("Your stash is empty.", 12.sp, Dim) }
             items(have, key = { it.key }) { e ->
                 Store.rev

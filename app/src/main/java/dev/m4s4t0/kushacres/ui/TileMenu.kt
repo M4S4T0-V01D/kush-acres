@@ -144,7 +144,10 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.WATER -> T("That stays where nature put it.", 12.sp, Dim)
                 Kind.MANOR -> T("Something in there is watching. Best leave it be.", 12.sp, Dim)
                 Kind.FORT -> T("Six hundred years of stone. It keeps the harvest safe and it isn't going anywhere.", 12.sp, Dim)
-                Kind.LANDMARK -> T((f.site.def.landmark?.blurb ?: "") + " It isn't going anywhere.", 12.sp, Dim)
+                Kind.LANDMARK -> {
+                    T((f.site.def.landmark?.blurb ?: "") + " It isn't going anywhere.", 12.sp, Dim)
+                    if (f.level >= dev.m4s4t0.kushacres.model.Restore.LEVEL) item(if (dev.m4s4t0.kushacres.model.Restore.done(f, f.site.def.id)) "Restored ✓" else "Restore it", Gold) { ui.panel = Panel.LANDMARK; close() }
+                }
                 Kind.SHACK, Kind.PART -> {
                     item("Open", Gold) { ui.panel = Panel.SHACK; close() }
                     item("Go inside", Gold) { ui.room = RoomKind.HOME; close() }

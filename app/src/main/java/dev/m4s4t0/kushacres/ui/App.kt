@@ -111,7 +111,7 @@ sealed class Mode {
     data object Trim : Mode()
 }
 
-enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS, LAB, STRAINS, HUNTS }
+enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS, LAB, STRAINS, HUNTS, RADIO, BOARD, LANDMARK }
 
 class UiState {
     var mode by mutableStateOf<Mode>(Mode.Farm)
@@ -372,7 +372,7 @@ private fun Hud(ui: UiState) {
     val f = Store.farm
     Store.rev
     val area = if (ui.panel == Panel.TOWN) "town" else f.site.def.id
-    SideEffect { Theme.site = f.site.def; Audio.area(area) }
+    SideEffect { Theme.site = f.site.def; Audio.area(dev.m4s4t0.kushacres.audio.Radio.pick(area, f, System.currentTimeMillis())) }
     // On a phone the top bar is narrow, so the numbers are a little smaller there and don't wrap.
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val narrow = maxWidth < 600.dp
@@ -474,6 +474,8 @@ private fun SkyChip(ui: UiState) {
             Spacer(Modifier.width(4.dp))
         }
         Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
+        Spacer(Modifier.width(4.dp))
+        Box(Modifier.woodBox().clickable { ui.panel = Panel.RADIO }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("♪", 14.sp, Cream) }
         Spacer(Modifier.width(4.dp))
         Spacer(Modifier.weight(1f))
         Row(
@@ -711,7 +713,10 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
             }
             Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
             Kind.FORT -> T("The walls of Fort 20 have kept out armies, tax men and at least one dragon. You can farm right up to them, but you can't build on them, and they aren't going anywhere.", 12.sp, Dim)
-            Kind.LANDMARK -> T((f.site.def.landmark?.blurb ?: "") + " You can farm right up to it, but it isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
+            Kind.LANDMARK -> {
+                T((f.site.def.landmark?.blurb ?: "") + " You can farm right up to it, but it isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
+                RestoreLine(ui)
+            }
             Kind.MANOR -> T("Empty for a hundred years, if you ask the town. The lights in its windows say otherwise. It isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
             Kind.HOUSE -> WorkHouse.of(tile.item)?.let { HouseInfo(ui, x, y, it) }
             Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.let { v ->

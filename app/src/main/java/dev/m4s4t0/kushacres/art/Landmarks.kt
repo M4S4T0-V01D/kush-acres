@@ -23,9 +23,11 @@ object Landmarks {
 
     private val cache = HashMap<String, Mark>()
 
-    /** The art for landmark [id], [n] squares across. */
-    fun sprite(id: String, n: Int): Mark = cache.getOrPut(id) {
+    /** The art for landmark [id], [n] squares across; [restored] adds the bunting of a landmark done up. */
+    fun sprite(id: String, n: Int, restored: Boolean = false): Mark = cache.getOrPut(if (restored) "$id+" else id) {
         val k = Kit(n * 32 + 40, 250, n)
+        val yard = YARDS[id]
+        if (yard != null) yardBack(k, yard)
         when (id) {
             "barn" -> barn(k); "lookout" -> lookout(k); "mission" -> mission(k); "stiltshack" -> stiltShack(k)
             "lighthouse" -> lighthouse(k); "observatory" -> observatory(k); "growdome" -> growDome(k); "moai" -> moai(k)
@@ -37,6 +39,8 @@ object Landmarks {
             "stage" -> stage(k)
             else -> k.box(0.5f, 0.5f, n - 1f, n - 1f).run { walls(30, STONE); top(30) }
         }
+        if (yard != null) yardFront(k, yard)
+        if (restored) bunting(k)
         k.px.light(bands = false)
         k.px.outline(Sprites.OUT)
         Mark(k.px.bitmap(), k.w, k.ax, k.ay, k.lights, k.smoke)
@@ -187,25 +191,30 @@ object Landmarks {
 
     // Volcano Isle: three old stone heads on a platform, between tiki torches.
     private fun moai(k: Kit) {
-        val rock = c(0xFF4A4440)
-        k.box(0.6f, 0.2f, 1.4f, 2.6f).run { walls(8, rock, stone); top(8, shade(rock, 1.1f)) }
-        val grey = c(0xFF7A6E62)
-        // In a row across the face of the platform, so each head's face stays in view.
-        for (q in listOf(1.95f, 1.15f, 0.35f)) {
-            val h = k.box(1f, q, 0.7f, 0.7f, 8)
-            h.walls(40, grey, { cc, x, z -> if ((x * 7 + z * 3) % 17 == 0) shade(cc, 0.86f) else cc })
-            h.top(40, shade(grey, 0.9f))
-            h.onR(0, 30, h.b, 2) { _, _ -> shade(grey, 0.55f) }
-            h.onR(2, 24, 3, 4) { _, _ -> c(0xFF1C1A18) }; h.onR(7, 24, 3, 4) { _, _ -> c(0xFF1C1A18) }
-            h.onR(4, 13, 3, 11) { _, j -> shade(grey, if (j == 0) 0.6f else 0.95f) }
-            h.onR(2, 6, 8, 1) { _, _ -> shade(grey, 0.5f) }
-            k.cyl(h.midX().toFloat(), h.midY(40).toFloat() + 2, 6f, 6f, c(0xFF9A4A34))
+        val rock = c(0xFF6A625A)
+        k.box(0.75f, 0.15f, 1.1f, 2.7f).run { walls(7, rock, stone); top(7, shade(rock, 1.12f)) }
+        val grey = c(0xFF857868)
+        val weathered: (Int, Int, Int) -> Int = { cc, x, z ->
+            val h = ((x * 7919 + z * 104729) and 255)
+            if (h < 5) c(0xFF8A9A6A) else if ((x * 7 + z * 3) % 13 == 0 || h > 236) shade(cc, 0.86f) else cc
         }
-        for ((p, q) in listOf(2.7f to 2.6f, 0.2f to 0.3f)) {
-            val x = k.x(p, q); val y = k.y(p, q)
-            k.px.rect(x, y - 26, 2, 26, WOOD)
-            k.ell(x + 1f, y - 29f, 2.5f, 4f) { _, v -> if (v < -0.2f) c(0xFFFFD040) else c(0xFFFF7020) }
-            k.light(x + 1, y - 29, 0xFF9030)
+        // In a row across the face of the platform, so each head's face stays in view.
+        for (q in listOf(2.15f, 1.25f, 0.35f)) {
+            val h = k.box(1.05f, q, 0.6f, 0.5f, 7)
+            val tall = 46
+            h.walls(tall, grey, weathered)
+            h.top(tall, shade(grey, 0.92f))
+            val m = h.b / 2
+            // Ears down the side, a heavy brow, sunken eyes, a long nose and pursed lips.
+            h.onL(h.a / 2 - 1, 18, 2, 16) { _, j -> shade(grey, if (j == 0 || j == 15) 0.62f else 0.82f) }
+            h.onR(0, 36, h.b, 2) { _, j -> shade(grey, if (j == 1) 1.25f else 1.1f) }
+            h.onR(0, 32, h.b, 4) { i, _ -> if (i == m - 1 || i == m) shade(grey, 0.8f) else c(0xFF2A2420) }
+            h.onR(m - 1, 16, 2, 16) { i, j -> shade(grey, if (j == 0) 0.55f else if (i == 0) 1.22f else 0.95f) }
+            h.onR(m - 2, 16, 4, 1) { _, _ -> shade(grey, 0.55f) }
+            h.onR(m - 2, 11, 4, 1) { _, _ -> shade(grey, 0.48f) }
+            h.onR(m - 3, 12, 6, 2) { _, j -> shade(grey, if (j == 1) 1.12f else 1.0f) }
+            h.onR(1, 2, h.b - 2, 6) { _, j -> shade(grey, if (j == 5) 0.7f else 0.92f) }
+            k.cyl(h.midX().toFloat(), h.midY(tall).toFloat() + 3, 5f, 5f, c(0xFFA0503A))
         }
     }
 
@@ -249,8 +258,8 @@ object Landmarks {
 
     // Cosmic Crater: the flying saucer that came down here, nose first into a mound.
     private fun ufo(k: Kit) {
-        val bx = k.cx(2f, 2f); val by = k.cy(2f, 2f) + 6
-        k.dome(bx, by, 60f, 14f) { u, v -> k.round(if (v > 0.6f) c(0xFF3A3040) else c(0xFF5A4A50), u) }
+        val bx = k.cx(2f, 2f); val by = k.cy(2f, 2f) + 2
+        k.dome(bx, by, 34f, 10f) { u, v -> k.round(if (v > 0.6f) c(0xFF4A3A30) else c(0xFF6A5442), u) }
         val th = -0.22f; val cs = cos(th); val sn = sin(th)
         val hx = bx; val hy = by - 22
         k.ell(hx + 4, hy - 9, 18f, 15f) { u, v -> if (v > 0.2f) 0 else if (u < -0.4f && v < -0.4f) c(0xFFE0FFFF) else argb(0xD0, 0x60, 0xE0, 0xF0) }
@@ -411,10 +420,10 @@ object Landmarks {
             val col = if (d < -0.1f && z > 14) { if ((z.toInt() + (d * 20).toInt()) % 5 == 0) WHITE else c(0xFF2A4A9A) } else if ((z.toInt() / 4) % 2 == 0) c(0xFFC0302A) else WHITE
             k.round(col, d)
         }
-        k.cone(bx, by - 28, 28f, 16f) { _, d -> k.round(c(0xFF8A9098), d) }
-        k.px.rect(bx.toInt(), (by - 50).toInt(), 1, 6, steel)
-        k.px.rect(bx.toInt() - 1, (by - 51).toInt(), 3, 2, c(0xFFFF3020))
-        k.light(bx.toInt(), (by - 50).toInt(), 0xFF2020, BEACON)
+        k.cone(bx, by - 38, 28f, 16f) { _, d -> k.round(c(0xFF8A9098), d) }
+        k.px.rect(bx.toInt(), (by - 60).toInt(), 1, 6, steel)
+        k.px.rect(bx.toInt() - 1, (by - 61).toInt(), 3, 2, c(0xFFFF3020))
+        k.light(bx.toInt(), (by - 60).toInt(), 0xFF2020, BEACON)
     }
 
     // Prairie Ridge: an old Dutch windmill, sails turning with the seasons.
@@ -465,7 +474,7 @@ object Landmarks {
         val bx = k.cx(1.5f, 1.5f); val by = k.cy(1.5f, 1.5f) - 50
         k.cyl(bx, by + 2, 34f, 3f, c(0xFF6A5A48), null)
         k.tower(bx, by, 28f, 26f, 40f, null) { z, d -> k.round(if (z.toInt() % 10 == 4) c(0xFF3A3A40) else planks(c(0xFF9A6A40), (d * 30).toInt(), 0), d) }
-        k.cone(bx, by - 40, 29f, 12f) { _, d -> k.round(c(0xFF4A5A4A), d) }
+        k.cone(bx, by - 50, 29f, 12f) { _, d -> k.round(c(0xFF4A5A4A), d) }
         val sx = bx.toInt() - 10; val sy = by.toInt() - 22
         k.px.rect(sx - 2, sy - 2, 20, 9, c(0xFF101418))
         k.text(sx, sy, "GROW", c(0xFF60FF70))
@@ -603,6 +612,352 @@ object Landmarks {
         for (i in 0 until 6) {
             val x = back.cx - back.a + 6 + i * (back.a - 12) / 5; val y = top + (x - back.cx + back.a) / 2 + 2
             k.px.rect(x - 1, y, 3, 2, cols[i % 3]); k.light(x, y + 1, cols[i % 3], PARTY)
+        }
+    }
+
+    // ---- Yards: the ground, fence and odds and ends round each landmark ----
+
+    private enum class Ground { NONE, LAWN, DIRT, SAND, GRAVEL, PAVE, SNOW, TAR }
+    private enum class Edge { NONE, PICKET, RAIL, HEDGE, WALL, IRON, ROPE, CANDY }
+
+    /**
+     * A landmark's yard: [ground] of colour [gc], an [edge] fence in [ec] with gates at [gp] along the front-right
+     * side and [gq] along the front-left (negative for none), and props as "kind p q" separated by commas.
+     */
+    private class Yard(val ground: Ground, val gc: Int, val edge: Edge, val ec: Int, val gp: Float, val gq: Float, props: String) {
+        val props: List<Triple<Char, Float, Float>> = props.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { s ->
+            val t = s.split(' ').filter { it.isNotEmpty() }
+            Triple(t[0][0], t[1].toFloat(), t[2].toFloat())
+        }
+    }
+
+    private val YARDS: Map<String, Yard> = mapOf(
+        "barn" to Yard(Ground.DIRT, c(0xFF8E7048), Edge.RAIL, WOOD, 1.9f, -1f, "O 2.75 2.7, E 2.8 1.6, H .55 .5, H .95 .32, R 1.7 .4, P .32 .9, P .5 .25"),
+        "lookout" to Yard(Ground.DIRT, c(0xFF6E5A3C), Edge.NONE, 0, -1f, -1f, "E 2.75 2.75, E 2.8 1.5, E 1.4 2.8, K .3 2.6, U .45 2.2, S .25 1.3, K 2.6 .3, R 1.1 .3"),
+        "mission" to Yard(Ground.SAND, c(0xFFD8BC8A), Edge.WALL, c(0xFFD0A878), 1.85f, -1f, "X 2.75 2.7, T .2 1.5, T .2 2.2, K .35 2.7, X 2.65 .3, F .3 .9"),
+        "stiltshack" to Yard(Ground.NONE, 0, Edge.NONE, 0, -1f, -1f, "Q 2.7 .4, Q .35 2.7, Q 2.75 2.6, Q .5 .25, R .3 .8, K 1.6 .2"),
+        "lighthouse" to Yard(Ground.SAND, c(0xFFD8C898), Edge.ROPE, c(0xFFE8D8A8), 1.4f, -1f, "K .3 .35, K .3 2.65, K 2.7 2.7, R 1.6 .3, C 1.75 .45"),
+        "observatory" to Yard(Ground.SNOW, SNOW, Edge.WALL, STONE, .55f, .55f, "E 2.75 2.7, E 2.75 .4, E .4 2.75, N .35 1.6, L .2 .95, L .95 .2, K 2.6 1.4"),
+        "growdome" to Yard(Ground.LAWN, c(0xFF4E8A3A), Edge.HEDGE, c(0xFF2E6A2A), .55f, .55f, "L .2 .95, L .95 .2, F .35 2.6, F 2.6 .35, B .35 1.9, O 2.75 2.75"),
+        "moai" to Yard(Ground.SAND, c(0xFFE0C890), Edge.NONE, 0, -1f, -1f, "Y 2.8 2.7, Y 2.7 .35, T .25 .3, T .25 2.7, K .5 2.8, U 2.8 1.5, F .3 1.5"),
+        "diner" to Yard(Ground.TAR, c(0xFF4A4A52), Edge.NONE, 0, -1f, -1f, "V .3 2.6, L .2 .25, L 2.75 .25, U 2.8 2.75, S .3 2.1"),
+        "pagoda" to Yard(Ground.PAVE, c(0xFFA8A090), Edge.WALL, c(0xFF8A847A), 1.5f, -1f, "M 2.75 2.7, J .25 .3, J .25 2.7, J 2.7 .3, U .5 2.3, U 2.3 .4"),
+        "ufo" to Yard(Ground.DIRT, c(0xFF5A4A3A), Edge.ROPE, c(0xFFF0D030), -1f, -1f, "K .4 .5, K 3.5 .4, K .45 3.4, D .25 .25, D 3.7 .3, D .3 3.7, S .3 1.8"),
+        "crypt" to Yard(Ground.LAWN, c(0xFF3E5434), Edge.IRON, DARK, 1.5f, -1f, "Z 2.75 2.7, G 2.6 .4, G 2.1 .35, G .4 2.6, G .35 2.15, P .3 .5, P .5 .3, L .2 1.05"),
+        "xmastree" to Yard(Ground.SNOW, SNOW, Edge.CANDY, RED, 1.5f, 1.5f, "N .4 .45, g .6 2.5, g 2.5 .6, g .4 2.3, E 2.75 2.7, L .2 1.05, L 1.05 .2"),
+        "balltower" to Yard(Ground.PAVE, c(0xFF6A6A72), Edge.IRON, DARK, 1.5f, 1.5f, "L .2 1.05, L .2 1.95, L 1.05 .2, L 1.95 .2, B .4 2.6, B 2.6 .4"),
+        "gazebo" to Yard(Ground.LAWN, c(0xFF6AA84A), Edge.PICKET, c(0xFFF4D0DC), 1.5f, 1.5f, "F .35 .4, F .35 2.6, F 2.6 .35, L .2 1.05, L 1.05 .2, U 2.75 2.7, O 2.8 1.4"),
+        "roundtower" to Yard(Ground.LAWN, c(0xFF4E9A3A), Edge.WALL, c(0xFF8A8678), -1f, -1f, "K .3 .35, U 1.75 .3, F .3 1.6, m .45 .9"),
+        "bong" to Yard(Ground.PAVE, c(0xFF9A9488), Edge.HEDGE, c(0xFF2E6A2A), .4f, .4f, "F .3 1.6, F 1.6 .3, L .15 .75, L .75 .15"),
+        "egg" to Yard(Ground.LAWN, c(0xFF7AB85A), Edge.PICKET, c(0xFFF8E8A0), -1f, -1f, "F .3 .35, F .3 1.6, F 1.6 .3, U 1.75 1.7"),
+        "watertower" to Yard(Ground.GRAVEL, c(0xFF8A8478), Edge.IRON, c(0xFF5A5E66), 1.5f, -1f, "R .35 .4, R .55 .3, S .25 1.0, U 2.75 2.7, U .35 2.7, F 2.6 .35"),
+        "windmill" to Yard(Ground.DIRT, c(0xFF9A7A4C), Edge.RAIL, WOOD, 1.5f, -1f, "H .5 .5, H .9 .3, P .3 2.5, P .5 2.7, P 2.6 .35, R 2.2 .3, O 2.8 2.75"),
+        "factory" to Yard(Ground.SNOW, SNOW, Edge.CANDY, RED, 2f, -1f, "g .4 .4, g .6 .3, g .3 .65, N .4 3.5, E 3.7 3.7, E 3.75 .5, L .2 1.6, L .2 2.4"),
+        "watertank" to Yard(Ground.TAR, c(0xFF5A5658), Edge.IRON, c(0xFF6A6E74), -1f, -1f, "C .4 .4, C .45 .7, R .35 2.6, R 2.6 .35, D .25 1.5"),
+        "fountain" to Yard(Ground.PAVE, c(0xFFC8B0A8), Edge.HEDGE, c(0xFF2E6A2A), 1.5f, 1.5f, "F .3 .35, F 2.65 .35, F .35 2.65, B .3 2.2, B 2.2 .3, L .2 1.05, L 1.05 .2"),
+        "potofgold" to Yard(Ground.LAWN, c(0xFF4EA83A), Edge.WALL, c(0xFF8A8678), -1f, -1f, "m .35 .4, m .5 .3, F .3 2.6, F 2.6 .3, K 2.7 2.7, U .4 2.0"),
+        "balloon" to Yard(Ground.LAWN, c(0xFF5E9A40), Edge.ROPE, c(0xFFE8D8A8), -1f, -1f, "C .4 .4, C .4 .7, R .7 .35, K 2.7 .3, F .3 2.6, U 2.75 2.75"),
+        "burrow" to Yard(Ground.LAWN, c(0xFF6AAA48), Edge.NONE, 0, -1f, -1f, "c .4 .45, c .4 1.0, F .3 2.6, F 2.6 .35, U 2.75 2.7, K 2.6 1.0, m .3 1.6"),
+        "saloon" to Yard(Ground.DIRT, c(0xFFB08858), Edge.NONE, 0, -1f, -1f, "R .35 .4, R .3 .7, X 2.75 2.7, X .3 2.7, H 2.3 .35, K 2.75 1.2"),
+        "ciderbarn" to Yard(Ground.LAWN, c(0xFF5E9A40), Edge.RAIL, WOOD, 1.5f, -1f, "A 2.8 2.75, A 2.85 1.3, P .3 .4, P .45 .25, H .3 2.6"),
+        "stage" to Yard(Ground.LAWN, c(0xFF4E8A3A), Edge.ROPE, c(0xFFF0C030), -1f, -1f, "D .25 .3, D .3 2.7, D 2.7 .3, T .2 1.5, T 1.5 .2"),
+    )
+
+    // Front edges sit [E] in from the footprint's sides.
+    private const val E = 0.1f
+
+    /** The yard behind the landmark: ground, its shadow, the back fences and the back props. */
+    private fun yardBack(k: Kit, y: Yard) {
+        val n = k.n.toFloat()
+        if (y.ground != Ground.NONE) {
+            k.pad(0.04f, 0.04f, n - 0.08f, n - 0.08f, y.gc, groundTex(y.ground))
+            // A soft shadow under the middle, where the building stands.
+            val px = k.px; val s = px.s
+            val cx = k.x(n / 2, n / 2) + 0.5f; val cy = k.y(n / 2, n / 2) + 0.5f
+            val rx = n * 12f; val ry = n * 6f
+            for (fy in ((cy - ry) * s).toInt()..((cy + ry) * s).toInt()) for (fx in ((cx - rx) * s).toInt()..((cx + rx) * s).toInt()) {
+                if (fx !in 0 until px.fw || fy !in 0 until px.fh) continue
+                val u = (fx / s.toFloat() - cx) / rx; val v = (fy / s.toFloat() - cy) / ry
+                val d = u * u + v * v
+                val i = fy * px.fw + fx
+                if (d < 1 && px.p[i] != 0) px.p[i] = shade(px.p[i], 0.74f + 0.26f * d)
+            }
+        }
+        fence(k, n - E, E, n - E, n - E, y.edge, y.ec, -1f)
+        fence(k, E, n - E, n - E, n - E, y.edge, y.ec, -1f)
+        props(k, y, back = true)
+    }
+
+    /** The yard in front of the landmark: the front props and fences. */
+    private fun yardFront(k: Kit, y: Yard) {
+        val n = k.n.toFloat()
+        props(k, y, back = false)
+        fence(k, E, E, n - E, E, y.edge, y.ec, y.gq)
+        fence(k, E, E, E, n - E, y.edge, y.ec, y.gp)
+    }
+
+    private fun groundTex(g: Ground): (Int, Int, Int) -> Int = { c, x, y ->
+        val h = ((x * 73856093) xor (y * 19349663)) and 1023
+        val u = x + 2 * y + 4000; val v = 2 * y - x + 4000
+        when (g) {
+            Ground.LAWN -> if (h < 40) shade(c, 1.18f) else if (h < 70) shade(c, 0.86f) else if ((v / 12) % 2 == 0) shade(c, 1.05f) else c
+            Ground.DIRT -> if (h < 50) shade(c, 0.82f) else if (h < 80) shade(c, 1.15f) else c
+            Ground.SAND -> if (h < 40) shade(c, 0.9f) else if (h < 60) shade(c, 1.06f) else c
+            Ground.GRAVEL -> if (h < 160) shade(c, 0.84f) else if (h < 300) shade(c, 1.12f) else c
+            Ground.PAVE -> if (u % 16 < 1 || v % 16 < 1) shade(c, 0.78f) else shade(c, 0.94f + ((u / 16 * 7 + v / 16 * 3) % 5) * 0.03f)
+            Ground.SNOW -> if (h < 30) c(0xFFD8E4F0) else if ((u / 9 + v / 13) % 7 == 0) c(0xFFE8F0F8) else c
+            Ground.TAR -> if (h < 30) shade(c, 1.2f) else if (v % 32 in 15..16 && u % 8 < 5) c(0xFFE8D060) else c
+            Ground.NONE -> c
+        }
+    }
+
+    /**
+     * A fence along the footprint line from [p0],[q0] to [p1],[q1], with a gate gap centred [gate] along it (negative
+     * for none). Drawn a column at a time, so each kind is a recipe for one column.
+     */
+    private fun fence(k: Kit, p0: Float, q0: Float, p1: Float, q1: Float, e: Edge, col: Int, gate: Float) {
+        if (e == Edge.NONE) return
+        val px = k.px
+        val x0 = k.x(p0, q0); val x1 = k.x(p1, q1)
+        val y0 = k.y(p0, q0); val y1 = k.y(p1, q1)
+        val runs = abs(x1 - x0)
+        // Lines along p face down-right, so they sit in shade.
+        val c = if (p0 == p1) shade(col, 0.8f) else col
+        val half = 0.32f * k.n / 3
+        for (i in 0..runs) {
+            val t = if (runs == 0) 0f else i / runs.toFloat()
+            val x = x0 + (x1 - x0) * i / maxOf(1, runs)
+            val y = (y0 + (y1 - y0) * t).roundToInt()
+            val along = if (p0 == p1) q0 + (q1 - q0) * t else p0 + (p1 - p0) * t
+            if (gate >= 0 && abs(along - gate) < half) continue
+            val gatePost = gate >= 0 && abs(along - gate) < half + 0.08f
+            when (e) {
+                Edge.PICKET, Edge.CANDY -> {
+                    val stripe = if (e == Edge.CANDY && (i / 2) % 2 == 0) (if (p0 == p1) shade(WHITE, 0.85f) else WHITE) else c
+                    if (i % 3 != 2) px.rect(x, y - 5 - (if (i % 3 == 0) 1 else 0), 1, 5 + (if (i % 3 == 0) 1 else 0), stripe)
+                    else { px.set(x, y - 2, shade(c, 0.8f)); px.set(x, y - 4, shade(c, 0.8f)) }
+                    if (gatePost) px.rect(x, y - 8, 1, 8, stripe)
+                }
+                Edge.RAIL -> {
+                    if (i % 10 == 0 || gatePost) px.rect(x, y - 8, 1, 8, shade(c, 0.7f))
+                    px.set(x, y - 3, c); px.set(x, y - 6, c)
+                }
+                Edge.HEDGE -> {
+                    val h = ((i * 7919) xor (i shr 2)) % 3
+                    val top = 6 + (if (h == 0) 1 else 0)
+                    for (j in 0 until top) px.set(x, y - j, if (j == top - 1) shade(c, 1.35f) else if ((i * 5 + j * 3) % 7 == 0) shade(c, 0.8f) else if (j > top - 3) shade(c, 1.15f) else c)
+                }
+                Edge.WALL -> {
+                    for (j in 0 until 5) px.set(x, y - j, if (j == 4) shade(c, 1.2f) else if (j == 2 || (i + (if (j > 2) 3 else 0)) % 6 == 0) shade(c, 0.8f) else c)
+                    if (gatePost) px.rect(x, y - 8, 1, 8, shade(c, 1.1f))
+                }
+                Edge.IRON -> {
+                    px.set(x, y - 1, c); px.set(x, y - 6, c)
+                    if (i % 3 == 0) { px.rect(x, y - 7, 1, 7, c); px.set(x, y - 8, GOLD) }
+                    if (gatePost) { px.rect(x, y - 10, 1, 10, c); px.set(x, y - 11, GOLD) }
+                }
+                Edge.ROPE -> {
+                    val m = i % 12
+                    if (m == 0 || gatePost) px.rect(x, y - 6, 1, 6, c(0xFF6A5A4A))
+                    else px.set(x, y - 5 + (sin(m / 12f * Math.PI.toFloat()) * 1.6f).roundToInt(), if (col == c(0xFFF0D030) && (i / 3) % 2 == 0) DARK else c)
+                }
+                Edge.NONE -> {}
+            }
+        }
+    }
+
+    private fun props(k: Kit, y: Yard, back: Boolean) {
+        val snow = y.ground == Ground.SNOW
+        for ((ch, p, q) in y.props.filter { (it.second + it.third > k.n) == back }.sortedByDescending { it.second + it.third }) prop(k, ch, p, q, snow)
+    }
+
+    /** One yard prop of kind [ch] standing at footprint point [p],[q]. */
+    private fun prop(k: Kit, ch: Char, p: Float, q: Float, snow: Boolean) {
+        val px = k.px
+        val x = k.x(p, q); val y = k.y(p, q)
+        val xf = x + 0.5f; val yf = y.toFloat()
+        val leaf = c(0xFF3E7A30)
+        when (ch) {
+            // A lamp post.
+            'L' -> {
+                px.rect(x - 1, y - 1, 3, 1, DARK); px.rect(x, y - 14, 1, 14, DARK)
+                px.rect(x - 1, y - 17, 3, 3, LIT); px.rect(x - 2, y - 18, 5, 1, DARK); px.set(x, y - 19, DARK)
+                k.light(x, y - 16, 0xFFE0A0, STEADY)
+            }
+            // A tiki torch.
+            'T' -> {
+                px.rect(x, y - 12, 1, 12, WOOD); px.rect(x - 1, y - 13, 3, 2, shade(WOOD, 0.7f))
+                k.ell(xf, yf - 15.5f, 1.6f, 2.6f) { _, v -> if (v < -0.1f) c(0xFFFFD040) else c(0xFFFF7020) }
+                k.light(x, y - 15, 0xFF9030)
+            }
+            // A bench, seat along the right-hand side.
+            'B' -> {
+                val xa = k.x(p, q - 0.2f); val ya = k.y(p, q - 0.2f); val xb = k.x(p, q + 0.2f); val yb = k.y(p, q + 0.2f)
+                px.rect(xa, ya - 3, 1, 3, DARK); px.rect(xb, yb - 3, 1, 3, DARK)
+                px.line(xa, ya - 3, xb, yb - 3, WOOD); px.line(xa, ya - 4, xb, yb - 4, shade(WOOD, 1.2f))
+                px.line(xa + 2, ya - 7, xb + 2, yb - 7, WOOD); px.rect(xa + 2, ya - 7, 1, 4, DARK); px.rect(xb + 2, yb - 7, 1, 4, DARK)
+            }
+            // A flower bed.
+            'F' -> {
+                k.ell(xf, yf - 1, 6f, 3f) { _, _ -> c(0xFF5A3E28) }
+                val cols = intArrayOf(c(0xFFE84A6A), c(0xFFF0D040), WHITE, c(0xFFB060E0))
+                for (i in 0 until 9) {
+                    val dx = (i * 5) % 9 - 4; val dy = (i * 3) % 5 - 2
+                    px.set(x + dx, y + dy - 1, leaf); px.set(x + dx, y + dy - 2, cols[(i + x) and 3])
+                }
+            }
+            // A barrel.
+            'R' -> k.tower(xf, yf - 1, 3f, 3f, 7f, c(0xFF7A5030)) { z, d -> k.round(if (z.toInt() == 1 || z.toInt() == 5) c(0xFF3A3A3A) else c(0xFF9A6A3A), d) }
+            // A wooden crate, or a wrapped present.
+            'C', 'g' -> {
+                val b = k.box(p - 0.14f, q - 0.14f, 0.28f, 0.28f)
+                if (ch == 'C') { b.walls(5, c(0xFFA87A48), planks); b.top(5, c(0xFFC09060)) }
+                else {
+                    val gc = intArrayOf(RED, c(0xFF3A8A4A), c(0xFF3A6AC8))[((p * 10 + q * 7).toInt()) % 3]
+                    b.walls(5, gc); b.top(5, shade(gc, 1.15f))
+                    b.onL(b.a / 2, 0, 1, 5) { _, _ -> GOLD }; b.onR(b.b / 2, 0, 1, 5) { _, _ -> shade(GOLD, 0.8f) }
+                    px.set(b.midX(), b.midY(5) - 1, GOLD); px.set(b.midX() - 1, b.midY(5) - 1, GOLD); px.set(b.midX() + 1, b.midY(5) - 1, GOLD)
+                }
+            }
+            // A hay bale.
+            'H' -> {
+                val b = k.box(p - 0.2f, q - 0.13f, 0.4f, 0.26f)
+                b.walls(5, c(0xFFD8B040), { cc, xx, z -> if ((xx + z * 3 + 400) % 5 == 0) shade(cc, 0.82f) else cc })
+                b.top(5, c(0xFFE8C860))
+            }
+            // A rock.
+            'K' -> k.ell(xf, yf - 2, 4f, 3f) { u, v -> if (snow && v < -0.4f) SNOW else k.round(if (v < -0.3f) c(0xFF9A948C) else c(0xFF7A746C), u) }
+            // A round bush.
+            'U' -> k.ell(xf, yf - 4, 5f, 4.5f) { u, v -> if (snow && v < -0.5f) SNOW else k.round(if (v < -0.3f) c(0xFF5EA040) else leaf, u) }
+            // A wooden sign.
+            'S' -> {
+                px.rect(x, y - 8, 1, 8, WOOD); px.rect(x - 4, y - 12, 9, 5, c(0xFFA87A48)); px.rect(x - 4, y - 8, 9, 1, shade(WOOD, 0.7f))
+                px.rect(x - 3, y - 11, 7, 1, DARK); px.rect(x - 3, y - 9, 5, 1, DARK)
+            }
+            // A pumpkin.
+            'P' -> {
+                k.ell(xf, yf - 2.5f, 3.5f, 2.6f) { u, _ -> k.round(if (abs(u) in 0.3f..0.45f) c(0xFFC05010) else c(0xFFE87A20), u) }
+                px.rect(x, y - 6, 1, 2, c(0xFF4A6A20))
+            }
+            // A gravestone.
+            'G' -> {
+                val g = c(0xFF8A8A90)
+                px.rect(x - 3, y - 1, 7, 2, c(0xFF4A3A2A))
+                px.rect(x - 2, y - 7, 5, 7, g); px.rect(x - 1, y - 8, 3, 1, g); px.rect(x + 2, y - 7, 1, 7, shade(g, 0.75f))
+                px.rect(x, y - 6, 1, 3, shade(g, 0.6f)); px.rect(x - 1, y - 5, 3, 1, shade(g, 0.6f))
+            }
+            // A snowman.
+            'N' -> {
+                px.disc(x, y - 3, 3, SNOW); px.disc(x, y - 8, 2, SNOW)
+                px.set(x - 1, y - 9, DARK); px.set(x + 1, y - 9, DARK); px.rect(x + 1, y - 8, 2, 1, c(0xFFF08020))
+                px.rect(x - 2, y - 11, 5, 1, DARK); px.rect(x - 1, y - 13, 3, 2, DARK)
+                px.set(x, y - 4, DARK); px.set(x, y - 2, DARK); px.rect(x - 2, y - 6, 5, 1, RED)
+            }
+            // A pine tree.
+            'E' -> {
+                px.rect(x, y - 4, 2, 4, shade(WOOD, 0.8f))
+                for (i in 0 until 3) k.cone(xf + 0.5f, yf - 4 - i * 6, 8f - i * 2f, 11f) { z, d ->
+                    if (snow && (z > 7 - i || d < -0.6f && z > 3)) SNOW else k.round(if (z < 2) c(0xFF1E4A2A) else c(0xFF2E6A3A), d)
+                }
+            }
+            // A round tree in green, a red maple or an apple tree.
+            'O', 'M', 'A' -> {
+                px.rect(x, y - 9, 2, 9, shade(WOOD, 0.8f))
+                val leafC = if (ch == 'M') c(0xFFC0402A) else c(0xFF3E8A34)
+                k.ell(xf + 0.5f, yf - 16, 8f, 7f) { u, v ->
+                    val hl = ((u * 4 + 9).toInt() + (v * 4 + 9).toInt() * 3) % 5 == 0
+                    when {
+                        ch == 'A' && ((u * 7 + 20).toInt() * 5 + (v * 6 + 20).toInt() * 3) % 11 == 0 && v > -0.6f -> RED
+                        else -> k.round(if (v < -0.35f || hl && v < 0.3f) shade(leafC, 1.2f) else leafC, u)
+                    }
+                }
+            }
+            // A palm tree.
+            'Y' -> {
+                for (j in 0 until 22) px.rect(x + j * j / 70, y - j, 2, 1, if (j % 3 == 0) c(0xFF6A4A28) else c(0xFF9A7A48))
+                val tx = x + 6; val ty = y - 22
+                for ((dx, dy) in listOf(-8 to 3, -6 to -3, 0 to -5, 6 to -3, 8 to 3, 3 to 5, -3 to 5)) {
+                    px.line(tx, ty, tx + dx, ty + dy, c(0xFF3E8A34)); px.line(tx, ty + 1, tx + dx, ty + dy + 1, c(0xFF2E6A2A))
+                }
+                px.disc(tx, ty + 1, 1, c(0xFF6A4A28))
+            }
+            // A cactus.
+            'X' -> {
+                val cac = c(0xFF4E8A3A)
+                px.rect(x - 1, y - 16, 3, 16, cac); px.rect(x - 5, y - 11, 2, 5, cac); px.rect(x - 5, y - 7, 4, 2, cac)
+                px.rect(x + 3, y - 13, 2, 6, cac); px.rect(x + 2, y - 9, 3, 2, cac); px.rect(x + 1, y - 16, 1, 16, shade(cac, 0.75f))
+            }
+            // A clump of reeds and cattails.
+            'Q' -> for (i in 0 until 5) {
+                val bx = x - 3 + i * 2; val h = 7 + (i * 7) % 4
+                px.line(bx, y, bx + (i - 2) / 2, y - h, c(0xFF5E8A3A))
+                if (i % 2 == 0) px.rect(bx + (i - 2) / 2, y - h - 2, 1, 3, c(0xFF6A4228))
+            }
+            // A parked car.
+            'V' -> {
+                val body = c(0xFF3AA0C8)
+                val b = k.box(p - 0.32f, q - 0.16f, 0.64f, 0.32f, 1)
+                b.walls(5, body); b.top(5, shade(body, 1.15f))
+                b.onR(1, 2, 3, 2) { _, _ -> LIT }
+                val t = k.box(p - 0.16f, q - 0.12f, 0.36f, 0.24f, 6)
+                t.walls(4, GLASS); t.top(4, shade(body, 1.2f))
+                px.rect(b.cx - b.a + 3, b.yl(b.cx - b.a + 3) - 1, 2, 2, DARK); px.rect(b.cx - 4, b.yl(b.cx - 4) - 1, 2, 2, DARK)
+            }
+            // A stone lantern.
+            'J' -> {
+                px.rect(x - 1, y - 5, 3, 5, STONE); px.rect(x - 2, y - 9, 5, 4, STONE); px.rect(x - 1, y - 8, 3, 2, LIT)
+                px.rect(x - 3, y - 10, 7, 1, shade(STONE, 0.8f)); px.rect(x - 2, y - 11, 5, 1, shade(STONE, 0.9f)); px.set(x, y - 12, STONE)
+                k.light(x, y - 7, 0xFFC060)
+            }
+            // A dead tree.
+            'Z' -> {
+                val bark = c(0xFF4A3E38)
+                px.rect(x, y - 16, 2, 16, bark)
+                px.line(x, y - 10, x - 6, y - 17, bark); px.line(x + 1, y - 13, x + 6, y - 20, bark)
+                px.line(x - 4, y - 15, x - 7, y - 15, bark); px.line(x + 1, y - 16, x + 1, y - 22, bark); px.line(x + 4, y - 18, x + 8, y - 17, bark)
+            }
+            // A toadstool.
+            'm' -> {
+                px.rect(x, y - 3, 2, 3, c(0xFFE8E0D0))
+                k.ell(xf + 0.5f, yf - 4, 3.5f, 2.2f) { u, v -> if (v < 0.4f && ((u * 3 + 5).toInt() + (v * 3 + 5).toInt()) % 3 == 0) WHITE else k.round(c(0xFFD03030), u) }
+            }
+            // A carrot patch.
+            'c' -> {
+                k.ell(xf, yf - 1, 6f, 3f) { _, _ -> c(0xFF6A4A2A) }
+                for (i in 0 until 4) { val cx = x - 4 + i * 3; val cy = y - (i % 2); px.set(cx, cy - 1, c(0xFFF08020)); px.rect(cx, cy - 4, 1, 3, c(0xFF5EA040)); px.set(cx - 1, cy - 4, c(0xFF5EA040)) }
+            }
+            // A flood light on a tripod.
+            'D' -> {
+                px.line(x, y - 9, x - 3, y, DARK); px.line(x, y - 9, x + 3, y, DARK); px.rect(x, y - 9, 1, 9, DARK)
+                px.rect(x - 2, y - 13, 5, 4, c(0xFF404048)); px.rect(x - 1, y - 12, 3, 2, c(0xFFFFF4D0))
+                k.light(x, y - 11, 0xFFF8E0, STEADY)
+            }
+        }
+    }
+
+    /** Bunting strung between poles at the yard's three near corners, for a landmark that's been done up. */
+    private fun bunting(k: Kit) {
+        val n = k.n.toFloat()
+        val px = k.px
+        val poles = listOf(n - 0.12f to 0.12f, 0.12f to 0.12f, 0.12f to n - 0.12f).map { (p, q) -> k.x(p, q) to k.y(p, q) }
+        val h = 20
+        for ((x, y) in poles) { px.rect(x, y - h, 1, h, c(0xFFE8E0D0)); px.rect(x - 1, y - h - 1, 3, 1, GOLD) }
+        val cols = intArrayOf(c(0xFFE84040), c(0xFFF0C030), c(0xFF40B050), c(0xFF4080E0), c(0xFFE860B0))
+        var flag = 0
+        for (s in 0 until 2) {
+            val (xa, ya) = poles[s]; val (xb, yb) = poles[s + 1]
+            val len = abs(xb - xa)
+            for (i in 0..len) {
+                val t = i / len.toFloat()
+                val x = xa + (xb - xa) * i / len
+                val y = (ya - h + (yb - ya) * t + sin(t * Math.PI.toFloat()) * 7).roundToInt()
+                px.set(x, y, DARK)
+                if (i % 4 == 2 && i < len - 1) {
+                    val fc = cols[flag++ % cols.size]
+                    px.rect(x - 1, y + 1, 3, 1, fc); px.rect(x - 1, y + 2, 3, 1, fc); px.set(x, y + 3, shade(fc, 0.8f))
+                    if (flag % 3 == 0) k.light(x, y + 2, fc and 0xFFFFFF, PARTY)
+                }
+            }
         }
     }
 

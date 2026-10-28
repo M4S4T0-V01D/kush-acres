@@ -254,6 +254,8 @@ class Farm(var rng: Random = Random.Default) {
     val bred = LinkedHashSet<String>()
     /** Every strain ever harvested, for the collection book. */
     val grown = LinkedHashSet<String>()
+    /** Radio tracks won from the town board (see [dev.m4s4t0.kushacres.audio.Radio]). */
+    val tracks = LinkedHashSet<String>()
     var legacy = 0
     /** Legacy perks bought with the points selling the farm gives. */
     val legacyPerks = LinkedHashSet<LegacyPerk>()
@@ -281,6 +283,14 @@ class Farm(var rng: Random = Random.Default) {
     val offers = HashMap<String, ArrayList<Contract>>()
     val offerDay = HashMap<String, Long>()
     val deals = ArrayList<Contract>()
+    /** Today's town board (see [Board]), the day it was pinned up, and how many notes you've ever filled. */
+    val board = ArrayList<Note>()
+    var boardDay = -1L
+    var boardDone = 0
+    /** Landmark restoration (see [Restore]): steps done per site, the open step's need, and what's gone into it so far. */
+    val marks = HashMap<String, Int>()
+    val markNeeds = HashMap<String, Need>()
+    val markValue = HashMap<String, Double>()
     val rep = HashMap<String, Int>()
     /** Story chapters finished per town, and the week each town's standing order was last taken. */
     val chains = HashMap<String, Int>()
@@ -382,7 +392,7 @@ class Farm(var rng: Random = Random.Default) {
     fun stashUsed(): Int = stash.values.sum()
     fun season(): Season = Season.at(lastTick)
     fun waterMillis(): Long = (20 + 10L * up(Upgrade.MULCH)) * 60_000L * (if (season() == Season.SUMMER) 2 else 1) / (if (on(Buff.HEATWAVE)) 2 else 1)
-    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * Legacy.mult(this, LegacyPerk.BIG_BUDS, 0.1) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0) * (if (on(Buff.HIGH_YIELD)) 1.2 else 1.0)
+    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * Legacy.mult(this, LegacyPerk.BIG_BUDS, 0.1) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0) * (if (on(Buff.HIGH_YIELD)) 1.2 else 1.0) * (if (Restore.done(this, site.def.id)) 1 + Restore.YIELD else 1.0)
     fun priceMult(): Double {
         val have = placedDecor()
         var deco = perkWide(Perk.SELL, have) + Chains.bonus(this, Perk.SELL)
@@ -536,7 +546,7 @@ class Farm(var rng: Random = Random.Default) {
 
     fun price(strain: String): Double {
         val s = Strains[strain] ?: return 0.0
-        return s.price * priceMult() * (demand[strain] ?: 1.0) * (if (favourite(s)) FAVOURITE_PRICE else 1.0)
+        return s.price * priceMult() * (demand[strain] ?: 1.0) * (if (favourite(s)) FAVOURITE_PRICE else 1.0) * Market.mult(this, s, lastTick)
     }
 
     /** This week's in-season strains: three of the ones you can buy, sell for more and grow faster. */
@@ -565,7 +575,8 @@ class Farm(var rng: Random = Random.Default) {
     }
     fun goodsPrice(key: String): Double {
         val (f, s) = goodsParts(key) ?: return 0.0
-        return s.price * f.grams * f.mult * priceMult() * (if (on(Buff.HIPPIES)) 2.0 else 1.0) * (if (built(Special.CURING)) 1.25 else 1.0)
+        return s.price * f.grams * f.mult * priceMult() * (if (on(Buff.HIPPIES)) 2.0 else 1.0) * (if (built(Special.CURING)) 1.25 else 1.0) *
+            Market.goodsMult(this, f, lastTick)
     }
 
     private fun neighbours(x: Int, y: Int, test: (Tile) -> Boolean): Int {
@@ -1235,6 +1246,10 @@ class Farm(var rng: Random = Random.Default) {
         if (lvl == Cup.LEVEL) out += "The Cannabis Cup"
         if (lvl == Hunt.LEVEL) out += "Seed hunts"
         if (lvl == Contracts.LEVEL) out += "Farm contracts"
+        if (lvl == Market.LEVEL) out += "Market news"
+        if (lvl == Board.LEVEL) out += "The town board"
+        if (lvl == Restore.LEVEL) out += "Landmark restoration"
+        dev.m4s4t0.kushacres.audio.Radio.LEVELS.filterValues { it == lvl }.keys.forEach { id -> out += "\"${dev.m4s4t0.kushacres.audio.Radio[id]?.name}\" on the radio" }
         if (lvl == Progress.LEGACY_LEVEL) out += "Selling the farm for a legacy bonus"
         if (lvl % 6 == 0 && 2 + lvl / 6 <= MAX_ORDERS) out += "Another order slot"
         return out
@@ -1594,13 +1609,14 @@ class Farm(var rng: Random = Random.Default) {
         stash.clear(); goods.clear(); seeds.clear(); decorInv.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear(); bmRot = -1L
-        totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
+        totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear(); tracks.clear()
         legacy = 0; legacyPerks.clear(); heirlooms.clear(); finds.clear(); mothers.clear(); hunting.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear(); hats.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); chains.clear(); weekly.clear(); lastDeal = null; lapsed = 0
+        board.clear(); boardDay = -1L; boardDone = 0; marks.clear(); markNeeds.clear(); markValue.clear()
         research = null; researchAt = 0
         lastTick = now; nextEventAt = 0
         newGame(now)
@@ -2450,7 +2466,7 @@ class Farm(var rng: Random = Random.Default) {
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); mineAt = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear()
         // Towns remember you, but deals in hand go with the farm.
-        offers.clear(); offerDay.clear(); deals.clear()
+        offers.clear(); offerDay.clear(); deals.clear(); board.clear(); boardDay = -1L; marks.clear(); markNeeds.clear(); markValue.clear()
         legacy++
         heirlooms.clear(); heirlooms += kept
         startMap = map

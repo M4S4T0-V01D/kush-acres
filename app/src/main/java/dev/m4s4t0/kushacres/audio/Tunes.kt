@@ -3,13 +3,16 @@ package dev.m4s4t0.kushacres.audio
 /** The voice that carries a tune's melody. */
 enum class Lead { MELODICA, STEEL, BELL, SYNTH, HORN, FLUTE, ORGAN, GUITAR }
 
+/** How a loop is played: one-drop reggae, stripped-back echoing dub, or dusty lo-fi hip hop. */
+enum class Style { REGGAE, DUB, LOFI }
+
 /**
- * Everything that sets one reggae loop apart: [root] is the tonic as a MIDI note, [prog] the chords as scale steps
+ * Everything that sets one loop apart: [root] is the tonic as a MIDI note, [prog] the chords as scale steps
  * (0 = I), each held for [bars] bars. [dub] is how much the echo feeds back; [bubble] adds organ on the downbeats too.
  */
 class Tune(
     val root: Int, val bpm: Int, val minor: Boolean, val prog: IntArray, val lead: Lead, val seed: Int,
-    val bars: Int = 1, val dub: Float = 0.4f, val bubble: Boolean = false,
+    val bars: Int = 1, val dub: Float = 0.4f, val bubble: Boolean = false, val style: Style = Style.REGGAE,
 )
 
 /** A tune for every place: the home farm, town, and each other farm. */
@@ -49,10 +52,25 @@ object Tunes {
         "orchard" to Tune(55, 70, false, intArrayOf(0, 5, 3, 4), Lead.STEEL, 311),
     )
 
+    /** Radio-only tracks, won by levelling and from the town board: (id, name, tune). */
+    val extras = listOf(
+        Triple("lofi1", "Rolling Papers", Tune(57, 82, true, intArrayOf(0, 3, 6, 2), Lead.BELL, 501, style = Style.LOFI)),
+        Triple("dub1", "Echo Chamber", Tune(50, 66, true, intArrayOf(0, 3), Lead.MELODICA, 511, bars = 2, dub = 0.72f, style = Style.DUB)),
+        Triple("lofi2", "Rainy Window", Tune(53, 76, false, intArrayOf(0, 5, 1, 4), Lead.FLUTE, 521, style = Style.LOFI)),
+        Triple("dub2", "Steppers Delight", Tune(52, 72, true, intArrayOf(0, 5, 3, 4), Lead.HORN, 531, dub = 0.68f, style = Style.DUB)),
+        Triple("lofi3", "Late Night Munchies", Tune(55, 70, false, intArrayOf(0, 3, 1, 4), Lead.STEEL, 541, style = Style.LOFI)),
+        Triple("reggae1", "Sunday Skank", Tune(60, 80, false, intArrayOf(0, 3, 4, 3), Lead.ORGAN, 551, bubble = true)),
+        Triple("dub3", "Smoke Signals", Tune(48, 62, true, intArrayOf(0, 6), Lead.SYNTH, 561, bars = 2, dub = 0.75f, style = Style.DUB)),
+        Triple("lofi4", "Cloud Study", Tune(58, 84, true, intArrayOf(0, 5, 3, 6), Lead.SYNTH, 571, style = Style.LOFI)),
+        Triple("lofi5", "Couch Lock", Tune(51, 68, true, intArrayOf(0, 3, 6, 4), Lead.GUITAR, 581, style = Style.LOFI)),
+        Triple("dub4", "King Tubby's Garden", Tune(53, 68, false, intArrayOf(0, 4, 5, 3), Lead.MELODICA, 591, dub = 0.7f, style = Style.DUB)),
+    )
+    private val extraTunes = extras.associate { it.first to it.third }
+
     val areas: Set<String> get() = byArea.keys
 
     /** Any area without its own tune still gets one of its own, made from its name. */
-    fun of(area: String): Tune = byArea[area] ?: area.hashCode().let { h ->
+    fun of(area: String): Tune = byArea[area] ?: extraTunes[area] ?: area.hashCode().let { h ->
         val leads = Lead.entries
         Tune(50 + Math.floorMod(h, 11), 64 + Math.floorMod(h / 11, 16), h % 2 == 0, intArrayOf(0, 3, 4, 3), leads[Math.floorMod(h / 7, leads.size)], h)
     }

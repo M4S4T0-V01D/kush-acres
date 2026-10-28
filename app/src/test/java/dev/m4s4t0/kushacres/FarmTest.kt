@@ -64,6 +64,10 @@ import dev.m4s4t0.kushacres.model.Legacy
 import dev.m4s4t0.kushacres.model.LegacyPerk
 import dev.m4s4t0.kushacres.model.StartMap
 import org.junit.Test
+import dev.m4s4t0.kushacres.model.Board
+import dev.m4s4t0.kushacres.model.Market
+import dev.m4s4t0.kushacres.model.Restore
+import dev.m4s4t0.kushacres.audio.Radio
 import kotlin.random.Random
 
 class FarmTest {
@@ -1787,5 +1791,95 @@ class FarmTest {
         assertEquals(rep + gift.rep, Contracts.rep(f, town))
         assertTrue(f.potBucks >= bucks + gift.bucks)
         assertTrue(gift.rep > 0 && gift.bucks > 0)
+    }
+
+    @Test fun boardNotesPayAndSave() {
+        val f = farm()
+        f.level = Board.LEVEL - 1
+        assertTrue(Board.notes(f, t0).isEmpty())
+        f.level = 12
+        val notes = Board.notes(f, t0)
+        assertEquals(Board.NOTES, notes.size)
+        assertTrue(notes.all { !it.prize.startsWith("seeds:") || Strains[it.prize.removePrefix("seeds:")]!!.exotic })
+        val n = notes[0]
+        f.stash.remove(n.need.what)
+        assertFalse(Board.canFill(f, n))
+        f.stash[n.need.what] = n.need.amount + 5
+        val cash = f.cash
+        val pay = Board.fill(f, n)
+        assertNotNull(pay)
+        assertTrue(n.done && f.cash > cash && f.stash[n.need.what] == 5)
+        assertNull(Board.fill(f, n))
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertTrue(g.board[0].done)
+        // The same day keeps the same board; the next brings a new one.
+        assertTrue(Board.notes(f, t0 + 60_000L)[0].done)
+        assertFalse(Board.notes(f, t0 + 86_400_000L).any { it.done })
+    }
+
+    @Test fun marketNewsMovesPrices() {
+        val f = farm()
+        f.level = Market.LEVEL - 1
+        assertNull(Market.news(f, t0))
+        f.level = 30
+        val slots = (0 until 40).map { t0 + it * Market.SLOT }
+        val news = slots.mapNotNull { Market.news(f, it) }
+        assertTrue(news.isNotEmpty() && news.size < slots.size)
+        assertTrue(news.all { it.mult in 0.6..1.6 && it.headline.isNotBlank() })
+        for (now in slots) {
+            val n = Market.news(f, now) ?: continue
+            if (!n.what.startsWith("class:")) continue
+            val c = CupClass.entries.first { it.name == n.what.removePrefix("class:") }
+            val s = Contracts.fitting(f, c).first()
+            assertEquals(n.mult, Market.mult(f, s, now), 1e-9)
+            return
+        }
+    }
+
+    @Test fun landmarkRestorationTakesThreeSteps() {
+        val f = farm()
+        val site = f.site.def.id
+        f.level = Restore.LEVEL - 1
+        assertNull(Restore.need(f, site))
+        f.level = 10
+        f.stash.clear()
+        val before = f.yieldMult()
+        repeat(Restore.STEPS) { i ->
+            f.stash.clear()
+            val n = Restore.need(f, site)!!
+            assertNull(Restore.ship(f, site))
+            f.stash[n.what] = n.amount / 2
+            assertNull(Restore.ship(f, site))
+            assertEquals(n.amount / 2, Restore.need(f, site)!!.got)
+            if (i == 0) { val g = farm(); Save.read(Save.write(f), g); assertEquals(n.amount / 2, Restore.need(g, site)!!.got) }
+            f.stash[n.what] = n.amount
+            val pay = Restore.ship(f, site)!!
+            assertTrue(pay.cash > 0 && pay.xp > 0)
+            assertEquals(i == Restore.STEPS - 1, pay.finished)
+        }
+        assertTrue(Restore.done(f, site))
+        assertNull(Restore.need(f, site))
+        assertEquals(before * (1 + Restore.YIELD), f.yieldMult(), 1e-9)
+        val g = farm(); Save.read(Save.write(f), g)
+        assertTrue(Restore.done(g, site))
+    }
+
+    @Test fun radioTracks() {
+        val f = farm()
+        assertTrue(Radio.has(f, "home") && Radio.has(f, "town"))
+        val prize = Radio.BOARD.first()
+        assertFalse(Radio.has(f, prize))
+        assertEquals("home", Radio.pick("home", f, t0, prize))
+        f.tracks += prize
+        assertTrue(Radio.has(f, prize))
+        assertEquals(prize, Radio.pick("home", f, t0, prize))
+        assertEquals("town", Radio.pick("town", f, t0, Radio.LOCAL))
+        assertTrue(Radio.has(f, Radio.pick("home", f, t0, Radio.SHUFFLE)))
+        f.level = 99
+        assertTrue(Radio.LEVELS.keys.all { Radio.has(f, it) })
+        assertEquals(Radio.BOARD.size - 1, Radio.BOARD.count { it !in f.tracks })
+        val g = farm(); Save.read(Save.write(f), g)
+        assertTrue(prize in g.tracks)
     }
 }

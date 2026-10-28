@@ -255,7 +255,7 @@ object Contracts {
     fun canShip(f: Farm, c: Contract) = c.needs.any { n -> !n.done && sources(f, n).isNotEmpty() }
 
     /** Where a need can be filled from: (stash or goods key, amount there), the dearest first. */
-    private fun sources(f: Farm, n: Need): List<Pair<String, Int>> = when {
+    internal fun sources(f: Farm, n: Need): List<Pair<String, Int>> = when {
         n.what.startsWith("class:") -> {
             val c = cupClass(n.what.removePrefix("class:")) ?: return emptyList()
             f.stash.entries.filter { e -> e.value > 0 && Strains[e.key]?.let { it.holiday == null && !it.exotic && c.fits(it) } == true }

@@ -119,6 +119,7 @@ private fun MainStreet(ui: UiState) {
                 }
             }
         }
+        item { BoardCard(ui) }
     }
 }
 
@@ -215,6 +216,7 @@ private fun Upgrades() {
 @Composable
 private fun DexShop() {
     var tab by remember { mutableIntStateOf(0) }
+    NewsBar()
     Tabs(listOf("Bud", "Goods", "Contracts", "Ship", "Clinic"), tab) { tab = it }
     when (tab) { 0 -> Selling(); 1 -> GoodsSelling(); 2 -> ContractsTab(); 3 -> ShipTab(); else -> ClinicTab() }
 }
@@ -223,7 +225,7 @@ private fun DexShop() {
 private fun Selling() {
     val f = Store.farm
     Store.rev
-    val entries = f.stash.entries.filter { it.value > 0 }.toList()
+    val entries = f.stash.entries.filter { it.value > 0 }.sortedByDescending { it.value }
     if (entries.isEmpty()) {
         T("Your stash is empty. Harvest some plants first!", 13.sp, Dim, Modifier.padding(12.dp))
         return
@@ -245,7 +247,11 @@ private fun Selling() {
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     T(s.name, 12.sp)
-                    T("${e.value}g · ${money(f.price(e.key).toLong())}/g", 11.sp, Gold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        T("${e.value}g · ${money(f.price(e.key).toLong())}/g", 11.sp, Gold)
+                        Spacer(Modifier.width(6.dp))
+                        NewsTag(dev.m4s4t0.kushacres.model.Market.mult(f, s, Store.now()))
+                    }
                     T("Demand ${(d * 100).toInt()}%", 10.sp, if (d > 0.9) Leaf else if (d > 0.6) Gold else Bad)
                 }
                 Btn("1/2", color = WoodEdge) { f.sell(e.key, (e.value + 1) / 2); Store.changed() }
@@ -260,7 +266,7 @@ private fun Selling() {
 private fun GoodsSelling() {
     val f = Store.farm
     Store.rev
-    val entries = f.goods.entries.filter { it.value > 0 }.toList()
+    val entries = f.goods.entries.filter { it.value > 0 }.sortedByDescending { it.value }
     if (entries.isEmpty()) {
         T(if (f.count(dev.m4s4t0.kushacres.model.Facility.ROLLER) == 0) "No goods yet. Build a Rolling Table at ${keeper(Keeper.HANK)}'s and turn bud into pre-rolls." else "Nothing to sell right now. Collect batches from your facilities.", 13.sp, Dim, Modifier.padding(12.dp))
         return
@@ -279,7 +285,11 @@ private fun GoodsSelling() {
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     T("${s.name} ${fac.product.lowercase()}", 12.sp)
-                    T("×${e.value} · ${money(f.goodsPrice(e.key).toLong())} each", 11.sp, Gold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        T("×${e.value} · ${money(f.goodsPrice(e.key).toLong())} each", 11.sp, Gold)
+                        Spacer(Modifier.width(6.dp))
+                        NewsTag(dev.m4s4t0.kushacres.model.Market.goodsMult(f, fac, Store.now()))
+                    }
                 }
                 Btn("Sell", color = Gold) { val got = f.sellGoods(e.key, e.value); Store.changed(); Store.toast("Sold for ${money(got)}") }
             }

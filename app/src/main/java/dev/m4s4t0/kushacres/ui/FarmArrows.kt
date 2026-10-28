@@ -42,7 +42,7 @@ internal fun farmOrder(): List<SiteDef> {
 }
 
 /**
- * Slim ‹ › tabs halfway down the sides of the farm. They walk your farms in order; one you don't own yet
+ * Slim ‹ › tabs down the sides of the farm, below the rail of buttons. They walk your farms in order; one you don't own yet
  * shows its map with a button to buy it (or the level it needs) instead of switching.
  */
 @Composable
@@ -61,9 +61,15 @@ fun BoxScope.FarmArrows(ui: UiState) {
         } else ui.peek = def
     }
     ui.peek?.let { PeekCard(ui, it) }
-    Arrow("‹", at > 0, Modifier.align(Alignment.CenterStart)) { step(-1) }
-    Arrow("›", at < order.size - 1, Modifier.align(Alignment.CenterEnd)) { step(1) }
+    // Centred in the space under the Lab / Strains / Hunts column, so the left one never covers it.
+    Box(Modifier.matchParentSize().padding(top = RAIL_ROOM)) {
+        Arrow("‹", at > 0, Modifier.align(Alignment.CenterStart)) { step(-1) }
+        Arrow("›", at < order.size - 1, Modifier.align(Alignment.CenterEnd)) { step(1) }
+    }
 }
+
+/** Roughly how tall the rail of buttons in the top left is. */
+private val RAIL_ROOM = 172.dp
 
 @Composable
 private fun Arrow(text: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {

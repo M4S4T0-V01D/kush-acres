@@ -182,6 +182,10 @@ internal fun dumpPanels(dir: String) {
         }
     }
     shot("move", 0, 260) { dev.m4s4t0.kushacres.ui.MoveFarm(UiState()) }
+    shot("side", 0, 560) {
+        val ui = UiState()
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { dev.m4s4t0.kushacres.ui.Rail(ui, Modifier.align(androidx.compose.ui.Alignment.TopStart)); FarmArrows(ui) }
+    }
     shot("photo", 0, 360) { dev.m4s4t0.kushacres.ui.PhotoBar(UiState()) }
     shot("peek", 0, 560) {
         val ui = UiState().apply { peek = dev.m4s4t0.kushacres.model.Sites.all[3] }

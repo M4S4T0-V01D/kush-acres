@@ -269,7 +269,7 @@ fun App() {
         else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Hud(ui)
             Hints(ui)
-            Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.CenterStart)); FarmArrows(ui) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.TopStart)); FarmArrows(ui) }
             ui.selected?.let { InfoCard(ui, it) }
             BottomBar(ui)
         }
@@ -321,14 +321,14 @@ private fun PhotoChip(name: String, on: Boolean, modifier: Modifier, onClick: ()
     contentAlignment = Alignment.Center,
 ) { T(name, 12.sp, if (on) Cream else Dim, maxLines = 1) }
 
-/** Big things with their own sheets, down the left side of the farm: the Lab, the strain book and seed hunts. */
+/** Big things with their own sheets, down the top left of the farm under the top bar: the Lab, the strain book and seed hunts. */
 @Composable
 internal fun Rail(ui: UiState, modifier: Modifier) {
     val f = Store.farm
     Store.rev
     val now = Store.now()
     if (f.level < dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.level < dev.m4s4t0.kushacres.model.Hunt.LEVEL && f.grown.isEmpty()) return
-    Column(modifier.padding(start = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier.padding(start = 6.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RailButton(Sprites.flask, "Lab", f.level >= dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.research == null && f.bred.size < dev.m4s4t0.kushacres.model.Strains.hybridList.size) { ui.panel = Panel.LAB }
         RailButton(Sprites.scroll, "Strains", false) { ui.panel = Panel.STRAINS }
         val H = dev.m4s4t0.kushacres.model.Hunt

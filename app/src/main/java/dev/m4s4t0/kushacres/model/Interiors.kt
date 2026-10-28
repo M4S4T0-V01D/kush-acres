@@ -57,6 +57,8 @@ enum class Furn(val title: String, val price: Long, val level: Int, val w: Int, 
     ;
 
     fun fits(k: RoomKind) = if (k == RoomKind.HOME) home else store
+    /** Lies flat on the floor, so other pieces can stand on it; it only clashes with other flat pieces. */
+    val flat get() = this == RUG
     /** What selling it back gets you. */
     val refund get() = price / 2
 }
@@ -98,7 +100,7 @@ object Interiors {
         return room(f, k).items.filter { it.x + it.furn.w <= w && (it.furn.wall || it.y + it.furn.h <= h) }
     }
 
-    fun at(f: Farm, k: RoomKind, x: Int, y: Int, wall: Boolean): Placed? = shown(f, k).firstOrNull {
+    fun at(f: Farm, k: RoomKind, x: Int, y: Int, wall: Boolean): Placed? = shown(f, k).sortedBy { it.furn.flat }.firstOrNull {
         it.furn.wall == wall && x in it.x until it.x + it.furn.w && (wall || y in it.y until it.y + it.furn.h)
     }
 
@@ -108,7 +110,7 @@ object Interiors {
         if (x < 0 || x + furn.w > w) return false
         if (!furn.wall && (y < 0 || y + furn.h > h)) return false
         return shown(f, k).none { o ->
-            o !== moving && o.furn.wall == furn.wall && o.x < x + furn.w && x < o.x + o.furn.w &&
+            o !== moving && o.furn.wall == furn.wall && o.furn.flat == furn.flat && o.x < x + furn.w && x < o.x + o.furn.w &&
                 (furn.wall || (o.y < y + furn.h && y < o.y + o.furn.h))
         }
     }

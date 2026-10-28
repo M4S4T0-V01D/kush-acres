@@ -215,6 +215,11 @@ class FarmTest {
         assertEquals(Result.OK, Interiors.sell(f, home, couch))
         assertEquals(cash + Furn.COUCH.price / 2, f.cash)
         assertEquals(Result.OK, Interiors.paint(f, home, true, 3))
+        assertEquals(Result.OK, Interiors.buy(f, home, Furn.RUG, 1, 0)) // rugs lie under things
+        assertEquals(Result.BLOCKED, Interiors.buy(f, home, Furn.RUG, 2, 1)) // but not under each other
+        assertEquals(Result.OK, Interiors.buy(f, home, Furn.LAMP, 1, 1))
+        assertEquals(Furn.LAMP, Interiors.at(f, home, 1, 1, false)?.furn)
+        Interiors.room(f, home).items.removeAll { it.furn == Furn.RUG || it.furn == Furn.LAMP }
         f.shack = 3
         assertTrue(Interiors.size(f, home).first > w && Interiors.size(f, home).second > h)
         assertFalse(Interiors.canEnter(f, RoomKind.STORE))

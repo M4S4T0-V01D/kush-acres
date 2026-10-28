@@ -199,14 +199,14 @@ private fun RoomCanvas(modifier: Modifier, k: RoomKind, picked: Placed?, placing
     val (cols, rows) = Interiors.size(f, k)
     val room = Interiors.room(f, k)
     val shown = Interiors.shown(f, k)
-    val floorItems = shown.filter { !it.furn.wall }.sortedWith(compareBy({ it.y + it.furn.h }, { it.x }))
+    val floorItems = shown.filter { !it.furn.wall }.sortedWith(compareBy({ !it.furn.flat }, { it.y + it.furn.h }, { it.x }))
     val wallItems = shown.filter { it.furn.wall }
     val aw = cols * CW; val ah = WALL + rows * CD
     // Someone to live there: you at home, a worker (or you) behind the counter at the store.
     val person: Bitmap? = if (k == RoomKind.HOME) (f.farmer?.let { People.farmer(it, 0) } ?: People.worker(0, 0)) else People.worker(2, 0)
     val stand = remember(shown.size, cols, rows, shown.sumOf { it.x * 31 + it.y }) {
         (rows - 1 downTo 0).flatMap { y -> (0 until cols).map { x -> (cols / 2 + x) % cols to y } }
-            .firstOrNull { (x, y) -> Interiors.at(f, k, x, y, false) == null }
+            .firstOrNull { (x, y) -> Interiors.at(f, k, x, y, false).let { it == null || it.furn.flat } }
     }
     Canvas(modifier.pointerInput(k, cols, rows, shown) {
         detectTapGestures { o ->
@@ -244,7 +244,7 @@ private fun RoomCanvas(modifier: Modifier, k: RoomKind, picked: Placed?, placing
         }
         var personDrawn = person == null || stand == null
         for (p in floorItems) {
-            if (!personDrawn && stand!!.second < p.y + p.furn.h - 1) { drawPerson(person!!, stand, ox, oy, s); personDrawn = true }
+            if (!personDrawn && !p.furn.flat && stand!!.second < p.y + p.furn.h - 1) { drawPerson(person!!, stand, ox, oy, s); personDrawn = true }
             drawPiece(p, ox, oy, s, alpha = if (p === moving) 0.4f else 1f)
         }
         if (!personDrawn) drawPerson(person!!, stand!!, ox, oy, s)

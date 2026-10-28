@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.withFrameMillis
 import android.text.format.DateFormat
+import dev.m4s4t0.kushacres.model.Interiors
+import dev.m4s4t0.kushacres.model.RoomKind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.Sky as Clock
@@ -719,7 +721,10 @@ private fun StoreInfo(x: Int, y: Int, staffed: Boolean) {
     val f = Store.farm
     val lvl = f.tile(x, y).lvl
     val next = Storefronts.next(f)
-    T("Sells your lab-bred bud by itself at +${(Storefronts.premium(lvl) * 100 - 100).toInt()}% over market, even while you're away.", 12.sp, Dim)
+    val style = Interiors.storeBonus(f)
+    T("Sells your lab-bred bud by itself at +${Math.round((Storefronts.premium(lvl) + style) * 100 - 100)}% over market, even while you're away.", 12.sp, Dim)
+    T(if (style > 0) "Shop style ${Interiors.score(f, RoomKind.STORE)}/${Interiors.MAX_SCORE}: +${Math.round(style * 100)}% of that. Go inside to decorate more."
+        else "Go inside and decorate: a stylish shop sells for up to +${Interiors.MAX_SCORE / 10}% more.", 11.sp, if (style > 0) Leaf else Gold, bold = false)
     T("${Storefronts.rate(lvl, staffed).toInt()}g an hour" + if (staffed) " · staffed" else " · a worker would sell 50% faster", 11.sp, if (staffed) Leaf else Gold)
     T(if (next != null) "On the shelf: ${next.name} (${f.stash[next.id]}g)" else "Shelf's empty. Breed hybrids in the Lab and keep some in the stash.", 11.sp, if (next != null) Cream else Bad, bold = false)
     T("Every store level speeds up Lab research: ×${"%.1f".format(Storefronts.researchSpeed(f))} now", 11.sp, Sky, bold = false)

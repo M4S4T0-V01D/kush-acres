@@ -196,7 +196,7 @@ internal fun dumpPanels(dir: String) {
         val I = dev.m4s4t0.kushacres.model.Interiors
         val H = dev.m4s4t0.kushacres.model.RoomKind.HOME; val S = dev.m4s4t0.kushacres.model.RoomKind.STORE
         f.shack = 4
-        I.buy(f, H, M.RUG, 1, 1); I.buy(f, H, M.COUCH, 1, 3); I.buy(f, H, M.COFFEE_TABLE, 1, 2); I.buy(f, H, M.TV, 1, 0)
+        I.buy(f, H, M.RUG, 1, 1); I.buy(f, H, M.COUCH, 1, 3); I.buy(f, H, M.COFFEE_TABLE, 1, 1); I.buy(f, H, M.TV, 1, 0)
         I.buy(f, H, M.LAMP, 0, 0); I.buy(f, H, M.PLANT, 4, 3); I.buy(f, H, M.BED, 6, 0); I.buy(f, H, M.ARCADE, 8, 2)
         I.buy(f, H, M.FISH_TANK, 5, 4); I.buy(f, H, M.BEANBAG, 0, 4)
         I.buy(f, H, M.POSTER_LEAF, 0, 0); I.buy(f, H, M.WINDOW, 2, 0); I.buy(f, H, M.PAINTING, 4, 0); I.buy(f, H, M.CLOCK, 7, 0); I.buy(f, H, M.NEON_LEAF, 8, 0)

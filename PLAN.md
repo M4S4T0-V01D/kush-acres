@@ -158,13 +158,17 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Event strains (holiday, Pot Bucks and their lab crosses) scale with level: 1.3× / 1.45× the best ladder strain
 
 ## Phase 15 — Active mini-moments (always optional)
-- [x] Trimming mini-game at harvest for a quality bonus (tile menu → Trim and harvest: +3% bud per clean leaf, up to 5)
+- [x] Trimming mini-game while growing (optional, tile menu → Trim; cooldown by strain; boosts the harvest)
 - [x] Perfect-timing window on ripe plants (gold sparks; by hand within a fifth of the grow time, 3–30 min: +15% bud, +10% XP)
 
 ## Phase 15b — Space and the bunker
 - [x] Event portraits for cops and every random event; Lab, Strains and Hunts get their own screens off the rail
 - [x] Storefronts, bunkhouses and big work buildings take 2×2; second and later generators cost more; bigger back alley
 - [x] Bunker (Lv 15, one per farm): 2×1 turnable stairs, floors start 3×3 and widen to 10×10, up to 5 floors deep; runs on farm power, lights never off
+- [x] Bunker floors add stash space (+5% each) and take hash presses, kitchens and other machines
+- [x] Holidays: five strains, a regular and a 12×12 estate farm, a pet and a farmer hat each; seasonal critters (bats, hearts, fireflies…), snow only in winter
+- [x] Slim side arrows on the farm screen walk your farms; ones you don't own show their map with price or level
+- [x] Custom plot soil: wet plots are a darker shade of the chosen colour
 
 ## Phase 16 — Save transfer
 - [ ] Export/import the save as a file or code, to move between phone and desktop

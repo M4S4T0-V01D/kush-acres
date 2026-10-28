@@ -101,7 +101,7 @@ sealed class Mode {
     data object Demolish : Mode()
 }
 
-enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS }
+enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS, LAB, STRAINS, HUNTS }
 
 class UiState {
     var mode by mutableStateOf<Mode>(Mode.Farm)
@@ -259,7 +259,7 @@ fun App() {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Hud(ui)
             Hints(ui)
-            Spacer(Modifier.weight(1f))
+            Box(Modifier.weight(1f).fillMaxWidth()) { Rail(ui, Modifier.align(Alignment.CenterStart)) }
             ui.selected?.let { InfoCard(ui, it) }
             BottomBar(ui)
         }
@@ -269,6 +269,37 @@ fun App() {
         Dialogs()
         Mover(ui)
         Creator(ui)
+    }
+}
+
+/** Big things with their own sheets, down the left side of the farm: the Lab, the strain book and seed hunts. */
+@Composable
+internal fun Rail(ui: UiState, modifier: Modifier) {
+    val f = Store.farm
+    Store.rev
+    val now = Store.now()
+    if (f.level < dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.level < dev.m4s4t0.kushacres.model.Hunt.LEVEL && f.grown.isEmpty()) return
+    Column(modifier.padding(start = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        RailButton(Sprites.flask, "Lab", f.level >= dev.m4s4t0.kushacres.model.Progress.BREED_LEVEL && f.research == null && f.bred.size < dev.m4s4t0.kushacres.model.Strains.hybridList.size) { ui.panel = Panel.LAB }
+        RailButton(Sprites.scroll, "Strains", false) { ui.panel = Panel.STRAINS }
+        val H = dev.m4s4t0.kushacres.model.Hunt
+        RailButton(Sprites.map, "Hunts", f.level >= H.LEVEL && (H.back(f, now) || !H.away(f))) { ui.panel = Panel.HUNTS }
+    }
+}
+
+@Composable
+private fun RailButton(icon: Bitmap, label: String, badge: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    Box {
+        Column(
+            Modifier.width(54.dp).pressable(src).frame(WoodIn, if (badge) Gold else WoodEdge)
+                .clickable(src, null, onClick = onClick).padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Px(icon, 24.dp)
+            T(label, 10.sp, Cream)
+        }
+        if (badge) Box(Modifier.align(Alignment.TopEnd).size(10.dp).border(2.dp, Color(0xFF14100B)).background(Bad))
     }
 }
 

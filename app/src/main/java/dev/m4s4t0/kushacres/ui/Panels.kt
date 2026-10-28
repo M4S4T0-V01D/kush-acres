@@ -138,6 +138,9 @@ fun PanelHost(ui: UiState) {
                 Panel.HOLIDAY -> Holiday.at(Store.now())?.let { "${it.title} shop" } ?: "Holidays"
                 Panel.BUCKS -> "Pot Bucks"
                 Panel.SETTINGS -> "Settings"
+                Panel.LAB -> "Lab"
+                Panel.STRAINS -> "Strain Book"
+                Panel.HUNTS -> "Seed Hunts"
                 Panel.NONE -> ""
             }
             Row(Modifier.fillMaxWidth().frame(Color(0xFF3F2C1A), Color(0xFFB08440)).padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -165,6 +168,9 @@ fun PanelHost(ui: UiState) {
                 Panel.HOLIDAY -> HolidayPanel(ui)
                 Panel.BUCKS -> BucksPanel(ui)
                 Panel.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState())) { Settings(ui) }
+                Panel.LAB -> LabPanel()
+                Panel.STRAINS -> StrainsPanel()
+                Panel.HUNTS -> HuntsPanel()
                 Panel.NONE -> {}
             }
         }

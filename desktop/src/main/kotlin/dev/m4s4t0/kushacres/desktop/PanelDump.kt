@@ -49,18 +49,19 @@ internal fun dumpPanels(dir: String) {
         File(dir, "$name.png").writeBytes(scene.render().encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
     }
-    shot("cup", 3)
-    shot("hunts", 4)
+    shot("rail", 0, 260) { dev.m4s4t0.kushacres.ui.Rail(UiState(), Modifier) }
+    shot("cup", 2)
+    shot("hunts", 0) { dev.m4s4t0.kushacres.ui.HuntsPanel() }
     Hunt.send(f, Trip.VALLEY, now)
-    shot("hunts-away", 4)
+    shot("hunts-away", 0) { dev.m4s4t0.kushacres.ui.HuntsPanel() }
     f.huntBack = now - 1
-    shot("hunts-back", 4)
+    shot("hunts-back", 0) { dev.m4s4t0.kushacres.ui.HuntsPanel() }
     run {
         val P = dev.m4s4t0.kushacres.model.Pheno
         val ids = Strains.ladder.take(3).map { it.id }
         f.finds[ids[0]] = P.of(4, 3, 1); f.finds[ids[1]] = P.of(2, 1); f.finds[ids[2]] = P.of(3, 3, 3)
         f.keepMother(ids[0]); f.keepMother(ids[2]); f.toggleHunt(ids[2])
-        shot("book", 5, 700)
+        shot("book", 0, 700) { dev.m4s4t0.kushacres.ui.StrainsPanel() }
         shot("plants", 0, 160) {
             androidx.compose.foundation.layout.Row { for (c in 0..3) Px(dev.m4s4t0.kushacres.art.Sprites.plant(Strains.ladder[8], 5, 0, c), 80.dp) }
         }
@@ -86,7 +87,7 @@ internal fun dumpPanels(dir: String) {
         shot("trim", 0, 300) { androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) { dev.m4s4t0.kushacres.ui.TrimGame { } } }
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
-    shot("stats", 7, 1600)
+    shot("stats", 4, 1600)
     f.legacy = 0; f.legacyPerks.clear(); f.heirlooms.clear()
     f.rep["home"] = 1600; f.chains["home"] = 2
     val offers = Contracts.offers(f, "home", now)
@@ -100,7 +101,7 @@ internal fun dumpPanels(dir: String) {
     val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
     f.buildHouse(sx, sy, WorkHouse.STORE); f.tile(sx, sy).lvl = 3
     f.breed(lab.id, now)
-    shot("lab", 2)
+    shot("lab", 0) { dev.m4s4t0.kushacres.ui.LabPanel() }
     shot("stores", 0) {
         androidx.compose.foundation.layout.Row { for (i in 1..Storefronts.MAX) Px(Buildings.store(i), 60.dp) }
     }

@@ -60,22 +60,26 @@ internal fun MenuPanel(ui: UiState, start: Int = 0) {
     val now = Store.now()
     val dot = { b: Boolean, n: String -> if (b) "$n •" else n }
     Tabs(listOf(dot(f.canClaimDaily(now), "Daily"), dot(f.quests.any { !it.claimed && f.questDone(it) } || f.canClaimQuestBonus(), "Quests"),
-        "Lab", dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"),
-        dot(f.level >= Hunt.LEVEL && (Hunt.back(f, now) || !Hunt.away(f)), "Hunts"), "Strains", "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
+        dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"), "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         when (tab) {
             0 -> Daily()
             1 -> Quests()
-            2 -> Lab()
-            3 -> CupTab()
-            4 -> HuntTab()
-            5 -> StrainBook()
-            6 -> Trophies()
-            7 -> Stats()
+            2 -> CupTab()
+            3 -> Trophies()
+            4 -> Stats()
             else -> Settings(ui)
         }
     }
 }
+
+/** The Lab, the strain book and seed hunts each have their own sheet, opened from the rail on the farm. */
+@Composable
+internal fun LabPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { Lab() }
+@Composable
+internal fun StrainsPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { StrainBook() }
+@Composable
+internal fun HuntsPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { HuntTab() }
 
 @Composable
 internal fun Row2(left: String, right: String, color: Color = Cream) {

@@ -1,6 +1,7 @@
 package dev.m4s4t0.kushacres.art
 
 import android.graphics.Bitmap
+import dev.m4s4t0.kushacres.model.Pheno
 import dev.m4s4t0.kushacres.model.Strain
 import kotlin.math.PI
 import kotlin.math.abs
@@ -217,9 +218,10 @@ object Sprites {
 
     /**
      * The plant at growth [stage] (0 sprout, 1 seedling, 2 young, 3 leafy, 4 flowering, 5 ready), its top leaning
-     * [sway] fine pixels for the breeze.
+     * [sway] fine pixels for the breeze. A rare pheno [colour] tints the buds.
      */
-    fun plant(s: Strain, stage: Int, sway: Int): Bitmap = plantCache.getOrPut("${s.id}/$stage/$sway") {
+    fun plant(s: Strain, stage: Int, sway: Int, colour: Int = 0): Bitmap = plantCache.getOrPut("${s.id}/$stage/$sway/$colour") {
+        val budTint = if (colour > 0) mix(s.bud, Pheno.TINTS[colour], 0.6f) else s.bud
         val px = Px(PLANT_W, PLANT_H)
         val f = px.s.toFloat()
         val r = Random(s.id.hashCode() * 31 + stage)
@@ -266,13 +268,13 @@ object Sprites {
             fanLeaf(px, tx, ty + 1, -PI / 2, if (stage == 1) 2.8f else 4f, leaf, light)
         } else {
             val ripe = stage == 5
-            val bud = s.bud
+            val bud = budTint
             // Colas: stacked calyxes on the main top and every upper node.
-            cola(px, r, tx, ty, if (ripe) 8f else 4.5f, if (ripe) 2.4f else 1.6f, s, ripe)
+            cola(px, r, tx, ty, if (ripe) 8f else 4.5f, if (ripe) 2.4f else 1.6f, s, budTint, ripe)
             nodeH.drop(1).forEachIndexed { i, h ->
                 val side = if (i % 2 == 0) -1 else 1
-                cola(px, r, xAt(h) + side * 2.6f, by - h - 1.5f, if (ripe) 3.5f else 2f, if (ripe) 1.6f else 1.1f, s, ripe)
-                cola(px, r, xAt(h) - side * 2.2f, by - h - 0.5f, if (ripe) 2.5f else 1.5f, if (ripe) 1.3f else 0.9f, s, ripe)
+                cola(px, r, xAt(h) + side * 2.6f, by - h - 1.5f, if (ripe) 3.5f else 2f, if (ripe) 1.6f else 1.1f, s, budTint, ripe)
+                cola(px, r, xAt(h) - side * 2.2f, by - h - 0.5f, if (ripe) 2.5f else 1.5f, if (ripe) 1.3f else 0.9f, s, budTint, ripe)
             }
             if (ripe) px.dot((tx * f).toInt(), ((ty - 0.6f) * f).toInt(), shade(bud, 1.4f))
         }
@@ -282,9 +284,8 @@ object Sprites {
     }
 
     /** A bud: overlapping calyxes down a [len]-pixel spear, sugar leaves poking out, pistils, and frost when [ripe]. */
-    private fun cola(px: Px, r: Random, x: Float, y: Float, len: Float, wid: Float, s: Strain, ripe: Boolean) {
+    private fun cola(px: Px, r: Random, x: Float, y: Float, len: Float, wid: Float, s: Strain, bud: Int, ripe: Boolean) {
         val f = px.s.toFloat()
-        val bud = s.bud
         val steps = (len * 2).toInt()
         for (k in 0..steps) {
             val t = k / steps.toFloat()

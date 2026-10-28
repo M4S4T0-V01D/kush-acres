@@ -28,6 +28,7 @@ object Save {
                 if (t.lvl > 1) put("lv", t.lvl)
                 if (t.pest) put("pe", true)
                 if (t.mould) put("mo", true)
+                if (t.pheno != 0) put("ph", t.pheno)
                 if (t.anchor >= 0) put("an", t.anchor)
             })
         }
@@ -52,7 +53,7 @@ object Save {
             tile.item = t.optString("it", "").takeIf { it.isNotEmpty() }
             tile.doneAt = t.optLong("d"); tile.amount = t.optInt("a")
             tile.lvl = t.optInt("lv", 1).coerceIn(1, Facility.MAX_LEVEL)
-            tile.pest = t.optBoolean("pe"); tile.mould = t.optBoolean("mo"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
+            tile.pest = t.optBoolean("pe"); tile.mould = t.optBoolean("mo"); tile.pheno = t.optInt("ph"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
             val bad = when (tile.kind) {
                 Kind.FACILITY -> Facility.of(tile.item) == null
                 Kind.HOUSE -> WorkHouse.of(tile.item) == null
@@ -111,7 +112,8 @@ object Save {
         o.put("orders", orders)
         o.put("stats", JSONObject().apply { Stat.entries.forEach { if (f.stat(it) > 0) put(it.name, f.stat(it)) } })
         o.put("trophies", JSONArray(f.trophies.toList())); o.put("bred", JSONArray(f.bred.toList())); o.put("grown", JSONArray(f.grown.toList()))
-        o.put("legacy", f.legacy); o.put("lperks", JSONArray(f.legacyPerks.map { it.name })); o.put("heirlooms", JSONArray(f.heirlooms.toList())); o.put("startMap", f.startMap.name); o.put("bestLevel", maxOf(f.bestLevel, f.level))
+        o.put("legacy", f.legacy); o.put("lperks", JSONArray(f.legacyPerks.map { it.name })); o.put("heirlooms", JSONArray(f.heirlooms.toList())); o.put("startMap", f.startMap.name)
+        o.put("finds", JSONObject(f.finds.toMap())); o.put("mothers", JSONObject(f.mothers.toMap())); o.put("hunting", JSONArray(f.hunting.toList())); o.put("bestLevel", maxOf(f.bestLevel, f.level))
         o.put("streak", f.streak); o.put("bestStreak", f.bestStreak); o.put("lastDay", f.lastDay)
         o.put("questDay", f.questDay); o.put("questBonus", f.questBonus)
         o.put("cupWeek", f.cupWeek); o.put("cup", JSONArray().apply { f.cupScores.forEach { put(JSONObject().put("s", it.first).put("p", it.second)) } })
@@ -181,6 +183,11 @@ object Save {
         f.legacy = o.optInt("legacy").coerceAtLeast(0)
         f.legacyPerks.clear(); o.optJSONArray("lperks")?.let { a -> for (i in 0 until a.length()) LegacyPerk.of(a.optString(i))?.let { f.legacyPerks += it } }
         strings("heirlooms", f.heirlooms) { Strains[it] != null }
+        for ((key, map) in listOf("finds" to f.finds, "mothers" to f.mothers)) {
+            map.clear()
+            o.optJSONObject(key)?.let { m -> for (k in m.keys()) if (Strains[k] != null) map[k] = m.optInt(k) }
+        }
+        strings("hunting", f.hunting) { it in f.mothers }
         f.startMap = StartMap.of(o.optString("startMap"))
         f.bestLevel = maxOf(o.optInt("bestLevel", 1), f.level)
         f.streak = o.optInt("streak"); f.bestStreak = o.optInt("bestStreak"); f.lastDay = o.optLong("lastDay", -1)

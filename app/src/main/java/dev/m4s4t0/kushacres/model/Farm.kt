@@ -40,6 +40,8 @@ class Tile {
     var mould = false
     /** For [Kind.PART] and [Kind.CAB]: index of the shack's or vehicle's anchor square. */
     var anchor = -1
+    /** The growing plant's phenotype (see [Pheno]). */
+    var pheno = 0
 
     fun ready(): Boolean {
         if (kind != Kind.PLOT) return false
@@ -49,12 +51,12 @@ class Tile {
 
     fun clear() {
         kind = Kind.GRASS; strain = null; progress = 0.0; wetUntil = 0; last = null
-        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1
+        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1; pheno = 0
     }
 
     fun copyFrom(o: Tile) {
         kind = o.kind; strain = o.strain; progress = o.progress; wetUntil = o.wetUntil; last = o.last
-        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor
+        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor; pheno = o.pheno
     }
 }
 
@@ -84,6 +86,8 @@ sealed class FarmEvent {
     class Goal(val goal: FarmGoal, val site: String, val xp: Long) : FarmEvent()
     class Bred(val strain: Strain) : FarmEvent()
     class Keepsake(val town: String, val keepsake: dev.m4s4t0.kushacres.model.Keepsake) : FarmEvent()
+    /** A new best phenotype worth showing off. */
+    class Find(val strain: Strain, val pheno: Int) : FarmEvent()
 }
 
 enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEEDS, SHACK, LIMIT, NO_BUD, NO_SUPPLY, BUSY, NO_POWER }
@@ -162,6 +166,7 @@ class Farm(var rng: Random = Random.Default) {
     val oy get() = site.oy
     var cash = 30L
     var level = 1
+        set(v) { field = v; Strains.scaleLevel = v }
     var xp = 0L
     /** Violet's upgrades and the shack tier belong to the farm on screen. */
     val upgrades get() = site.upgrades
@@ -224,6 +229,10 @@ class Farm(var rng: Random = Random.Default) {
     val legacyPerks = LinkedHashSet<LegacyPerk>()
     /** Ladder strains kept from the last sale: unlocked from level 1, and they yield a little more. */
     val heirlooms = LinkedHashSet<String>()
+    /** Phenotypes: the best one harvested of each strain, the ones kept as mothers, and strains still popping seeds. */
+    val finds = LinkedHashMap<String, Int>()
+    val mothers = LinkedHashMap<String, Int>()
+    val hunting = LinkedHashSet<String>()
     var startMap = StartMap.HOMESTEAD
     var bestLevel = 1
     var streak = 0
@@ -287,6 +296,7 @@ class Farm(var rng: Random = Random.Default) {
     fun owns(id: String) = sites.any { it.def.id == id }
 
     fun newGame(now: Long) {
+        Strains.scaleLevel = level
         placeShack(ox, oy)
         // A little patch beside the shack, two plants already waiting to be picked.
         for ((i, p) in listOf(2 to 2, 3 to 2, 2 to 3, 3 to 3).withIndex()) {
@@ -908,6 +918,7 @@ class Farm(var rng: Random = Random.Default) {
             spend(seedCost(s))
         }
         t.strain = strain; t.progress = 0.0; t.last = strain; t.pest = false; t.mould = false
+        t.pheno = mothers[strain]?.takeIf { strain !in hunting }?.let { it or Pheno.CLONE } ?: Pheno.roll(rng, phenoLuck(s))
         bump(Stat.PLANTED)
         return Result.OK
     }
@@ -966,22 +977,24 @@ class Farm(var rng: Random = Random.Default) {
         if (t.kind != Kind.PLOT) return Result.BLOCKED
         val s = t.strain?.let { Strains[it] } ?: return Result.BLOCKED
         if (!t.ready()) return Result.NOT_READY
-        val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0)
-        val mult = yieldMult() * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (if (s.id in heirlooms) Legacy.HEIRLOOM_YIELD else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
+        val pheno = t.pheno
+        val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0) + Pheno.golden(pheno)
+        val mult = yieldMult() * Pheno.yieldMult(pheno) * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (if (s.id in heirlooms) Legacy.HEIRLOOM_YIELD else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
             0.25 * decorAround(x, y, Decor.CRYSTAL) + perkNear(x, y, Perk.YIELD)) * (1 + 0.15 * houseNear(x, y, WorkHouse.TRIM)) *
             (if (here(Special.TERRACE)) 1.25 else 1.0)
         var grams = max(1, (s.yield * mult * (0.9 + rng.nextDouble() * 0.25)).roundToLong().toInt())
         if (golden) grams *= 3
         if (stashUsed() + grams > stashCap()) return Result.STASH_FULL
         stash[s.id] = (stash[s.id] ?: 0) + grams
-        t.strain = null; t.progress = 0.0
+        t.strain = null; t.progress = 0.0; t.pheno = 0
+        if (Pheno.set(pheno) && !Pheno.clone(pheno)) find(s, if (golden) Pheno.shine(pheno) else pheno)
         totalHarvests++
         site.harvests++
         grown += s.id
         bump(Stat.HARVESTS); bump(Stat.GRAMS, grams.toLong())
         if (golden) bump(Stat.GOLDEN)
         if (s.exotic) bump(Stat.EXOTIC)
-        val xp = (s.xp * xpMult()).roundToLong()
+        val xp = (s.xp * xpMult() * Pheno.xpMult(pheno)).roundToLong()
         events += FarmEvent.Harvest(x, y, grams, xp.toInt(), golden)
         if (rng.nextDouble() < (if (golden) 0.1 else 0.01)) { potBucks++; events += FarmEvent.Bucks(1) }
         if (golden && rng.nextDouble() < 0.03) { gems++; events += FarmEvent.Gems(1) }
@@ -993,6 +1006,36 @@ class Farm(var rng: Random = Random.Default) {
         addXp(xp)
         return Result.OK
     }
+
+    /** Lab crosses roll better phenos for each parent kept as a mother. */
+    fun phenoLuck(s: Strain) = s.parents?.toList()?.count { it in mothers } ?: 0
+
+    private fun find(s: Strain, p: Int) {
+        if (Pheno.score(p) <= Pheno.score(finds[s.id] ?: 0)) return
+        finds[s.id] = p
+        if (Pheno.yieldGrade(p) >= 3 || Pheno.potency(p) >= 3 || Pheno.colour(p) > 0) events += FarmEvent.Find(s, p)
+    }
+
+    fun motherSlots() = 2 + level / 10
+
+    /** Keeps the best find of [id] as its mother, so planting it gives clones. */
+    fun keepMother(id: String): Result {
+        val p = finds[id] ?: return Result.BLOCKED
+        if (mothers[id] == p) return Result.BLOCKED
+        if (id !in mothers && mothers.size >= motherSlots()) return Result.LIMIT
+        mothers[id] = p and Pheno.CLONE.inv()
+        hunting -= id
+        return Result.OK
+    }
+
+    fun dropMother(id: String): Result {
+        if (mothers.remove(id) == null) return Result.BLOCKED
+        hunting -= id
+        return Result.OK
+    }
+
+    /** With a mother kept: plant seeds to hunt for a better pheno, or clones of her. */
+    fun toggleHunt(id: String) { if (id !in mothers) return; if (!hunting.remove(id)) hunting += id }
 
     fun addXp(n: Long) {
         xp += n
@@ -1335,7 +1378,7 @@ class Farm(var rng: Random = Random.Default) {
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmRot = -1L
         totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
-        legacy = 0; legacyPerks.clear(); heirlooms.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
+        legacy = 0; legacyPerks.clear(); heirlooms.clear(); finds.clear(); mothers.clear(); hunting.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
         farmer = null; festivalUntil = 0; festivalSite = null

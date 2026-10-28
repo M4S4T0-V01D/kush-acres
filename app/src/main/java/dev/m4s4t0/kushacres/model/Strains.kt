@@ -19,13 +19,13 @@ class Strain(
     val name: String,
     val minutes: Int,
     val level: Int,
-    /** Cost to plant one plot. */
-    val seed: Long,
+    /** Cost to plant one plot, before event scaling (see [seed]). */
+    val seed0: Long,
     /** Grams per harvest before Genetics. */
     val yield: Int,
-    /** Market price per gram at full demand, before Street Cred. */
-    val price: Long,
-    val xp: Int,
+    /** Market price per gram at full demand, before Street Cred and event scaling (see [price]). */
+    val price0: Long,
+    val xp0: Int,
     /** Sprite colours (ARGB): leaves, buds and the little hairs on them. */
     val leaf: Int,
     val bud: Int,
@@ -43,7 +43,32 @@ class Strain(
     val bucks: Long = 0,
     /** Hybrids carry both parents' traits; everything else gets one of its own. */
     inherit: Set<Trait>? = null,
+    /** Event strains keep pace with the farm: they earn this many times the best ladder strain you've reached. */
+    edge: Double? = null,
 ) {
+    val edge: Double = edge ?: if (holiday != null) Strains.EVENT_EDGE else 0.0
+    /** Event strains (holiday, Pot Bucks, and lab crosses made from them) scale with the farm's level. */
+    val event: Boolean get() = edge > 0
+    private var scaledAt = -1
+    private var moneyK = 1.0
+    private var xpK = 1.0
+    private fun scale() {
+        val l = Strains.scaleLevel
+        if (scaledAt == l) return
+        val (m, x) = Strains.best(l)
+        moneyK = maxOf(1.0, m * edge / (price0 * yield.toDouble() / minutes))
+        xpK = maxOf(1.0, x * edge / (xp0.toDouble() / minutes))
+        scaledAt = l
+    }
+    /** Cost to plant one plot. Scaled event seeds cost up to 15% of what the harvest sells for. */
+    val seed: Long get() {
+        if (!event) return seed0
+        scale()
+        return maxOf(seed0 * moneyK, price * yield * Strains.EVENT_SEED * minOf(1.0, moneyK - 1)).toLong()
+    }
+    /** Market price per gram at full demand, before Street Cred. */
+    val price: Long get() = if (!event) price0 else { scale(); (price0 * moneyK).toLong() }
+    val xp: Int get() = if (!event) xp0 else { scale(); (xp0 * xpK).toInt() }
     val traits: Set<Trait> = inherit ?: setOf(Trait.entries[Math.floorMod(id.hashCode(), Trait.entries.size)])
     val seconds: Long get() = minutes * 60L
     val hybrid: Boolean get() = parents != null
@@ -329,12 +354,13 @@ object Strains {
             Strain(c.id, c.name,
                 minutes = ((a.minutes + b.minutes) / 2.0 * 0.9).toInt().coerceAtLeast(4),
                 level = maxOf(a.level, b.level),
-                seed = ((a.seed + b.seed) / 2.0 * 1.2).toLong().coerceAtLeast(5),
+                seed0 = ((a.seed0 + b.seed0) / 2.0 * 1.2).toLong().coerceAtLeast(5),
                 yield = maxOf(a.yield, b.yield) + 1,
-                price = ((a.price + b.price) / 2.0 * 1.3).toLong(),
-                xp = ((a.xp + b.xp) / 2.0 * 1.25).toInt(),
+                price0 = ((a.price0 + b.price0) / 2.0 * 1.3).toLong(),
+                xp0 = ((a.xp0 + b.xp0) / 2.0 * 1.25).toInt(),
                 leaf = mix(a.leaf, b.leaf, 0.5f), bud = mix(a.bud, b.bud, 0.6f), hair = a.hair,
                 blurb = c.blurb, parents = c.a to c.b, inherit = a.traits + b.traits,
+                edge = if (a.event || b.event) CROSS_EDGE else 0.0,
             ).also { known[it.id] = it }
         }
     }
@@ -358,4 +384,21 @@ object Strains {
 
     private val byId = all.associateBy { it.id }
     operator fun get(id: String): Strain? = byId[id]
+
+    /** Event strains earn this many times the best ladder strain's money and XP per minute; their lab crosses more. */
+    const val EVENT_EDGE = 1.3
+    const val CROSS_EDGE = 1.45
+    /** The most a scaled event seed costs, as a share of what its harvest sells for. */
+    const val EVENT_SEED = 0.15
+    /** The level event strains scale to: the farm's, kept in step by [Farm.level]. */
+    @Volatile var scaleLevel = 1
+    private val bests = HashMap<Int, Pair<Double, Double>>()
+    /** The best money and XP per minute from ladder strains unlocked at level [l]. */
+    fun best(l: Int): Pair<Double, Double> = synchronized(bests) {
+        bests.getOrPut(l) {
+            val open = ladder.filter { it.level <= l }
+            (open.maxOfOrNull { it.price0 * it.yield.toDouble() / it.minutes } ?: 0.0) to
+                (open.maxOfOrNull { it.xp0.toDouble() / it.minutes } ?: 0.0)
+        }
+    }
 }

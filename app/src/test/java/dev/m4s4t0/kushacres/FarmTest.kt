@@ -1118,4 +1118,91 @@ class FarmTest {
         assertTrue(g.deals.single().weekly)
         assertEquals(Save.write(f), Save.write(g))
     }
+
+    @Test fun eventStrainsKeepPaceWithTheLadder() {
+        val f = Farm(); f.newGame(0)
+        val pumpkin = Strains["pumpkinspice"]!!
+        val jack = Strains["jackolantern"]!!
+        assertTrue(pumpkin.event && Strains["lionsmane"]!!.event && jack.event)
+        assertFalse(Strains["ditch"]!!.event)
+        assertEquals(pumpkin.price0, pumpkin.price)
+        fun money(s: dev.m4s4t0.kushacres.model.Strain) = s.price * s.yield.toDouble() / s.minutes
+        for (l in listOf(1, 10, 20, 50, 80, 120)) {
+            f.level = l
+            val top = Strains.ladder.filter { it.level <= l }.maxOf { money(it) }
+            for (s in Strains.holidays + Strains.bucksList + Strains.hybridList.filter { it.event }) {
+                assertTrue("${s.id} at $l", money(s) >= top * 1.25)
+                assertTrue("${s.id} seed at $l", s.seed < s.price * s.yield / 5)
+            }
+            println("L$l top=${top.toLong()}/min pumpkin=$${pumpkin.price}x${pumpkin.yield} seed $${pumpkin.seed} xp ${pumpkin.xp}" +
+                " jack=$${jack.price} seed $${jack.seed}")
+        }
+        f.level = 80
+        assertTrue(money(jack) > money(pumpkin))
+        f.level = 1
+        assertEquals(pumpkin.price0, pumpkin.price)
+    }
+
+    @Test fun phenosMothersAndClones() {
+        val P = dev.m4s4t0.kushacres.model.Pheno
+        // Rolls spread over every grade; luck pushes them up.
+        val rng = Random(3)
+        val plain = (1..4000).map { P.roll(rng) }
+        val lucky = (1..4000).map { P.roll(rng, 2) }
+        assertEquals((0..4).toSet(), plain.map { P.yieldGrade(it) }.toSet())
+        assertTrue(lucky.map { P.score(it) }.average() > plain.map { P.score(it) }.average() + 3)
+        assertTrue(plain.count { P.colour(it) > 0 } in 120..400)
+        assertEquals(P.PLAIN, P.yieldGrade(0))
+        assertEquals(P.of(4, 3, 2), P.shine(P.of(3, 2, 2)))
+        assertEquals(P.of(4, 4), P.shine(P.of(4, 4)))
+
+        val f = farm()
+        assertEquals(Result.OK, f.harvest(2, 2, t0))
+        assertTrue(f.finds.isEmpty())
+        val s = Strains.ladder.first()
+        f.cash = 1_000_000
+        assertEquals(Result.OK, f.plant(2, 2, s.id, t0))
+        val rolled = f.tile(2, 2).pheno
+        assertTrue(P.set(rolled) && !P.clone(rolled))
+        f.tile(2, 2).progress = s.seconds.toDouble()
+        assertEquals(Result.OK, f.harvest(2, 2, t0))
+        val found = f.finds.getValue(s.id)
+        assertTrue(found == rolled || found == P.shine(rolled))
+        assertEquals(0, f.tile(2, 2).pheno)
+
+        // A better find replaces it; a worse one doesn't.
+        f.finds[s.id] = P.of(3, 3, 1)
+        assertEquals(Result.OK, f.keepMother(s.id))
+        assertEquals(Result.BLOCKED, f.keepMother(s.id))
+        assertEquals(Result.OK, f.plant(2, 2, s.id, t0))
+        assertEquals(P.of(3, 3, 1, clone = true), f.tile(2, 2).pheno)
+        f.tile(2, 2).progress = s.seconds.toDouble()
+        assertEquals(Result.OK, f.harvest(2, 2, t0))
+        assertEquals(P.of(3, 3, 1), f.finds[s.id])
+        f.toggleHunt(s.id)
+        assertEquals(Result.OK, f.plant(2, 2, s.id, t0))
+        assertFalse(P.clone(f.tile(2, 2).pheno))
+        f.toggleHunt(s.id)
+
+        // Mother slots grow with level; lab crosses get luck from mothered parents.
+        f.level = 1
+        for (id in Strains.ladder.drop(1).take(5).map { it.id }) f.finds[id] = P.of(2, 2)
+        val ids = f.finds.keys.toList()
+        assertEquals(Result.OK, f.keepMother(ids[1]))
+        assertEquals(Result.LIMIT, f.keepMother(ids[2]))
+        f.level = 10
+        assertEquals(Result.OK, f.keepMother(ids[2]))
+        assertEquals(Result.OK, f.dropMother(ids[2]))
+        val cross = Strains.hybridList.first()
+        f.mothers[cross.parents!!.first] = P.of(2, 2); f.mothers[cross.parents!!.second] = P.of(2, 2)
+        assertEquals(2, f.phenoLuck(cross))
+        assertEquals(0, f.phenoLuck(s))
+
+        // Everything survives a save, and the pheno on a growing plant too.
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(f.finds, g.finds); assertEquals(f.mothers, g.mothers)
+        assertEquals(f.tile(2, 2).pheno, g.tile(2, 2).pheno)
+        assertEquals(f.hunting, g.hunting)
+        f.level = 1
+    }
 }

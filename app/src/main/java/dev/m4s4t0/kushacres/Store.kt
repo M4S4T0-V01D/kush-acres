@@ -98,6 +98,7 @@ object Store {
             is FarmEvent.Gems -> { toast("+${e.amount} Kush Gem${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Award -> { toast("Trophy: ${e.trophy.title}  +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Keepsake -> { toast("${e.town}'s story is done! Keepsake: ${e.keepsake.name} (${e.keepsake.desc})"); Audio.play(Sfx.UNLOCK) }
+            is FarmEvent.Find -> { toast("New find: ${e.strain.name}, ${dev.m4s4t0.kushacres.model.Pheno.label(e.pheno)}! Keep her as a mother in the Strain Book"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Bred -> { toast("Research done: ${e.strain.name}! Its seeds are in the shop"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Goal -> { toast("${e.site}: ${e.goal.title}!  +1 gem, +${e.xp} XP"); Audio.play(Sfx.UNLOCK) }
             is FarmEvent.Bucks -> if (e.token == null) { toast("+${e.amount} Pot Buck${if (e.amount == 1L) "" else "s"}!"); Audio.play(Sfx.UNLOCK) }

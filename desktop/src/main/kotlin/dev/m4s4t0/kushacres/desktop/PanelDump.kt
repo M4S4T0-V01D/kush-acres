@@ -54,6 +54,16 @@ internal fun dumpPanels(dir: String) {
     shot("hunts-away", 4)
     f.huntBack = now - 1
     shot("hunts-back", 4)
+    run {
+        val P = dev.m4s4t0.kushacres.model.Pheno
+        val ids = Strains.ladder.take(3).map { it.id }
+        f.finds[ids[0]] = P.of(4, 3, 1); f.finds[ids[1]] = P.of(2, 1); f.finds[ids[2]] = P.of(3, 3, 3)
+        f.keepMother(ids[0]); f.keepMother(ids[2]); f.toggleHunt(ids[2])
+        shot("book", 5, 700)
+        shot("plants", 0, 160) {
+            androidx.compose.foundation.layout.Row { for (c in 0..3) Px(dev.m4s4t0.kushacres.art.Sprites.plant(Strains.ladder[8], 5, 0, c), 80.dp) }
+        }
+    }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
     shot("stats", 7, 1600)
     f.legacy = 0; f.legacyPerks.clear(); f.heirlooms.clear()

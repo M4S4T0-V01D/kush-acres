@@ -40,6 +40,7 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Stat
 import dev.m4s4t0.kushacres.model.Storefronts
+import dev.m4s4t0.kushacres.model.Pheno
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.FarmGoal
 import dev.m4s4t0.kushacres.model.Cup
@@ -367,6 +368,8 @@ private fun StrainBook() {
     val all = Strains.all
     val known = all.count { f.unlocked(it) || it.id in f.bred }
     T("$known of ${all.size} strains discovered · ${f.grown.size} grown", 12.sp, Sky)
+    T("Mothers ${f.mothers.size}/${f.motherSlots()} · every seed rolls its own yield and potency. Keep your best find " +
+        "as a mother and planting that strain gives clones of her.", 9.sp, Dim, bold = false)
     Spacer(Modifier.height(6.dp))
     for (s in all) {
         val seen = (if (s.exotic) (f.seeds[s.id] ?: 0) > 0 || f.stash.containsKey(s.id) else f.unlocked(s))
@@ -380,6 +383,28 @@ private fun StrainBook() {
                 if (seen) T(s.traits.joinToString(" · ") { it.label }, 9.sp, Sky, bold = false)
             }
             if (s.id in f.grown) T("✓ Grown", 10.sp, Leaf)
+        }
+        f.finds[s.id]?.let { PhenoRow(s.id, it) }
+    }
+}
+
+/** A strain's best pheno, and its mother if it has one. */
+@Composable
+private fun PhenoRow(id: String, best: Int) {
+    val f = Store.farm
+    val mom = f.mothers[id]
+    fun act(r: Result, ok: String) { if (r == Result.OK) { Audio.play(Sfx.TAP); Store.toast(ok); Store.changed() } else report(r) }
+    Row(Modifier.fillMaxWidth().background(WoodIn).padding(start = 36.dp, end = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            T("Best: ${Pheno.label(best)}", 9.sp, if (Pheno.score(best) >= Pheno.score(Pheno.of(3, 2))) Gold else Cream, bold = false)
+            if (mom != null) T((if (mom == best) "Kept as mother" else "Mother: ${Pheno.label(mom)}") + if (id in f.hunting) " · popping seeds" else " · cloning", 9.sp, Leaf, bold = false)
+        }
+        if (mom != best) Btn(if (mom == null) "Keep" else "Swap", color = Leaf) { act(f.keepMother(id), "${Strains[id]?.name} is a mother now") }
+        if (mom != null) {
+            Spacer(Modifier.width(4.dp))
+            Btn(if (id in f.hunting) "Clone" else "Hunt", color = Sky) { f.toggleHunt(id); Store.changed() }
+            Spacer(Modifier.width(4.dp))
+            Btn("Drop", color = WoodEdge) { act(f.dropMother(id), "Mother dropped") }
         }
     }
 }

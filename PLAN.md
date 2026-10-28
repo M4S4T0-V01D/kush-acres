@@ -153,8 +153,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Pick a permanent perk each run (a perk tree), new start-map choices (Legacy.kt: 9 perks in Grower/Trader/Scientist branches, a point per sale; Homestead, Creekside, Quarry Hill, Old Greenhouse)
 
 ## Phase 14 — Phenotype hunting
-- [ ] Plants grow with a random pheno (yield, potency, colour); keep the best as mothers and clone them
-- [ ] Golden harvests and the lab tie in; phenos show in the collection book
+- [x] Plants grow with a random pheno (yield, potency, colour); keep the best as mothers and clone them
+- [x] Golden harvests and the lab tie in; phenos show in the collection book
+- [x] Event strains (holiday, Pot Bucks and their lab crosses) scale with level: 1.3× / 1.45× the best ladder strain
 
 ## Phase 15 — Active mini-moments (always optional)
 - [ ] Trimming mini-game at harvest for a quality bonus

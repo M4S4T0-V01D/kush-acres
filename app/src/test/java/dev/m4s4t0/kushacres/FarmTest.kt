@@ -1,5 +1,7 @@
 package dev.m4s4t0.kushacres
 
+import kotlin.math.roundToInt
+import org.junit.Assert.assertNotNull
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Contracts
@@ -712,7 +714,7 @@ class FarmTest {
                     st.ox + b.first >= ox + a.first && st.oy + b.first >= oy + a.first && st.ox + b.first <= Farm.MAX && st.oy + b.first <= Farm.MAX)
             }
         }
-        assertEquals(10, Sites.all.size - 1)
+        assertEquals(11, Sites.all.size - 1)
         assertEquals(Sites.all.size, Sites.all.map { it.id }.toSet().size)
     }
 
@@ -1030,6 +1032,62 @@ class FarmTest {
             g.switchTo(def.id)
             assertEquals(spot, g.tiles.indices.filter { g.tiles[it].kind == Kind.MANOR })
         } finally { Holiday.force = null }
+    }
+
+    @Test fun fort20HasWallsAndAKeep() {
+        val def = Sites["fort20"]!!
+        val c = def.castle!!
+        assertEquals(420_000_000L, def.price)
+        val f = farm()
+        f.level = def.level; f.cash = 2_000_000_000
+        assertEquals(Result.OK, f.buySite(def))
+        fun fort() = f.tiles.indices.filter { f.tiles[it].kind == Kind.FORT }
+        val spot = fort()
+        // The whole rim is wall but for the four gates, and the keep fills its 6×6.
+        assertEquals(4 * (Farm.MAX - 1) - 8 + 36, spot.size)
+        assertEquals(Kind.FORT, f.tile(0, 0).kind)
+        assertEquals(Kind.GRASS, f.tile(0, 19).kind)
+        assertEquals(Kind.FORT, f.tile(c.x + 5, c.y + 5).kind)
+        // Nothing of the castle overlaps the starting farm.
+        for (i in spot) assertFalse(f.inLand(i % Farm.MAX, i / Farm.MAX))
+        assertEquals(Result.BLOCKED, f.demolish(c.x, c.y))
+        // Moving the farm, even right over the keep, never moves or copies the stonework.
+        for ((cx, cy) in listOf(c.x + 3 to c.y + 3, 2 to 2, 30 to 30, 20 to 20)) {
+            f.relocate(cx, cy)
+            assertEquals("$cx,$cy", spot, fort())
+        }
+        val g = farm(); Save.read(Save.write(f), g)
+        g.switchTo(def.id)
+        assertEquals(spot, g.tiles.indices.filter { g.tiles[it].kind == Kind.FORT })
+    }
+
+    @Test fun everyOtherMapHasALandmark() {
+        val ids = HashSet<String>()
+        for (def in Sites.all + Sites.holidays + Sites.premium) {
+            if (def.id == "fort20" || def.id == "manor") { assertNull(def.id, def.landmark); continue }
+            val m = def.landmark
+            assertNotNull(def.id, m); m!!
+            assertTrue(def.id, ids.add(m.id))
+            assertTrue(def.id, m.x >= 1 && m.y >= 1 && m.x + m.size < Farm.MAX && m.y + m.size < Farm.MAX)
+            // Clear of the starting farm and the ring around it.
+            val ox = ((Farm.MAX - def.land) * def.ax).roundToInt(); val oy = ((Farm.MAX - def.land) * def.ay).roundToInt()
+            for (x in ox - 1..ox + def.land) for (y in oy - 1..oy + def.land) assertFalse("${def.id} $x,$y", m.yard(x, y))
+            if (def !== Sites.HOME) assertEquals(def.id, m.size * m.size, farm().mapOf(def).count { it.kind == Kind.LANDMARK })
+        }
+        assertEquals(29, ids.size)
+        val f = farm()
+        val m = Sites.HOME.landmark!!
+        fun mark() = f.tiles.indices.filter { f.tiles[it].kind == Kind.LANDMARK }
+        val spot = mark()
+        assertEquals(9, spot.size)
+        assertEquals(Result.BLOCKED, f.demolish(m.x, m.y))
+        f.cash = 1_000_000_000
+        for ((cx, cy) in listOf(m.x + 1 to m.y + 1, 10 to 10, 30 to 30)) {
+            f.relocate(cx, cy)
+            assertEquals("$cx,$cy", spot, mark())
+        }
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(spot, g.tiles.indices.filter { g.tiles[it].kind == Kind.LANDMARK })
     }
 
     @Test fun everyHolidayHasMoreToWorkFor() {

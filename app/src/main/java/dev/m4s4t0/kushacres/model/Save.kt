@@ -278,6 +278,12 @@ object Save {
             val manor = def.manor
             for (k in st.tiles.indices) if (st.tiles[k].kind == Kind.MANOR && manor?.has(k % Farm.MAX, k / Farm.MAX) != true) st.tiles[k].clear()
             if (manor != null) Sites.stampManor(manor, st.tiles)
+            val castle = def.castle
+            for (k in st.tiles.indices) if (st.tiles[k].kind == Kind.FORT && castle?.has(k % Farm.MAX, k / Farm.MAX) != true) st.tiles[k].clear()
+            if (castle != null) Sites.stampCastle(castle, st.tiles)
+            val mark = def.landmark
+            for (k in st.tiles.indices) if (st.tiles[k].kind == Kind.LANDMARK && mark?.has(k % Farm.MAX, k / Farm.MAX) != true) st.tiles[k].clear()
+            if (mark != null) Sites.stampLandmark(mark, st.tiles)
             so.optJSONArray("floors")?.let { a ->
                 for (k in 0 until minOf(a.length(), Bunker.FLOORS)) {
                     val fo = a.optJSONObject(k) ?: continue

@@ -64,6 +64,7 @@ object Chains {
         "emerald" to Keepsake("Emerald Grower's Badge", Perk.SELL),
         "volcano" to Keepsake("Obsidian Grinder", Perk.XP),
         "neon" to Keepsake("Neon Sign Fragment", Perk.SELL),
+        "fort20" to Keepsake("Castle Keep Key", Perk.SELL),
         "highland" to Keepsake("Tartan Stash Pouch", Perk.XP),
         "crater" to Keepsake("Starfall Meteorite", Perk.XP),
         "spooky" to Keepsake("Haunted Lantern", Perk.SELL),

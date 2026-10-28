@@ -52,6 +52,8 @@ import dev.m4s4t0.kushacres.art.BigHouses
 import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.Haunted
+import dev.m4s4t0.kushacres.art.Landmarks
+import dev.m4s4t0.kushacres.art.Castle
 import dev.m4s4t0.kushacres.model.Feature
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.art.People
@@ -249,6 +251,17 @@ class World {
     }
 
     /** One wild tile of the Haunted Manor's woods: dead trees hung with webs, toadstools and pumpkins, some of them glowing. */
+    /** A square of Fort 20's curtain wall or one of its towers; the keep's squares are drawn as one sprite elsewhere. */
+    private fun fort(x: Int, y: Int, cx: Int, cy: Int, c: Feature.Castle, t: Float) {
+        if (c.keep(x, y)) return
+        val tower = c.tower(x, y)
+        val top = cy + 8 - if (tower) Castle.TOWER_AY else Castle.WALL_AY
+        val (b, l) = put(if (tower) Castle.tower else Castle.wall, cx, cx - 16, top)
+        hits += Hit(x, y, b, l, top)
+        // A torch burns on every tower.
+        if (tower) light(cx.toFloat(), cy + 8f - Castle.TOWER_TOP, 12f, 0xFFB050, 0.6f + 0.15f * sin(t * 8 + x * 1.7f + y))
+    }
+
     private fun hauntedWood(x: Int, y: Int, cx: Int, cy: Int, h: Int, edge: Boolean, def: SiteDef, t: Float) {
         val yard = def.manor?.let { m -> x in m.x - 1..m.x + Feature.Manor.SIZE && y in m.y - 1..m.y + Feature.Manor.SIZE } == true
         val shroom = hash(y * 5, x + 3) % 4 == 0
@@ -470,7 +483,55 @@ class World {
         val mn = Feature.Manor.SIZE - 1
         val manorU = manor?.let { minOf(viewU(it.x, it.y), viewU(it.x + mn, it.y + mn)) } ?: 0
         val manorV = manor?.let { minOf(viewV(it.x, it.y), viewV(it.x + mn, it.y + mn)) } ?: 0
+        // Fort 20's keep covers 6×6 the same way.
+        val castle = def.castle
+        val keep = if (under) null else castle?.takeIf { f.tile(it.x, it.y).kind == Kind.FORT }
+        val kn = Feature.Castle.KEEP - 1
+        val keepU = keep?.let { minOf(viewU(it.x, it.y), viewU(it.x + kn, it.y + kn)) } ?: 0
+        val keepV = keep?.let { minOf(viewV(it.x, it.y), viewV(it.x + kn, it.y + kn)) } ?: 0
+        // Every other map's landmark, drawn the same way.
+        val mark = if (under) null else def.landmark?.takeIf { f.tile(it.x, it.y).kind == Kind.LANDMARK }
+        val markU = mark?.let { minOf(viewU(it.x, it.y), viewU(it.x + it.size - 1, it.y + it.size - 1)) } ?: 0
+        val markV = mark?.let { minOf(viewV(it.x, it.y), viewV(it.x + it.size - 1, it.y + it.size - 1)) } ?: 0
         for (s in 0..(Farm.MAX - 1) * 2) {
+          if (mark != null && s == markU + markV + 2 * mark.size - 2) {
+              val m = Landmarks.sprite(mark.id, mark.size)
+              val bx = OX + (markU - markV) * (TW / 2); val by = OY + (markU + markV) * (TH / 2) + mark.size * TH
+              val top = by - m.ay
+              ground(bx.toFloat(), by - TH * mark.size / 2f, TW * mark.size / 2f)
+              val (art, sl) = put(m.bitmap, bx, bx - m.ax, top)
+              hits += Hit(mark.x, mark.y, art, sl, top)
+              m.lights.forEachIndexed { i, (wx0, wy, c, mode) ->
+                  val wx = if (flip) m.w - 1 - wx0 else wx0
+                  val a = when (mode) {
+                      Landmarks.BEACON -> 0.35f + 0.5f * (0.5f + 0.5f * sin(t * 3f))
+                      Landmarks.PARTY -> if (sin(t * 2.5f + i * 2.3f) > -0.2f) 0.75f else 0.15f
+                      Landmarks.STEADY -> 0.6f
+                      else -> 0.6f + 0.12f * sin(t * 6 + i * 1.9f)
+                  }
+                  light(sl + wx + 0.5f, top + wy + 0.5f, if (mode == Landmarks.PARTY) 7f else 11f, c, a)
+              }
+              fill.color = 0x90E8E8E8.toInt()
+              for ((sx0, sy) in m.smoke) for (k in 0 until 3) {
+                  val life = (t * 0.6f + k / 3f) % 1f
+                  val sx = if (flip) m.w - 1 - sx0 else sx0
+                  val px = sl + sx + (if (flip) -1 else 1) * life * 6 + sin(t * 2 + k) * 1.5f
+                  val py = top + sy - life * 14
+                  val r = 1 + life * 2
+                  canvas.drawRect(px - r, py - r, px + r, py + r, fill)
+              }
+          }
+          if (keep != null && s == keepU + keepV + 2 * Feature.Castle.KEEP - 2) {
+              val bx = OX + (keepU - keepV) * (TW / 2); val by = OY + (keepU + keepV) * (TH / 2) + Feature.Castle.KEEP * TH
+              val top = by - Castle.KEEP_AY
+              ground(bx.toFloat(), by - TH * 3f, TW * 2.6f)
+              val (art, sl) = put(Castle.keep, bx, bx - Castle.KEEP_AX, top)
+              hits += Hit(keep.x, keep.y, art, sl, top)
+              Castle.windows.forEachIndexed { i, (wx0, wy, c) ->
+                  val wx = if (flip) Castle.KEEP_W - 1 - wx0 else wx0
+                  light(sl + wx + 0.5f, top + wy + 0.5f, 10f, c and 0xFFFFFF, 0.6f + 0.12f * sin(t * 6 + i * 1.9f))
+              }
+          }
           if (manor != null && s == manorU + manorV + 2 * Feature.Manor.SIZE - 2) {
               val bx = OX + (manorU - manorV) * (TW / 2); val by = OY + (manorU + manorV) * (TH / 2) + Feature.Manor.SIZE * TH
               val top = by - Haunted.AY
@@ -539,12 +600,16 @@ class World {
             val tile = f.tile(x, y)
             if (!f.inLand(x, y)) {
                 if (under) continue
+                if (tile.kind == Kind.FORT) { castle?.let { fort(x, y, cx, cy, it, t) }; continue }
                 if (tile.kind == Kind.ROCK) { put(Sprites.rock(hash(y, x) % 6), cx, cx - 10, cy - 13); continue }
                 if (tile.kind != Kind.GRASS) continue
                 val h = hash(x, y) % 7
                 // The ring right around the farm stays clear.
                 val edge = x in ox - 1..ox + land && y in oy - 1..oy + land
+                if (def.landmark?.yard(x, y) == true) continue
                 if (def.haunted) { hauntedWood(x, y, cx, cy, h, edge, def, t); continue }
+                // The gates and the keep's yard stay clear.
+                if (castle != null && (castle.gate(x, y) || x in castle.x - 1..castle.x + Feature.Castle.KEEP && y in castle.y - 1..castle.y + Feature.Castle.KEEP)) continue
                 if (h < def.trees && !edge) put(Sprites.tree(if (def.pines) 2 + 3 * (hash(y, x) % 2) else hash(y, x) % 6), cx, cx - 13, cy - 36)
                 else if (h == def.trees && def.trees > 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 continue
@@ -607,6 +672,8 @@ class World {
                     light(cx.toFloat(), cy - 16f, 12f, 0xD8A0FF, 0.45f + 0.15f * sin(t * 2 + y))
                 }
                 Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
+                Kind.FORT -> castle?.let { fort(x, y, cx, cy, it, t) }
+                Kind.LANDMARK -> {}
                 Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.takeIf { (x to y) !in bigAt }?.let { h ->
@@ -1078,7 +1145,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 Mode.Demolish -> when {
                     tile.kind == Kind.GRASS -> ui.selected = null
                     // Boulders are broken up from their card; water stays.
-                    tile.kind == Kind.ROCK || tile.kind == Kind.WATER || tile.kind == Kind.MANOR -> ui.selected = x to y
+                    tile.kind == Kind.ROCK || tile.kind == Kind.WATER || tile.kind == Kind.MANOR || tile.kind == Kind.FORT || tile.kind == Kind.LANDMARK -> ui.selected = x to y
                     ui.selected == (x to y) -> {
                         val r = f.demolish(x, y)
                         if (r == Result.OK) { buzz(); Store.changed() } else complain(r)
@@ -1092,6 +1159,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         tile.kind == Kind.GRASS -> return
                         tile.kind == Kind.WATER -> { Store.toast("Water stays where nature put it"); return }
                         tile.kind == Kind.MANOR -> { Store.toast("The manor stays where it is. Nobody's been brave enough to try"); return }
+                        tile.kind == Kind.FORT -> { Store.toast("Those walls have stood for 600 years. They're not moving for you"); return }
+                        tile.kind == Kind.LANDMARK -> { Store.toast("The ${f.site.def.landmark?.name ?: "landmark"} isn't going anywhere"); return }
                         tile.kind == Kind.ROCK -> f.clearRock(x, y)
                         // A plant goes first; the plot under it goes on the next tap.
                         tile.kind == Kind.PLOT && tile.strain != null -> f.uproot(x, y)
@@ -1119,6 +1188,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     if (from == null) {
                         if (tile.kind == Kind.GRASS) Store.toast("Tap something to pick it up")
                         else if (tile.kind == Kind.MANOR) Store.toast("The manor won't budge")
+                        else if (tile.kind == Kind.FORT) Store.toast("The castle won't budge")
+                        else if (tile.kind == Kind.LANDMARK) Store.toast("The ${f.site.def.landmark?.name ?: "landmark"} won't budge")
                         else if (tile.kind == Kind.ROCK || tile.kind == Kind.WATER) Store.toast("That stays where nature put it")
                         else {
                             ui.mode = Mode.Move(x to y)

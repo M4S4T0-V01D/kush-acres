@@ -395,6 +395,8 @@ object Strains {
             N("volcano", 40, "obsidian", "Obsidian OG", 0xFF1E1E24, 0xFF3A3A4A, 0xFFFF2AA0, "Black glass buds with pink fire inside.", true),
             N("neon", 45, "neonnights", "Neon Nights", 0xFF2A1E3A, 0xFFFF2AD0, 0xFF2AFFF0, "Buzzes like a sign at 3am.", false),
             N("neon", 45, "laserlime", "Laser Lime", 0xFF1E3A2A, 0xFFC8FF1E, 0xFFFF3AFF, "Do not look directly at the buds.", true),
+            N("fort20", 48, "kingsguard", "King's Guard", 0xFF2A3A24, 0xFF4AE05A, 0xFFFFD23A, "Stands watch on the battlements all night.", false),
+            N("fort20", 48, "siegehaze", "Siege Haze", 0xFF2A2E2A, 0xFFB8B0A0, 0xFF7AFF4A, "Wears down every wall you put up.", true),
             N("highland", 51, "heather", "Highland Heather", 0xFF3A4A3A, 0xFFC08AFF, 0xFFFFE0F0, "Purple hills, purple haze.", false),
             N("highland", 51, "thistle", "Thistle Haze", 0xFF2A3A2A, 0xFFE04AFF, 0xFFFFFFFF, "Prickly and proud.", true),
             N("crater", 58, "meteorite", "Meteorite", 0xFF1E2A3A, 0xFF1EE0FF, 0xFFFF9A1E, "Still warm from the fall.", false),
@@ -426,6 +428,7 @@ object Strains {
             S("emerald", 35, "truffle", "Triangle Truffle", 0xFF1E4A2A, 0xFF4A3A2A, 0xFF3AFF8A, "Dug up by a pig who won't say where."),
             S("volcano", 40, "pele", "Pele's Fire", 0xFF2A1E1E, 0xFFFF2A1E, 0xFFFFA01E, "A gift from the mountain. Don't make it angry."),
             S("neon", 45, "glowstick", "Glowstick OG", 0xFF1E2A1E, 0xFF5AFF2A, 0xFFFF2AFF, "Crack it and shake it."),
+            S("fort20", 48, "trebuchet", "Trebuchet Thunder", 0xFF2A3A1E, 0xFF8AE03A, 0xFFE0703A, "Lobs you clean over the castle wall."),
             S("highland", 51, "nessie", "Loch Ness Haze", 0xFF1E3A3A, 0xFF3A7A8A, 0xFFC0FFE0, "Surfaces once in a while. Nobody believes you."),
             S("crater", 58, "abduction", "Alien Abduction", 0xFF1E1E3A, 0xFF8AFF5A, 0xFFE0E0FF, "Lost time, found bud."),
         )
@@ -480,6 +483,7 @@ object Strains {
         Cross("emeraldisle", "jade", "jadeisle", "Jade Isle", "Green on green on green."),
         Cross("magma", "obsidian", "eruption", "Eruption", "Black buds with lava running through them."),
         Cross("neonnights", "laserlime", "synthwave", "Synthwave", "Sounds like 1986 looks."),
+        Cross("kingsguard", "siegehaze", "fortknox", "Fort Knox Kush", "Guarded like gold, smoked like a king."),
         Cross("heather", "thistle", "bagpipe", "Bagpipe Haze", "Loud, purple and Scottish."),
         Cross("meteorite", "stardust", "impact", "Impact Kush", "Hits like a space rock."),
         // Holiday crosses: each holiday's pair together.

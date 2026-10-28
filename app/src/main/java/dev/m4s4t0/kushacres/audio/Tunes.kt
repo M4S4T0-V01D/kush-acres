@@ -25,6 +25,7 @@ object Tunes {
         "emerald" to Tune(58, 72, false, intArrayOf(0, 3), Lead.ORGAN, 81, bars = 2, bubble = true),
         "volcano" to Tune(60, 70, true, intArrayOf(0, 5, 3, 4), Lead.HORN, 91),
         "neon" to Tune(54, 76, true, intArrayOf(0, 5), Lead.SYNTH, 101, bars = 2, dub = 0.5f),
+        "fort20" to Tune(50, 72, true, intArrayOf(0, 5, 3, 4), Lead.HORN, 421),
         "highland" to Tune(50, 70, false, intArrayOf(0, 3, 4, 3), Lead.FLUTE, 111),
         "crater" to Tune(51, 64, true, intArrayOf(0, 6, 5, 6), Lead.SYNTH, 121, dub = 0.6f),
         "spooky" to Tune(50, 64, true, intArrayOf(0, 5, 3, 4), Lead.BELL, 131, dub = 0.6f),

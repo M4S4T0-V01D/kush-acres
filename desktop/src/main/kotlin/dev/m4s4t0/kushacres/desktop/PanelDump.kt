@@ -111,6 +111,49 @@ internal fun dumpPanels(dir: String) {
         val pic = dev.m4s4t0.kushacres.ui.photo(w, f, 720, 360, android.graphics.RectF(0f, 0f, 720f, 360f), 3f, 1.3f, dusk)
         File(dir, "snap.png").writeBytes(pic.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes)
     }
+    run {
+        // Fort 20: the whole walled map, then a close look at the keep and the north gate, by day and at night.
+        val home = f.site.def.id; val lvl = f.level; val cash = f.cash
+        val def = dev.m4s4t0.kushacres.model.Sites["fort20"]!!
+        f.level = def.level; f.cash = def.price * 2; f.buySite(def)
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val M = dev.m4s4t0.kushacres.model.Farm.MAX - 1
+        val xs = listOf(w.centerX(0, 0), w.centerX(M, 0), w.centerX(0, M), w.centerX(M, M))
+        val ys = listOf(w.centerY(0, 0), w.centerY(M, 0), w.centerY(0, M), w.centerY(M, M))
+        val day = dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f)
+        val night = dev.m4s4t0.kushacres.ui.Light(1f, 0xFF4C5CAD.toInt(), 0f, 0f, 0f)
+        fun snap(name: String, l: Int, t: Int, r: Int, b: Int, z: Int, light: dev.m4s4t0.kushacres.ui.Light, h: Int) {
+            w.view(l, t, r, b, z); w.render(f, now, 1.3f, light, null, false)
+            val img = org.jetbrains.skia.Image.makeFromBitmap(w.bitmap.sk)
+            File(dir, "$name.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        snap("fort-map", xs.min() - 20, ys.min() - 90, xs.max() + 20, ys.max() + 20, 1, day, 520)
+        val c = def.castle!!
+        val kx = w.centerX(c.x + 3, c.y + 3); val ky = w.centerY(c.x + 3, c.y + 3)
+        snap("fort-keep", kx - 130, ky - 200, kx + 130, ky + 60, 3, day, 700)
+        snap("fort-keep-night", kx - 130, ky - 200, kx + 130, ky + 60, 3, night, 700)
+        val gx = w.centerX(19, M); val gy = w.centerY(19, M)
+        snap("fort-gate", gx - 140, gy - 110, gx + 140, gy + 40, 3, day, 520)
+        // Every other map's landmark, close up by day and by night.
+        for (d in dev.m4s4t0.kushacres.model.Sites.all + dev.m4s4t0.kushacres.model.Sites.holidays + dev.m4s4t0.kushacres.model.Sites.premium) {
+            val m = d.landmark ?: continue
+            try {
+            if (d.id != home) {
+                val h = dev.m4s4t0.kushacres.model.Holiday.entries.firstOrNull { it.id == d.holiday }
+                if (h != null) {
+                    dev.m4s4t0.kushacres.model.Holiday.force = h
+                    f.addTokens(h, 10_000_000); f.buyHolidayFarm(h, d)
+                    dev.m4s4t0.kushacres.model.Holiday.force = null
+                } else { f.level = maxOf(f.level, d.level); f.cash = d.price * 2 + 1_000_000; f.buySite(d) }
+            }
+            if (!f.switchTo(d.id)) { File(dir, "mark-${m.id}.err").writeText("no switch"); continue }
+            val mx = w.centerX(m.x + m.size / 2, m.y + m.size / 2); val my = w.centerY(m.x + m.size / 2, m.y + m.size / 2)
+            snap("mark-${m.id}", mx - 110, my - 150, mx + 110, my + 50, 2, day, 400)
+            snap("mark-${m.id}-night", mx - 110, my - 150, mx + 110, my + 50, 2, night, 400)
+            } catch (e: Throwable) { File(dir, "mark-${m.id}.err").writeText(e.stackTraceToString()) }
+        }
+        f.switchTo(home); f.level = lvl; f.cash = cash
+    }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
     shot("stats", 4, 1600)
     f.legacy = 0; f.legacyPerks.clear(); f.heirlooms.clear()

@@ -651,6 +651,8 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.GRASS -> "Grass"
                 Kind.ROCK -> "Boulder"
                 Kind.MANOR -> "Haunted manor"
+                Kind.FORT -> "Castle stonework"
+                Kind.LANDMARK -> f.site.def.landmark?.name ?: "Landmark"
                 Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
                 Kind.HOUSE -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: ""
@@ -708,6 +710,8 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 }
             }
             Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
+            Kind.FORT -> T("The walls of Fort 20 have kept out armies, tax men and at least one dragon. You can farm right up to them, but you can't build on them, and they aren't going anywhere.", 12.sp, Dim)
+            Kind.LANDMARK -> T((f.site.def.landmark?.blurb ?: "") + " You can farm right up to it, but it isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
             Kind.MANOR -> T("Empty for a hundred years, if you ask the town. The lights in its windows say otherwise. It isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
             Kind.HOUSE -> WorkHouse.of(tile.item)?.let { HouseInfo(ui, x, y, it) }
             Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.let { v ->

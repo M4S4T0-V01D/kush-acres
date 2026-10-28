@@ -103,6 +103,8 @@ private fun BoxScope.PeekCard(ui: UiState, def: SiteDef) {
                 val col = when (tiles[y * M + x].kind) {
                     Kind.WATER -> Color(0xFF3A7AC8)
                     Kind.MANOR -> Color(0xFF3A2E48)
+                    Kind.FORT -> Color(0xFF8A8478)
+                    Kind.LANDMARK -> Color(0xFF9A6A48)
                     Kind.ROCK -> Color(0xFF8A8A8A)
                     Kind.HOUSE, Kind.WING -> Color(0xFFA0583A)
                     Kind.PATH -> Color(0xFFC8A870)

@@ -372,6 +372,7 @@ enum class BmItem(val title: String, val desc: String, val level: Int, val base:
     TRUFFLE("Triangle Truffle seeds", "Local special. Only grows on Emerald Triangle", 35, 0.0, strain = "truffle", site = "emerald"),
     PELE("Pele's Fire seeds", "Local special. Only grows on Volcano Isle", 40, 0.0, strain = "pele", site = "volcano"),
     GLOWSTICK("Glowstick OG seeds", "Local special. Only grows on Neon Valley", 45, 0.0, strain = "glowstick", site = "neon"),
+    TREBUCHET("Trebuchet Thunder seeds", "Local special. Only grows on Fort 20", 48, 0.0, strain = "trebuchet", site = "fort20"),
     NESSIE("Loch Ness Haze seeds", "Local special. Only grows on Highland Terraces", 51, 0.0, strain = "nessie", site = "highland"),
     ABDUCTION("Alien Abduction seeds", "Local special. Only grows on Cosmic Crater", 58, 0.0, strain = "abduction", site = "crater");
 

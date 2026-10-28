@@ -67,6 +67,8 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.LAMP -> "Grow lamp"
                 Kind.ROCK -> "Boulder"
                 Kind.MANOR -> "Haunted manor"
+                Kind.FORT -> "Castle stonework"
+                Kind.LANDMARK -> f.site.def.landmark?.name ?: "Landmark"
                 Kind.WATER -> "Water"
                 Kind.SHACK, Kind.PART -> "Shack"
                 Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: "Vehicle"
@@ -141,6 +143,8 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 }
                 Kind.WATER -> T("That stays where nature put it.", 12.sp, Dim)
                 Kind.MANOR -> T("Something in there is watching. Best leave it be.", 12.sp, Dim)
+                Kind.FORT -> T("Six hundred years of stone. It keeps the harvest safe and it isn't going anywhere.", 12.sp, Dim)
+                Kind.LANDMARK -> T((f.site.def.landmark?.blurb ?: "") + " It isn't going anywhere.", 12.sp, Dim)
                 Kind.SHACK, Kind.PART -> {
                     item("Open", Gold) { ui.panel = Panel.SHACK; close() }
                     item("Go inside", Gold) { ui.room = RoomKind.HOME; close() }

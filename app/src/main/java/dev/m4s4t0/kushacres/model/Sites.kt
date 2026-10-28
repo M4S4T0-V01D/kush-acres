@@ -25,6 +25,31 @@ sealed class Feature {
         fun has(a: Int, b: Int) = a in x until x + SIZE && b in y until y + SIZE
         companion object { const val SIZE = 4 }
     }
+    /**
+     * A castle: a stone curtain wall round the whole map with towers along it and a gate in the middle of each side,
+     * and a fortress keep, [Castle.KEEP] squares across with its corner at [x],[y]. None of it can be built on or knocked down.
+     */
+    class Castle(val x: Int, val y: Int) : Feature() {
+        fun keep(a: Int, b: Int) = a in x until x + KEEP && b in y until y + KEEP
+        private fun rim(a: Int) = a == 0 || a == Farm.MAX - 1
+        fun gate(a: Int, b: Int) = rim(a) && b in GATE || rim(b) && a in GATE
+        fun wall(a: Int, b: Int) = (rim(a) || rim(b)) && !gate(a, b)
+        fun tower(a: Int, b: Int) = wall(a, b) && (rim(a) && b in TOWERS || rim(b) && a in TOWERS)
+        fun has(a: Int, b: Int) = keep(a, b) || wall(a, b)
+        companion object {
+            const val KEEP = 6
+            val GATE = 19..20
+            val TOWERS = setOf(0, 9, 18, 21, 30, 39)
+        }
+    }
+    /**
+     * The map's own landmark (a barn, a lighthouse, a windmill...), [size] squares across with its corner at [x],[y];
+     * [id] picks its art. Like the mansion, nobody can build on it or knock it down.
+     */
+    class Landmark(val id: String, val name: String, val blurb: String, val x: Int, val y: Int, val size: Int = 3) : Feature() {
+        fun has(a: Int, b: Int) = a in x until x + size && b in y until y + size
+        fun yard(a: Int, b: Int) = a in x - 1..x + size && b in y - 1..y + size
+    }
 }
 
 /**
@@ -49,6 +74,12 @@ class SiteDef(
 ) {
     /** The mansion standing on this map, if there is one. */
     val manor get() = features.firstNotNullOfOrNull { it as? Feature.Manor }
+    /** The castle walls and keep on this map, if there are any. */
+    val castle get() = features.firstNotNullOfOrNull { it as? Feature.Castle }
+    /** The map's landmark, if it has one. */
+    val landmark get() = features.firstNotNullOfOrNull { it as? Feature.Landmark }
+    /** Whether a landmark that never moves (the mansion, the castle, the rest) stands on [x],[y]. */
+    fun fixed(x: Int, y: Int) = manor?.has(x, y) == true || castle?.has(x, y) == true || landmark?.has(x, y) == true
 
     companion object {
         /** How big a newly bought site starts. */
@@ -60,74 +91,97 @@ class SiteDef(
 
 object Sites {
     val HOME = SiteDef("home", "Home Acres", "Where it all started.", 1, 0, 0f, 0f,
-        0xFF62AE45.toInt(), 0xFF3E7D3C.toInt(), 0xFF2B2118.toInt(), 0xFF3B2D20.toInt(), 0xFF8A6238.toInt(), 3)
+        0xFF62AE45.toInt(), 0xFF3E7D3C.toInt(), 0xFF2B2118.toInt(), 0xFF3B2D20.toInt(), 0xFF8A6238.toInt(), 3,
+        features = listOf(Feature.Landmark("barn", "Old Red Barn", "Grandpa's barn. It's leaned like that since 1962.", 33, 4)))
 
     val all: List<SiteDef> = listOf(
         HOME,
         SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 15, 120_000, 0.5f, 0.5f,
             0xFF4F9A3E.toInt(), 0xFF2F6236.toInt(), 0xFF16241A.toInt(), 0xFF213624.toInt(), 0xFF5E8A4E.toInt(), 5, pines = true,
-            roof = 2, wall = 5, features = listOf(Feature.Lake(0.18f, 0.2f, 4f), Feature.Lake(0.85f, 0.75f, 3f), Feature.Rocks(0.03f))),
+            roof = 2, wall = 5, features = listOf(Feature.Lake(0.18f, 0.2f, 4f), Feature.Lake(0.85f, 0.75f, 3f), Feature.Rocks(0.03f),
+                Feature.Landmark("lookout", "Fire Lookout", "A ranger's cabin up on stilts, watching the canopy for smoke. Not that smoke.", 26, 8))),
         SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 19, 400_000, 1f, 0f,
             0xFFCFAE6A.toInt(), 0xFFAE8A4E.toInt(), 0xFF3A1E14.toInt(), 0xFF52291B.toInt(), 0xFFC0703E.toInt(), 0,
-            roof = 0, wall = 0, features = listOf(Feature.Lake(0.3f, 0.75f, 3f), Feature.Rocks(0.09f))),
+            roof = 0, wall = 0, features = listOf(Feature.Lake(0.3f, 0.75f, 3f), Feature.Rocks(0.09f),
+                Feature.Landmark("mission", "Old Mission", "Sun-bleached adobe and a bell nobody's rung in a century.", 14, 8))),
         SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 23, 1_200_000, 0f, 1f,
             0xFF5C8C3A.toInt(), 0xFF3C6630.toInt(), 0xFF102624.toInt(), 0xFF173A36.toInt(), 0xFF3E8C7E.toInt(), 4,
             roof = 4, wall = 4, features = listOf(Feature.River(true, 0.62f, 2.5f), Feature.Lake(0.2f, 0.25f, 3.5f),
-                Feature.Lake(0.8f, 0.2f, 2.5f), Feature.Lake(0.9f, 0.9f, 3f))),
+                Feature.Lake(0.8f, 0.2f, 2.5f), Feature.Lake(0.9f, 0.9f, 3f),
+                Feature.Landmark("stiltshack", "Stilt Shack", "A tin-roofed shack on stilts. The gators pay rent.", 11, 20))),
         SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 27, 4_000_000, 1f, 1f,
             0xFF86BE52.toInt(), 0xFF5E9440.toInt(), 0xFF3A1A22.toInt(), 0xFF52242E.toInt(), 0xFFE07A5A.toInt(), 2,
-            roof = 1, wall = 1, features = listOf(Feature.Coast(0, 7), Feature.Coast(2, 6), Feature.Rocks(0.02f))),
+            roof = 1, wall = 1, features = listOf(Feature.Coast(0, 7), Feature.Coast(2, 6), Feature.Rocks(0.02f),
+                Feature.Landmark("lighthouse", "Sunset Lighthouse", "Still turns every night, guiding boats past the rocks.", 10, 22))),
         SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 31, 10_000_000, 0.5f, 0f,
             0xFFDCE6EC.toInt(), 0xFFB4C4D0.toInt(), 0xFF141E2C.toInt(), 0xFF1E2C40.toInt(), 0xFF7AA8D0.toInt(), 4, pines = true,
-            roof = 1, wall = 2, features = listOf(Feature.Lake(0.2f, 0.85f, 3.5f), Feature.Rocks(0.06f))),
+            roof = 1, wall = 2, features = listOf(Feature.Lake(0.2f, 0.85f, 3.5f), Feature.Rocks(0.06f),
+                Feature.Landmark("observatory", "Frostpeak Observatory", "Thin air and clear skies. The telescope sees all the way to the next galaxy.", 28, 18))),
         SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 35, 30_000_000, 0f, 0.5f,
             0xFF3FA84A.toInt(), 0xFF2A7436.toInt(), 0xFF0E2418.toInt(), 0xFF153626.toInt(), 0xFF3CC07A.toInt(), 3,
-            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.25f, 2f), Feature.Lake(0.8f, 0.7f, 2.5f))),
+            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.25f, 2f), Feature.Lake(0.8f, 0.7f, 2.5f),
+                Feature.Landmark("growdome", "Grow Dome", "A glass dome full of purple light. The old-timers' secret garden.", 20, 26))),
         SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 40, 80_000_000, 0.5f, 0.5f,
             0xFF6E645A.toInt(), 0xFF4A423E.toInt(), 0xFF2A0E0C.toInt(), 0xFF3E1612.toInt(), 0xFFD04A2A.toInt(), 1,
             roof = 4, wall = 5, features = listOf(Feature.Coast(0, 4), Feature.Coast(1, 4), Feature.Coast(2, 4), Feature.Coast(3, 4),
-                Feature.Rocks(0.08f))),
+                Feature.Rocks(0.08f),
+                Feature.Landmark("moai", "Stone Heads", "Three stone heads that were here before anyone. They seem to approve.", 27, 9))),
         SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 45, 200_000_000, 1f, 0.5f,
             0xFF5FA87A.toInt(), 0xFF3A6E5A.toInt(), 0xFF1E1028.toInt(), 0xFF2C1840.toInt(), 0xFFC060E8.toInt(), 2,
             roof = 3, wall = 3, features = listOf(Feature.Lake(0.15f, 0.2f, 3f), Feature.Lake(0.25f, 0.8f, 3.5f),
-                Feature.Lake(0.75f, 0.1f, 2.5f))),
+                Feature.Lake(0.75f, 0.1f, 2.5f),
+                Feature.Landmark("diner", "Neon Diner", "Open all night. The pie is legendary and so are the munchies.", 18, 18))),
+        SiteDef("fort20", "Fort 20", "Stone walls all the way round and a keep in the middle. Nobody's getting at this harvest.", 48, 420_000_000, 0.5f, 0.66f,
+            0xFF6EA84A.toInt(), 0xFF4A7A3A.toInt(), 0xFF1C1A1E.toInt(), 0xFF2A282E.toInt(), 0xFFB0A488.toInt(), 3,
+            roof = 4, wall = 2, features = listOf(Feature.Lake(0.15f, 0.82f, 2.5f), Feature.Rocks(0.03f), Feature.Castle(17, 7))),
         SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 51, 600_000_000, 0.5f, 1f,
             0xFF8AB04E.toInt(), 0xFF5E7E3A.toInt(), 0xFF1A1E24.toInt(), 0xFF262C36.toInt(), 0xFF8A9AB0.toInt(), 3, pines = true,
-            roof = 4, wall = 2, features = listOf(Feature.River(true, 0.15f, 1.5f), Feature.Rocks(0.1f))),
+            roof = 4, wall = 2, features = listOf(Feature.River(true, 0.15f, 1.5f), Feature.Rocks(0.1f),
+                Feature.Landmark("pagoda", "Mountain Pagoda", "Red tiers stacked up to the clouds. Wind chimes and a lot of calm.", 24, 14))),
         SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 58, 1_800_000_000, 0.5f, 0.5f,
             0xFF7A70A8.toInt(), 0xFF4E4878.toInt(), 0xFF0E1030.toInt(), 0xFF181C48.toInt(), 0xFF7A88F0.toInt(), 1,
-            roof = 3, wall = 2, features = listOf(Feature.Rim(13f), Feature.Lake(0.08f, 0.1f, 2.5f), Feature.Lake(0.92f, 0.9f, 2.5f))),
+            roof = 3, wall = 2, features = listOf(Feature.Rim(13f), Feature.Lake(0.08f, 0.1f, 2.5f), Feature.Lake(0.92f, 0.9f, 2.5f),
+                Feature.Landmark("ufo", "The Crashed Saucer", "Whatever fell here is still humming.", 26, 17, 4))),
     )
 
     /** Holiday farms, one per holiday, priced in its tokens. They aren't on the realtor's list. */
     val holidays: List<SiteDef> = listOf(
         SiteDef("spooky", "Spooky Hollow", "Dead trees, a foggy pond and something moving in the pumpkins.", 1, 500, 0.5f, 0.5f,
             0xFF5A6A3A.toInt(), 0xFF2E3A2A.toInt(), 0xFF1A1020.toInt(), 0xFF2A1A34.toInt(), 0xFFFF8A1E.toInt(), 4,
-            roof = 3, wall = 5, features = listOf(Feature.Lake(0.2f, 0.75f, 3f), Feature.Rocks(0.05f)), holiday = "halloween"),
+            roof = 3, wall = 5, features = listOf(Feature.Lake(0.2f, 0.75f, 3f), Feature.Rocks(0.05f),
+                Feature.Landmark("crypt", "Hollow Chapel", "A crooked chapel with a window that glows purple at night.", 27, 8)), holiday = "halloween"),
         SiteDef("northpole", "North Pole Acres", "Snow, candy-striped fences and an elf union.", 1, 500, 0.5f, 0f,
             0xFFEAF2F6.toInt(), 0xFFC4D4DE.toInt(), 0xFF2A0E12.toInt(), 0xFF3E141A.toInt(), 0xFFE03A3A.toInt(), 5, pines = true,
-            roof = 0, wall = 1, features = listOf(Feature.Lake(0.8f, 0.8f, 3f)), holiday = "christmas"),
+            roof = 0, wall = 1, features = listOf(Feature.Lake(0.8f, 0.8f, 3f),
+                Feature.Landmark("xmastree", "The Great Tree", "The tallest tree at the pole, lit every night of the year.", 8, 14)), holiday = "christmas"),
         SiteDef("timesquare", "Midnight Square", "The party never ends. Neither does the confetti.", 1, 500, 0.5f, 0.5f,
             0xFF5A8A6A.toInt(), 0xFF3A5A4A.toInt(), 0xFF101024.toInt(), 0xFF1A1A3A.toInt(), 0xFFFFD23A.toInt(), 1,
-            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.02f)), holiday = "newyear"),
+            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.02f),
+                Feature.Landmark("balltower", "Countdown Tower", "The ball drops at midnight. Every midnight.", 28, 10)), holiday = "newyear"),
         SiteDef("lovers", "Lovers' Lane", "Pink blossoms over a heart-shaped pond.", 1, 500, 0f, 0.5f,
             0xFF7ABE6A.toInt(), 0xFF5A9A5A.toInt(), 0xFF3A1024.toInt(), 0xFF521A34.toInt(), 0xFFFF6AA0.toInt(), 3,
-            roof = 3, wall = 3, features = listOf(Feature.Lake(0.8f, 0.3f, 3.5f)), holiday = "valentine"),
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.8f, 0.3f, 3.5f),
+                Feature.Landmark("gazebo", "Sweetheart Gazebo", "Fairy lights, a pink roof and a bench built for two.", 20, 26)), holiday = "valentine"),
         SiteDef("clover", "Clover Glen", "Forty shades of green and a rainbow most mornings.", 1, 500, 1f, 0.5f,
             0xFF3AB04A.toInt(), 0xFF26803A.toInt(), 0xFF0E2A14.toInt(), 0xFF163A1E.toInt(), 0xFF5AFF6A.toInt(), 3,
-            roof = 2, wall = 1, features = listOf(Feature.River(true, 0.2f, 2f), Feature.Rocks(0.04f)), holiday = "stpatrick"),
+            roof = 2, wall = 1, features = listOf(Feature.River(true, 0.2f, 2f), Feature.Rocks(0.04f),
+                Feature.Landmark("roundtower", "Round Tower", "A thousand-year-old stone tower. The door's halfway up, for reasons.", 20, 8, 2)), holiday = "stpatrick"),
         SiteDef("highhill", "420 Hill", "The highest hill in the county, in every sense.", 1, 500, 0.5f, 1f,
             0xFF6ABE3A.toInt(), 0xFF4A8A30.toInt(), 0xFF1A2A10.toInt(), 0xFF26401A.toInt(), 0xFF9AFF3A.toInt(), 3,
-            roof = 2, wall = 4, features = listOf(Feature.Lake(0.15f, 0.15f, 3f)), holiday = "fourtwenty"),
+            roof = 2, wall = 4, features = listOf(Feature.Lake(0.15f, 0.15f, 3f),
+                Feature.Landmark("bong", "Big Bong Monument", "Raised by the county's finest in 1971. It still works.", 18, 16, 2)), holiday = "fourtwenty"),
         SiteDef("meadow", "Easter Meadow", "Pastel flowers, rabbit holes and eggs in odd places.", 1, 500, 0f, 0f,
             0xFF9AD27A.toInt(), 0xFF7AB05A.toInt(), 0xFF3A2A4A.toInt(), 0xFF4E3A60.toInt(), 0xFFC0A0FF.toInt(), 3,
-            roof = 3, wall = 3, features = listOf(Feature.Lake(0.75f, 0.8f, 3f)), holiday = "easter"),
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.75f, 0.8f, 3f),
+                Feature.Landmark("egg", "Giant Egg", "Nobody knows who laid it. Nobody wants to meet them.", 18, 14, 2)), holiday = "easter"),
         SiteDef("liberty", "Liberty Ranch", "Wide open prairie and fireworks every night.", 1, 500, 1f, 1f,
             0xFFA8B05A.toInt(), 0xFF7E8A42.toInt(), 0xFF101A3A.toInt(), 0xFF1A2A52.toInt(), 0xFFE03A3A.toInt(), 1,
-            roof = 1, wall = 1, features = listOf(Feature.River(false, 0.15f, 2f)), holiday = "july4"),
+            roof = 1, wall = 1, features = listOf(Feature.River(false, 0.15f, 2f),
+                Feature.Landmark("watertower", "Liberty Water Tower", "Stars, stripes and forty thousand gallons.", 18, 20)), holiday = "july4"),
         SiteDef("harvest", "Harvest Homestead", "Golden fields, red barns, a big table.", 1, 500, 0f, 1f,
             0xFFB8A050.toInt(), 0xFF8A7038.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFE0903A.toInt(), 3,
-            roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f)), holiday = "thanksgiving"),
+            roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f),
+                Feature.Landmark("windmill", "Harvest Windmill", "Grinds the grain and creaks all night.", 16, 18)), holiday = "thanksgiving"),
         // Each holiday's estate: dearer, and it starts out bigger.
         SiteDef("manor", "Haunted Manor", "A crooked mansion on the hill. The lights flicker on their own.", 1, Holiday.ESTATE, 0.3f, 0.2f,
             0xFF3E4A44.toInt(), 0xFF232430.toInt(), 0xFF140C1A.toInt(), 0xFF22142C.toInt(), 0xFFA43AFF.toInt(), 5,
@@ -135,35 +189,44 @@ object Sites {
             holiday = "halloween", land = SiteDef.ESTATE_LAND, haunted = true),
         SiteDef("workshop", "Santa's Workshop", "Toy sheds, reindeer stables and a chimney that never stops smoking.", 1, Holiday.ESTATE, 0.7f, 0.1f,
             0xFFF4F8FA.toInt(), 0xFFD0DEE6.toInt(), 0xFF1E3A22.toInt(), 0xFF2A4E2E.toInt(), 0xFFF2C440.toInt(), 6, pines = true,
-            roof = 0, wall = 1, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f)), holiday = "christmas", land = SiteDef.ESTATE_LAND),
+            roof = 0, wall = 1, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f),
+                Feature.Landmark("factory", "Toy Factory", "Santa's main works. The chimney never stops smoking.", 12, 22, 4)), holiday = "christmas", land = SiteDef.ESTATE_LAND),
         SiteDef("rooftop", "Rooftop Gardens", "Grow beds forty floors up, with the best view of the fireworks.", 1, Holiday.ESTATE, 0.3f, 0.7f,
             0xFF6A9A7A.toInt(), 0xFF4A6A5A.toInt(), 0xFF181830.toInt(), 0xFF24244A.toInt(), 0xFFC0C8FF.toInt(), 1,
-            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.01f)), holiday = "newyear", land = SiteDef.ESTATE_LAND),
+            roof = 4, wall = 1, features = listOf(Feature.Rocks(0.01f),
+                Feature.Landmark("watertank", "Water Tank", "An old wooden rooftop tank, with a sign someone put up.", 26, 8)), holiday = "newyear", land = SiteDef.ESTATE_LAND),
         SiteDef("rosegarden", "Rose Garden Estate", "Hedge mazes, rose arbours and a fountain for wishes.", 1, Holiday.ESTATE, 0.2f, 0.3f,
             0xFF6AB060.toInt(), 0xFF4A8A4A.toInt(), 0xFF4A1430.toInt(), 0xFF5E1E3E.toInt(), 0xFFFF3A6A.toInt(), 4,
-            roof = 3, wall = 3, features = listOf(Feature.Lake(0.25f, 0.75f, 3f)), holiday = "valentine", land = SiteDef.ESTATE_LAND),
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.25f, 0.75f, 3f),
+                Feature.Landmark("fountain", "Wishing Fountain", "Toss a coin. The roses heard you.", 26, 22)), holiday = "valentine", land = SiteDef.ESTATE_LAND),
         SiteDef("rainbowend", "Rainbow's End", "The pot of gold is real. The leprechauns want it back.", 1, Holiday.ESTATE, 0.8f, 0.3f,
             0xFF2EA040.toInt(), 0xFF1E7030.toInt(), 0xFF143A1A.toInt(), 0xFF1E4E26.toInt(), 0xFFFFD23A.toInt(), 3,
-            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.7f, 2f), Feature.Rocks(0.03f)), holiday = "stpatrick", land = SiteDef.ESTATE_LAND),
+            roof = 2, wall = 1, features = listOf(Feature.River(false, 0.7f, 2f), Feature.Rocks(0.03f),
+                Feature.Landmark("potofgold", "Pot of Gold", "The end of the rainbow. It's real, and it's full.", 8, 10)), holiday = "stpatrick", land = SiteDef.ESTATE_LAND),
         SiteDef("cloudnine", "Cloud Nine", "So high up the clouds roll through the rows.", 1, Holiday.ESTATE, 0.7f, 0.8f,
             0xFF7ACE4A.toInt(), 0xFF5A9E3A.toInt(), 0xFF2A1A3A.toInt(), 0xFF3A2A52.toInt(), 0xFF8A4AE0.toInt(), 3,
-            roof = 2, wall = 4, features = listOf(Feature.Lake(0.8f, 0.8f, 3f)), holiday = "fourtwenty", land = SiteDef.ESTATE_LAND),
+            roof = 2, wall = 4, features = listOf(Feature.Lake(0.8f, 0.8f, 3f),
+                Feature.Landmark("balloon", "Moored Balloon", "A patchwork balloon tied up at the edge of the sky.", 8, 8)), holiday = "fourtwenty", land = SiteDef.ESTATE_LAND),
         SiteDef("warren", "Bunny Warren", "Rolling hills riddled with burrows, and eggs in every one.", 1, Holiday.ESTATE, 0.3f, 0.3f,
             0xFFA8DA8A.toInt(), 0xFF88BA6A.toInt(), 0xFF4A3A2A.toInt(), 0xFF5E4A36.toInt(), 0xFFFFE07A.toInt(), 4,
-            roof = 3, wall = 3, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f), Feature.Rocks(0.02f)), holiday = "easter", land = SiteDef.ESTATE_LAND),
+            roof = 3, wall = 3, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f), Feature.Rocks(0.02f),
+                Feature.Landmark("burrow", "The Big Burrow", "The head rabbit lives here. Knock first.", 27, 26)), holiday = "easter", land = SiteDef.ESTATE_LAND),
         SiteDef("frontier", "Frontier Ranch", "A thousand acres of open range and a flag on every post.", 1, Holiday.ESTATE, 0.7f, 0.7f,
             0xFFB4B864.toInt(), 0xFF8A924A.toInt(), 0xFF3A1A14.toInt(), 0xFF4E241C.toInt(), 0xFF3A6AE0.toInt(), 1,
-            roof = 1, wall = 1, features = listOf(Feature.River(true, 0.8f, 2.5f), Feature.Rocks(0.03f)), holiday = "july4", land = SiteDef.ESTATE_LAND),
+            roof = 1, wall = 1, features = listOf(Feature.River(true, 0.8f, 2.5f), Feature.Rocks(0.03f),
+                Feature.Landmark("saloon", "Last Chance Saloon", "Swinging doors, a piano and no questions asked.", 8, 8)), holiday = "july4", land = SiteDef.ESTATE_LAND),
         SiteDef("orchard", "Golden Orchard", "Apple trees in every direction and a cider press in the barn.", 1, Holiday.ESTATE, 0.3f, 0.8f,
             0xFFC0A858.toInt(), 0xFF9A7E3E.toInt(), 0xFF3A200E.toInt(), 0xFF4E2E16.toInt(), 0xFFD04A2A.toInt(), 6,
-            roof = 0, wall = 5, features = listOf(Feature.Lake(0.2f, 0.8f, 2.5f)), holiday = "thanksgiving", land = SiteDef.ESTATE_LAND),
+            roof = 0, wall = 5, features = listOf(Feature.Lake(0.2f, 0.8f, 2.5f),
+                Feature.Landmark("ciderbarn", "Cider Barn", "Where every apple on the farm ends up.", 26, 8)), holiday = "thanksgiving", land = SiteDef.ESTATE_LAND),
     )
 
     /** Farms bought with Pot Bucks (their price is in Pot Bucks). Not on the realtor's list either. */
     val premium: List<SiteDef> = listOf(
         SiteDef("zion", "Zion Gardens", "Red, gold and green as far as you can see, and a bassline from the hills.", 12, 250, 0.5f, 0.5f,
             0xFF4AB04A.toInt(), 0xFF2E8A3A.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFFFD23A.toInt(), 4,
-            roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f)), holiday = "bucks"),
+            roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f),
+                Feature.Landmark("stage", "Sound System Stage", "Speaker stacks taller than the trees. Bass you feel in your chest.", 6, 8)), holiday = "bucks"),
     )
 
     private val byId = (all + holidays + premium).associateBy { it.id }
@@ -205,6 +268,41 @@ object Sites {
         return true
     }
 
+    /** Puts [l] on [tiles] with a clear yard round it, the same way as [stampManor]. */
+    fun stampLandmark(l: Feature.Landmark, tiles: Array<Tile>): Boolean {
+        val n = Farm.MAX
+        val wild = setOf(Kind.GRASS, Kind.ROCK, Kind.WATER)
+        for (y in l.y - 1..l.y + l.size) for (x in l.x - 1..l.x + l.size) {
+            if (x !in 0 until n || y !in 0 until n) continue
+            val k = tiles[y * n + x].kind
+            if (k == Kind.LANDMARK) return false
+            if (l.has(x, y) && k !in wild) return false
+        }
+        for (y in l.y - 1..l.y + l.size) for (x in l.x - 1..l.x + l.size) {
+            if (x !in 0 until n || y !in 0 until n) continue
+            val t = tiles[y * n + x]
+            if (l.has(x, y)) { t.clear(); t.kind = Kind.LANDMARK } else if (t.kind == Kind.ROCK || t.kind == Kind.WATER) t.kind = Kind.GRASS
+        }
+        return true
+    }
+
+    /**
+     * Raises [c]'s walls and keep on [tiles], over whatever wild ground is there, and clears the gates and a yard
+     * round the keep. Squares something was built on are left alone.
+     */
+    fun stampCastle(c: Feature.Castle, tiles: Array<Tile>) {
+        val n = Farm.MAX
+        val wild = setOf(Kind.GRASS, Kind.ROCK, Kind.WATER, Kind.FORT)
+        for (y in 0 until n) for (x in 0 until n) {
+            val t = tiles[y * n + x]
+            val yard = x in c.x - 1..c.x + Feature.Castle.KEEP && y in c.y - 1..c.y + Feature.Castle.KEEP
+            when {
+                c.has(x, y) -> if (t.kind in wild) { t.clear(); t.kind = Kind.FORT }
+                (c.gate(x, y) || yard) && (t.kind == Kind.ROCK || t.kind == Kind.WATER) -> t.kind = Kind.GRASS
+            }
+        }
+    }
+
     /** Carves [def]'s features into [tiles]; the starting square at [ox],[oy] and the ring round it stay clear. */
     fun carve(def: SiteDef, tiles: Array<Tile>, ox: Int, oy: Int, land: Int) {
         val m = Farm.MAX
@@ -241,6 +339,8 @@ object Sites {
                 if (t.kind == Kind.GRASS && abs(d - f.r) < 1f && r.nextFloat() < 0.75f) t.kind = Kind.ROCK
             }
             is Feature.Manor -> stampManor(f, tiles)
+            is Feature.Castle -> stampCastle(f, tiles)
+            is Feature.Landmark -> stampLandmark(f, tiles)
         }
         for (y in oy - 1..oy + land) for (x in ox - 1..ox + land) {
             if (x !in 0 until m || y !in 0 until m) continue
@@ -304,7 +404,10 @@ data class Annex(val dir: Int, val x: Int, val y: Int, val n: Int) {
 
 /** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
 class Site(val def: SiteDef) {
-    val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
+    val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }.also { t ->
+        // Home is never carved, so its landmark goes straight on.
+        if (def === Sites.HOME) def.landmark?.let { Sites.stampLandmark(it, t) }
+    }
     var land = 6
     var roof = def.roof
     var wall = def.wall

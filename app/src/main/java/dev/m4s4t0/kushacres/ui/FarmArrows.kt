@@ -32,8 +32,14 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.Sites
 
-/** Every farm in the order the arrows walk them: the realtor's list, then the holiday and Pot Bucks farms you own. */
-internal fun farmOrder(): List<SiteDef> = Sites.all + (Sites.holidays + Sites.premium).filter { Store.farm.owns(it.id) }
+/**
+ * Every farm in the order the arrows walk them: all the farms you own first (realtor's list, then holiday and
+ * Pot Bucks farms), so hopping between them is one tap, then the ones still for sale.
+ */
+internal fun farmOrder(): List<SiteDef> {
+    val (owned, forSale) = Sites.all.partition { Store.farm.owns(it.id) }
+    return owned + (Sites.holidays + Sites.premium).filter { Store.farm.owns(it.id) } + forSale
+}
 
 /**
  * Slim ‹ › tabs halfway down the sides of the farm. They walk your farms in order; one you don't own yet

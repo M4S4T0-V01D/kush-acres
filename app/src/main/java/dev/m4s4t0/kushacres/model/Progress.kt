@@ -28,6 +28,7 @@ enum class Stat(val title: String) {
     HUNTS("Seed hunts"),
     CONTRACTS("Contracts filled"),
     STORE_GRAMS("Lab bud sold in stores"),
+    CHAPTERS("Story chapters finished"),
 }
 
 /** The real-world seasons of the farm, a week each, the same for everyone. */
@@ -125,6 +126,8 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
     DEALS_100("Kingpin of the County", "Fill 100 farm contracts", 100, { it.stat(Stat.CONTRACTS) }),
     STORE_KG("Open for Business", "Sell 1 kg of lab bud in your storefronts", 1000, { it.stat(Stat.STORE_GRAMS) }),
     FLAGSHIP("Franchise", "Grow a storefront into a Flagship Store", 1, { f -> if (f.sites.any { s -> s.tiles.any { Storefronts.isStore(it) && it.lvl >= Storefronts.MAX } }) 1L else 0L }),
+    STORY_1("Local Legend", "Finish a town's story", 1, { it.chains.count { e -> e.value >= Chains.STEPS }.toLong() }),
+    STORY_5("Folk Hero", "Finish the stories of 5 towns", 5, { it.chains.count { e -> e.value >= Chains.STEPS }.toLong() }),
     LEGACY_1("Fresh Start", "Sell the farm", 1, { it.legacy.toLong() }),
     LEGACY_5("Dynasty", "Sell the farm 5 times", 5, { it.legacy.toLong() });
 

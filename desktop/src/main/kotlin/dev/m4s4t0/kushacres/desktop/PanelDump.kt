@@ -40,8 +40,8 @@ internal fun dumpPanels(dir: String) {
     f.level = 30; f.cash = 50_000_000
     for (s in Strains.ladder.filter { f.unlocked(it) }.takeLast(4)) f.stash[s.id] = 400
     Cup.enter(f, f.stash.keys.first(), now)
-    fun shot(name: String, start: Int, body: @androidx.compose.runtime.Composable () -> Unit = { MenuPanel(UiState(), start) }) {
-        val scene = ImageComposeScene(480, 1100, Density(1.5f)) {
+    fun shot(name: String, start: Int, h: Int = 1100, body: @androidx.compose.runtime.Composable () -> Unit = { MenuPanel(UiState(), start) }) {
+        val scene = ImageComposeScene(480, h, Density(1.5f)) {
             Column(Modifier.fillMaxSize().background(Wood).padding(10.dp)) { body() }
         }
         scene.render(); scene.render()
@@ -55,11 +55,12 @@ internal fun dumpPanels(dir: String) {
     f.huntBack = now - 1
     shot("hunts-back", 4)
     shot("stats", 7)
-    f.rep["home"] = 180
-    Contracts.offers(f, "home", now)
+    f.rep["home"] = 1600; f.chains["home"] = 2
+    val offers = Contracts.offers(f, "home", now)
+    Contracts.take(f, "home", offers.indexOfFirst { it.tag.isEmpty() }, now)
     Contracts.take(f, "home", 0, now)
     f.deals[0].needs[0].let { it.got = it.amount / 3 }
-    shot("contracts", 0) { ContractsTab() }
+    shot("contracts", 0, 2000) { ContractsTab() }
     val lab = Strains.hybridList.first { f.unlocked(Strains[it.parents!!.first]!!) && f.unlocked(Strains[it.parents!!.second]!!) }
     f.bred += Strains.hybridList.take(2).map { it.id }.filter { it != lab.id }
     for (p in listOf(lab.parents!!.first, lab.parents!!.second)) f.stash[p] = 999

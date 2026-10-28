@@ -83,6 +83,7 @@ sealed class FarmEvent {
     class Award(val trophy: Trophy, val xp: Long) : FarmEvent()
     class Goal(val goal: FarmGoal, val site: String, val xp: Long) : FarmEvent()
     class Bred(val strain: Strain) : FarmEvent()
+    class Keepsake(val town: String, val keepsake: dev.m4s4t0.kushacres.model.Keepsake) : FarmEvent()
 }
 
 enum class Result { OK, NO_CASH, LOCKED, BLOCKED, STASH_FULL, NOT_READY, NO_SEEDS, SHACK, LIMIT, NO_BUD, NO_SUPPLY, BUSY, NO_POWER }
@@ -237,6 +238,9 @@ class Farm(var rng: Random = Random.Default) {
     val offerDay = HashMap<String, Long>()
     val deals = ArrayList<Contract>()
     val rep = HashMap<String, Int>()
+    /** Story chapters finished per town, and the week each town's standing order was last taken. */
+    val chains = HashMap<String, Int>()
+    val weekly = HashMap<String, Long>()
     /** The last contract filled, for the screen to show once; and how many have lapsed since it last looked. */
     var lastDeal: DealPay? = null
     var lapsed = 0
@@ -303,7 +307,7 @@ class Farm(var rng: Random = Random.Default) {
     fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0)
     fun priceMult(): Double {
         val have = placedDecor()
-        var deco = perkWide(Perk.SELL, have)
+        var deco = perkWide(Perk.SELL, have) + Chains.bonus(this, Perk.SELL)
         if (Decor.FLAMINGO in have) deco += 0.03
         if (Decor.NEON in have) deco += 0.05
         if (Decor.VAN in have) deco += 0.06
@@ -314,7 +318,7 @@ class Farm(var rng: Random = Random.Default) {
     }
     fun xpMult(): Double {
         val have = placedDecor()
-        var deco = perkWide(Perk.XP, have)
+        var deco = perkWide(Perk.XP, have) + Chains.bonus(this, Perk.XP)
         if (Decor.FLAG in have) deco += 0.05
         if (Decor.FROG in have) deco += 0.08
         if (Decor.KOI in have) deco += 0.10
@@ -1331,7 +1335,7 @@ class Farm(var rng: Random = Random.Default) {
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
-        offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); lastDeal = null; lapsed = 0
+        offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); chains.clear(); weekly.clear(); lastDeal = null; lapsed = 0
         research = null; researchAt = 0
         lastTick = now; nextEventAt = 0
         newGame(now)

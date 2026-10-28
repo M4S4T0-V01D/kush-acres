@@ -139,8 +139,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
       strain), Kitchen (cooked goods), Two-farm (local strains from two of your farms)
 - [x] Reputation per town: tiers raise pay and size; a missed deadline costs rep only, never cash (shipped bud is paid at market)
 - [x] Delivery Van ships to contracts; contracts in the away summary; Middleman / Kingpin of the County trophies
-- [ ] Story chains: each town's buyers have 4–5 linked contracts with a bit of story and a unique reward
-- [ ] Standing weekly order from a town at the top rep tiers; seasonal and holiday contracts
+- [x] Story chains: each town's buyers have 4–5 linked contracts with a bit of story and a unique reward (Chains.kt: 5 story arcs of 4 chapters spread over the 20 towns, chapter n opens at rep tier n+1, the last one leaves a keepsake worth +3% sell or XP on every farm; trophies Local Legend / Folk Hero)
+- [x] Standing weekly order from a town at the top rep tiers; seasonal and holiday contracts (weekly order at Regular+ due at week's end, one event offer a day: holiday ones pay tokens, seasonal ones extra Pot Bucks; specials don't take a hand slot)
 - [x] Lab Storefront (work building, Lv 8, up to 4 per farm): sells hybrids from the stash by itself, offline too, at
       +25–45% over market with no demand drop; grows Roadside Stand → Kiosk → Lab Shop → Lab Store → Flagship (Lv 12/18/26/34);
       a worker makes it sell 50% faster

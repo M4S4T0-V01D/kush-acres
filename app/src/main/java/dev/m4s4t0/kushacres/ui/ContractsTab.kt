@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.art.Sprites
+import dev.m4s4t0.kushacres.model.Chains
 import dev.m4s4t0.kushacres.model.Contract
 import dev.m4s4t0.kushacres.model.Contracts
 import dev.m4s4t0.kushacres.model.Strains
@@ -43,7 +44,8 @@ internal fun ContractsTab() {
     }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RepHeader(town)
-        T("In hand (${f.deals.size}/${Contracts.taken(f)})", 13.sp, Cream)
+        val extra = f.deals.size - Contracts.held(f)
+        T("In hand (${Contracts.held(f)}/${Contracts.taken(f)}${if (extra > 0) " + $extra special" else ""})", 13.sp, Cream)
         if (f.deals.isEmpty()) T("Nothing taken yet. Pick one from today's offers below.", 11.sp, Dim, bold = false)
         for (c in f.deals.toList()) Taken(c, now)
         Spacer(Modifier.height(4.dp))
@@ -73,6 +75,16 @@ private fun RepHeader(town: String) {
             Bar((rep - Contracts.TIERS[tier]).toFloat() / (next - Contracts.TIERS[tier]), Gold)
             T("$rep / $next rep to ${Contracts.TIER_NAMES[tier + 1]}", 10.sp, Dim, bold = false)
         } else T("$rep rep: they'd do anything for you", 10.sp, Dim, bold = false)
+        val done = Chains.done(f, town)
+        val keep = Chains.keepsake(town)
+        Spacer(Modifier.height(3.dp))
+        when {
+            done >= Chains.STEPS -> T("Story done. Keepsake: ${keep.name} (${keep.desc})", 10.sp, Leaf, bold = false)
+            tier < Chains.tierFor(done) -> T("Story ${done}/${Chains.STEPS}: the next chapter opens at ${Contracts.TIER_NAMES[Chains.tierFor(done)]}. " +
+                "Finish it for the ${keep.name}", 10.sp, Dim, bold = false)
+            else -> T("Story ${done}/${Chains.STEPS}: a chapter is waiting. Finish the story for the ${keep.name}", 10.sp, Cream, bold = false)
+        }
+        if (tier < Contracts.WEEKLY_TIER) T("At ${Contracts.TIER_NAMES[Contracts.WEEKLY_TIER]} they post a big standing order every week", 10.sp, Dim, bold = false)
     }
 }
 
@@ -96,7 +108,8 @@ private fun Taken(c: Contract, now: Long) {
     val left = (c.until - now) / 1000
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            T("${c.kind.title} for ${c.buyer}", 12.sp, Gold, Modifier.weight(1f))
+            Badge(c)
+            T("${c.title} for ${c.buyer}", 12.sp, Gold, Modifier.weight(1f))
             Px(Sprites.clock, 14.dp)
             T(" ${dur(left.coerceAtLeast(0))}", 11.sp, if (left < 3600) Bad else Cream)
         }
@@ -112,7 +125,8 @@ private fun Taken(c: Contract, now: Long) {
                 val pay = f.lastDeal
                 if (pay != null) {
                     Audio.play(Sfx.UNLOCK)
-                    Store.toast("Contract filled: ${money(pay.cash)}, ${pay.bucks} Pot Bucks, +${pay.rep} rep" + if (pay.tierUp) ". Reputation up!" else "")
+                    Store.toast("Contract filled: ${money(pay.cash)}, ${pay.bucks} Pot Bucks" +
+                        (if (pay.token != null) ", ${pay.tokens} ${pay.token.tokens.lowercase()}" else "") + ", +${pay.rep} rep" + if (pay.tierUp) ". Reputation up!" else "")
                     f.lastDeal = null
                 } else if (sent > 0) Store.toast("Shipped $sent${if (c.needs.any { it.what.startsWith("goods:") }) "" else "g"}")
                 Store.changed()
@@ -130,20 +144,36 @@ private fun Offer(c: Contract, i: Int, town: String, now: Long) {
     val f = Store.farm
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Badge(c)
             Column(Modifier.weight(1f)) {
-                T("${c.kind.title} for ${c.buyer}", 12.sp, Gold)
-                T("${c.kind.desc} · ${hours(c.kind.hours)} to fill · +${c.kind.rep} rep", 10.sp, Dim, bold = false)
+                T("${c.title} for ${c.buyer}", 12.sp, Gold)
+                T(Contracts.about(c), 10.sp, if (c.chapter >= 0) Cream else Dim, bold = false)
+                T((if (c.weekly) "Until the week ends" else "${hours(c.hours)} to fill") + " · +${Contracts.gain(c)} rep", 10.sp, Dim, bold = false)
             }
             T("~${money(Contracts.estimate(f, c))}", 12.sp, Gold)
         }
         Needs(c, false)
         Spacer(Modifier.height(4.dp))
-        val full = f.deals.size >= Contracts.taken(f)
-        Btn(if (full) "Hands full" else "Take it", Modifier.fillMaxWidth(), enabled = !full, color = Gold, icon = Sprites.coin) {
-            if (Contracts.take(f, town, i, Store.now()) == dev.m4s4t0.kushacres.model.Result.OK) Store.toast("Taken. ${hours(c.kind.hours)} on the clock")
+        val full = !Contracts.canTake(f, c)
+        Btn(if (!full) "Take it" else if (c.event) "One event at a time" else "Hands full", Modifier.fillMaxWidth(), enabled = !full, color = Gold, icon = Sprites.coin) {
+            if (Contracts.take(f, town, i, Store.now()) == dev.m4s4t0.kushacres.model.Result.OK)
+                Store.toast(if (c.weekly) "Taken. Due by the end of the week" else "Taken. ${hours(c.hours)} on the clock")
             Store.changed()
         }
     }
+}
+
+/** A small mark for the special contracts: a scroll for story chapters, a star for weekly orders, a gift for events. */
+@Composable
+private fun Badge(c: Contract) {
+    val icon = when {
+        c.chapter >= 0 -> Sprites.scroll
+        c.weekly -> Sprites.star
+        c.event -> Sprites.gift
+        else -> return
+    }
+    Px(icon, 16.dp)
+    Spacer(Modifier.width(4.dp))
 }
 
 private fun hours(h: Int) = if (h >= 48 && h % 24 == 0) "${h / 24} days" else "${h}h"

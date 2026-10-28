@@ -3,6 +3,12 @@ package dev.m4s4t0.kushacres
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Contracts
+import dev.m4s4t0.kushacres.model.Chains
+import dev.m4s4t0.kushacres.model.Contract
+import dev.m4s4t0.kushacres.model.CupClass
+import dev.m4s4t0.kushacres.model.Deal
+import dev.m4s4t0.kushacres.model.Keepsake
+import dev.m4s4t0.kushacres.model.localDay
 import dev.m4s4t0.kushacres.model.Hunt
 import dev.m4s4t0.kushacres.model.Trip
 import dev.m4s4t0.kushacres.model.Buff
@@ -913,12 +919,14 @@ class FarmTest {
         f.level = 10
         f.offerDay.clear()
         val offers = Contracts.offers(f, "home", t0)
-        assertEquals(Contracts.OFFERS, offers.size)
+        // The daily offers and one event contract; no story yet (that needs a tier), no weekly order.
+        assertEquals(Contracts.OFFERS + 1, offers.size)
+        assertEquals(1, offers.count { it.event })
         assertTrue(Contracts.offers(f, "home", t0 + 60_000L) === offers)
         // Take the bud ones (Bulk and Rush are always among them) until hands are full.
-        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { Strains[it.needs[0].what] != null }, t0))
-        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { Strains[it.needs[0].what] != null }, t0))
-        assertEquals(Result.LIMIT, Contracts.take(f, "home", 0, t0))
+        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { !it.event && Strains[it.needs[0].what] != null }, t0))
+        assertEquals(Result.OK, Contracts.take(f, "home", offers.indexOfFirst { !it.event && Strains[it.needs[0].what] != null }, t0))
+        assertEquals(Result.LIMIT, Contracts.take(f, "home", offers.indexOfFirst { !it.event }, t0))
         val c = f.deals[0]
         val n = c.needs[0]
         assertFalse(Contracts.canShip(f, c))
@@ -979,12 +987,13 @@ class FarmTest {
         f.rep["home"] = 20
         Contracts.take(f, "home", 0, t0)
         Contracts.take(f, "home", 0, t0)
+        assertTrue(f.deals.none { it.event })
         val g = Farm(Random(1))
         Save.read(Save.write(f), g)
         assertEquals(2, g.deals.size)
         assertEquals(f.deals[0].until, g.deals[0].until)
         assertEquals(f.deals[0].needs.map { it.what }, g.deals[0].needs.map { it.what })
-        assertEquals(1, g.offers["home"]!!.size)
+        assertEquals(2, g.offers["home"]!!.size)
         assertEquals(20, Contracts.rep(g, "home"))
         // Dropping costs half what running out does; neither goes below nothing.
         Contracts.drop(g, g.deals[0])
@@ -999,5 +1008,72 @@ class FarmTest {
         assertEquals(cash + 1000, g.cash)
         assertEquals(0, Contracts.rep(g, "home"))
         assertEquals(1, g.lapsed)
+    }
+
+    @Test fun storyChainsWeeklyOrdersAndEvents() {
+        val f = farm()
+        f.level = 30
+        fun fill(c: Contract) {
+            for (n in c.needs) when {
+                n.what.startsWith("lab:") -> f.stash[Strains.hybridList.first().id] = n.amount
+                n.what.startsWith("class:") -> f.stash[Contracts.fitting(f, CupClass.valueOf(n.what.removePrefix("class:"))).first().id] = n.amount
+                n.what.startsWith("goods:") -> f.goods[n.what.removePrefix("goods:") + ":ditch"] = n.amount
+                else -> f.stash[n.what] = n.amount
+            }
+            Contracts.ship(f, c, t0)
+            assertFalse(c in f.deals)
+        }
+        f.bred += Strains.hybridList.first().id
+        // A stranger gets no story; a known face gets chapter one, which doesn't take a hand.
+        assertTrue(Contracts.offers(f, "home", t0).none { it.chapter >= 0 })
+        f.rep["home"] = Contracts.TIERS[1]
+        val offers = Contracts.offers(f, "home", t0)
+        assertEquals(0, offers[0].chapter)
+        assertEquals(Result.OK, Contracts.take(f, "home", 0, t0))
+        assertEquals(0, Contracts.held(f))
+        // The next chapter waits for the next tier.
+        fill(f.deals.single())
+        assertEquals(1, Chains.done(f, "home"))
+        assertTrue(Contracts.offers(f, "home", t0).none { it.chapter >= 0 })
+        val sell = f.priceMult()
+        for (i in 1 until Chains.STEPS) {
+            f.rep["home"] = Contracts.TIERS[Chains.tierFor(i)]
+            val k = Contracts.offers(f, "home", t0).indexOfFirst { it.chapter == i }
+            assertEquals(Result.OK, Contracts.take(f, "home", k, t0))
+            fill(f.deals.single { it.chapter == i })
+        }
+        assertEquals(Chains.STEPS, Chains.done(f, "home"))
+        assertTrue(f.events.any { it is FarmEvent.Keepsake })
+        assertEquals(sell * (1 + Keepsake.AMT), f.priceMult(), 1e-9)
+        assertTrue(Contracts.offers(f, "home", t0).none { it.chapter >= 0 })
+        assertEquals(Chains.STEPS.toLong(), f.stat(Stat.CHAPTERS))
+        // Regulars get a weekly order, once a week, due when the week ends.
+        f.rep["home"] = Contracts.TIERS[Contracts.WEEKLY_TIER]
+        val day = 86_400_000L
+        val w = Contracts.offers(f, "home", t0 + day).indexOfFirst { it.weekly }
+        assertTrue(w >= 0)
+        assertEquals(Result.OK, Contracts.take(f, "home", w, t0 + day))
+        val weekly = f.deals.single { it.weekly }
+        assertTrue(weekly.until > t0 + day && weekly.until <= t0 + day + 7 * day)
+        assertEquals(0L, localDay(weekly.until) % 7)
+        val nextDay = if (localDay(t0 + 2 * day) / 7 == localDay(t0 + day) / 7) t0 + 2 * day else t0 + day
+        assertTrue(Contracts.offers(f, "home", nextDay).none { it.weekly })
+        // Holiday events pay that holiday's tokens; only one event at a time.
+        Holiday.force = Holiday.HALLOWEEN
+        try {
+            val e = Contracts.offers(f, "home", t0 + 9 * day).indexOfFirst { it.event }
+            assertEquals(Holiday.HALLOWEEN, f.offers["home"]!![e].holiday)
+            assertEquals(Result.OK, Contracts.take(f, "home", e, t0 + 9 * day))
+            val ev = f.deals.single { it.event }
+            assertFalse(Contracts.canTake(f, Contract(Deal.RUSH, "x", "home", emptyList(), 1.0, "event:SPRING")))
+            fill(ev)
+            assertTrue(f.tokens(Holiday.HALLOWEEN) > 0)
+        } finally { Holiday.force = null }
+        // It all saves.
+        val g = Farm(Random(1))
+        Save.read(Save.write(f), g)
+        assertEquals(Chains.STEPS, Chains.done(g, "home"))
+        assertTrue(g.deals.single().weekly)
+        assertEquals(Save.write(f), Save.write(g))
     }
 }

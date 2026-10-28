@@ -20,6 +20,11 @@ sealed class Feature {
     class Rocks(val share: Float) : Feature()
     /** A rocky rim [r] squares out from the middle, like the edge of a crater. */
     class Rim(val r: Float) : Feature()
+    /** An old mansion, [Manor.SIZE] squares across with its corner at [x],[y]: nobody can build on it or knock it down. */
+    class Manor(val x: Int, val y: Int) : Feature() {
+        fun has(a: Int, b: Int) = a in x until x + SIZE && b in y until y + SIZE
+        companion object { const val SIZE = 4 }
+    }
 }
 
 /**
@@ -39,7 +44,12 @@ class SiteDef(
     val holiday: String? = null,
     /** How big it starts out when bought. */
     val land: Int = START_LAND,
+    /** Haunted woods: dead trees, cobwebs, toadstools and pumpkins instead of leafy trees and bushes. */
+    val haunted: Boolean = false,
 ) {
+    /** The mansion standing on this map, if there is one. */
+    val manor get() = features.firstNotNullOfOrNull { it as? Feature.Manor }
+
     companion object {
         /** How big a newly bought site starts. */
         const val START_LAND = 8
@@ -120,8 +130,9 @@ object Sites {
             roof = 0, wall = 5, features = listOf(Feature.Lake(0.85f, 0.2f, 2.5f), Feature.Rocks(0.03f)), holiday = "thanksgiving"),
         // Each holiday's estate: dearer, and it starts out bigger.
         SiteDef("manor", "Haunted Manor", "A crooked mansion on the hill. The lights flicker on their own.", 1, Holiday.ESTATE, 0.3f, 0.2f,
-            0xFF4A5A34.toInt(), 0xFF26301E.toInt(), 0xFF140C1A.toInt(), 0xFF22142C.toInt(), 0xFFA43AFF.toInt(), 5,
-            roof = 3, wall = 5, features = listOf(Feature.Lake(0.7f, 0.3f, 2.5f), Feature.Rocks(0.06f)), holiday = "halloween", land = SiteDef.ESTATE_LAND),
+            0xFF3E4A44.toInt(), 0xFF232430.toInt(), 0xFF140C1A.toInt(), 0xFF22142C.toInt(), 0xFFA43AFF.toInt(), 5,
+            roof = 3, wall = 5, features = listOf(Feature.Lake(0.7f, 0.3f, 2.5f), Feature.Rocks(0.06f), Feature.Manor(12, 20)),
+            holiday = "halloween", land = SiteDef.ESTATE_LAND, haunted = true),
         SiteDef("workshop", "Santa's Workshop", "Toy sheds, reindeer stables and a chimney that never stops smoking.", 1, Holiday.ESTATE, 0.7f, 0.1f,
             0xFFF4F8FA.toInt(), 0xFFD0DEE6.toInt(), 0xFF1E3A22.toInt(), 0xFF2A4E2E.toInt(), 0xFFF2C440.toInt(), 6, pines = true,
             roof = 0, wall = 1, features = listOf(Feature.Lake(0.2f, 0.2f, 2.5f)), holiday = "christmas", land = SiteDef.ESTATE_LAND),
@@ -173,6 +184,27 @@ object Sites {
         return a + (b - a) * sy
     }
 
+    /**
+     * Puts [m]'s mansion on [tiles], with a clear yard round it, unless something already stands where it goes:
+     * how a farm bought before the mansion was built gets one.
+     */
+    fun stampManor(m: Feature.Manor, tiles: Array<Tile>): Boolean {
+        val n = Farm.MAX
+        val wild = setOf(Kind.GRASS, Kind.ROCK, Kind.WATER)
+        for (y in m.y - 1..m.y + Feature.Manor.SIZE) for (x in m.x - 1..m.x + Feature.Manor.SIZE) {
+            if (x !in 0 until n || y !in 0 until n) continue
+            val k = tiles[y * n + x].kind
+            if (k == Kind.MANOR) return false
+            if (m.has(x, y) && k !in wild) return false
+        }
+        for (y in m.y - 1..m.y + Feature.Manor.SIZE) for (x in m.x - 1..m.x + Feature.Manor.SIZE) {
+            if (x !in 0 until n || y !in 0 until n) continue
+            val t = tiles[y * n + x]
+            if (m.has(x, y)) { t.clear(); t.kind = Kind.MANOR } else if (t.kind == Kind.ROCK || t.kind == Kind.WATER) t.kind = Kind.GRASS
+        }
+        return true
+    }
+
     /** Carves [def]'s features into [tiles]; the starting square at [ox],[oy] and the ring round it stay clear. */
     fun carve(def: SiteDef, tiles: Array<Tile>, ox: Int, oy: Int, land: Int) {
         val m = Farm.MAX
@@ -208,6 +240,7 @@ object Sites {
                 val t = tiles[y * m + x]
                 if (t.kind == Kind.GRASS && abs(d - f.r) < 1f && r.nextFloat() < 0.75f) t.kind = Kind.ROCK
             }
+            is Feature.Manor -> stampManor(f, tiles)
         }
         for (y in oy - 1..oy + land) for (x in ox - 1..ox + land) {
             if (x !in 0 until m || y !in 0 until m) continue

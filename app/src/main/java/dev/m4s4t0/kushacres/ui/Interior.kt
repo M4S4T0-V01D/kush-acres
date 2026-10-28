@@ -139,6 +139,7 @@ private fun Bar(text: String, buttons: @Composable () -> Unit) {
 /** The shop along the bottom: floor pieces, wall pieces, and paint. */
 @Composable
 private fun Catalog(k: RoomKind, tab: Int, setTab: (Int) -> Unit, pick: (Furn) -> Unit) {
+    Store.rev
     val f = Store.farm
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

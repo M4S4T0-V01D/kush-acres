@@ -181,6 +181,7 @@ internal fun Bar(k: Float, color: Color) {
 /** What the Lab is working on, and what makes it quicker: storefronts on every farm and Lab Chemists. */
 @Composable
 private fun LabResearch() {
+    Store.rev
     val f = Store.farm
     val now = Store.now()
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
@@ -402,6 +403,7 @@ private fun StrainBook() {
 /** A strain's best pheno, and its mother if it has one. */
 @Composable
 private fun PhenoRow(id: String, best: Int) {
+    Store.rev // its args stay the same when the mother changes, so read rev or the row never redraws
     val f = Store.farm
     val mom = f.mothers[id]
     fun act(r: Result, ok: String) { if (r == Result.OK) { Audio.play(Sfx.TAP); Store.toast(ok); Store.changed() } else report(r) }

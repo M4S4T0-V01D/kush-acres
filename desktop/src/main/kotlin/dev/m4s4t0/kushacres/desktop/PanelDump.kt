@@ -165,6 +165,32 @@ internal fun dumpPanels(dir: String) {
         shot("farm-annex", 0, 700) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
     }
     run {
+        // The Haunted Manor: its mansion and woods, wide and close, by day and at night.
+        val def = dev.m4s4t0.kushacres.model.Sites["manor"]!!
+        val h = dev.m4s4t0.kushacres.model.Holiday.entries.first { it.id == def.holiday }
+        val home = f.site.def.id
+        dev.m4s4t0.kushacres.model.Holiday.force = h
+        f.addTokens(h, 100_000); f.buyHolidayFarm(h, def)
+        val m = def.manor!!
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val mx = w.centerX(m.x + 2, m.y + 2); val my = w.centerY(m.x + 2, m.y + 2)
+        val day = dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f)
+        val night = dev.m4s4t0.kushacres.ui.Light(1f, 0xFF4C5CAD.toInt(), 0f, 0f, 0f)
+        for ((name, light, box) in listOf(
+            Triple("manor-wide", day, intArrayOf(mx - 380, my - 330, mx + 380, my + 120, 1)),
+            Triple("manor-day", day, intArrayOf(mx - 120, my - 160, mx + 120, my + 30, 3)),
+            Triple("manor-night", night, intArrayOf(mx - 120, my - 160, mx + 120, my + 30, 3)),
+            Triple("manor-woods-night", night, intArrayOf(mx - 260, my - 60, mx + 40, my + 120, 3)),
+        )) {
+            w.view(box[0], box[1], box[2], box[3], box[4])
+            w.render(f, now, 1.3f, light, null, false)
+            val img = w.bitmap.asImageBitmap()
+            shot(name, 0, 700) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+        }
+        dev.m4s4t0.kushacres.model.Holiday.force = null
+        f.switchTo(home)
+    }
+    run {
         // The bunker: its stairs up top, then its first floor lit and planted, by day.
         f.level = 40
         val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }

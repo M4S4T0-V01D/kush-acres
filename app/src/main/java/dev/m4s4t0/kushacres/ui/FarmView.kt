@@ -51,6 +51,9 @@ import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.art.BigHouses
 import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.art.DecorArt
+import dev.m4s4t0.kushacres.art.Haunted
+import dev.m4s4t0.kushacres.model.Feature
+import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.S
 import dev.m4s4t0.kushacres.art.Sprites
@@ -243,6 +246,28 @@ class World {
                 return h.x to h.y
         }
         return hit(wx, wy)
+    }
+
+    /** One wild tile of the Haunted Manor's woods: dead trees hung with webs, toadstools and pumpkins, some of them glowing. */
+    private fun hauntedWood(x: Int, y: Int, cx: Int, cy: Int, h: Int, edge: Boolean, def: SiteDef, t: Float) {
+        val yard = def.manor?.let { m -> x in m.x - 1..m.x + Feature.Manor.SIZE && y in m.y - 1..m.y + Feature.Manor.SIZE } == true
+        val shroom = hash(y * 5, x + 3) % 4 == 0
+        fun prop(k: Int, ox: Int = 0, oy: Int = 0) {
+            put(Haunted.prop(k), cx + ox, cx + ox - Haunted.PROP_AX, cy + oy - Haunted.PROP_AY)
+            when (k) {
+                1 -> light(cx + ox.toFloat(), cy + oy - 4f, 8f, 0x7AF0D0, 0.45f + 0.15f * sin(t * 1.3f + x * 0.7f + y))
+                3 -> light(cx + ox.toFloat(), cy + oy - 5f, 11f, 0xFFA040, 0.7f + 0.2f * sin(t * 8f + hash(x, y) % 7) * sin(t * 3.1f + x))
+            }
+        }
+        when {
+            h < def.trees && !edge && !yard -> {
+                // Toadstools ring the foot of some trees, drawn behind the trunk.
+                if (shroom) prop(hash(x, y * 7) % 2, -7, -1)
+                put(Haunted.tree(hash(y, x) % 6), cx, cx - 13, cy - 36)
+            }
+            h == def.trees || yard && h < def.trees -> prop(hash(y * 3, x + 7) % 5)
+            h == 6 && shroom -> prop(hash(x + 1, y) % 2)
+        }
     }
 
     private fun hash(x: Int, y: Int) = ((x * 73856093) xor (y * 19349663)).let { if (it < 0) -it else it }
@@ -440,7 +465,26 @@ class World {
             Triple(h, minOf(viewU(h.x, h.y), viewU(h.x + 1, h.y + 1)), minOf(viewV(h.x, h.y), viewV(h.x + 1, h.y + 1)))
         }
         val bigAt = bigHouses.mapTo(HashSet()) { it.first.x to it.first.y }
+        // The Haunted Manor's mansion covers 4×4, drawn the same way once its whole footprint is behind us.
+        val manor = if (under) null else def.manor?.takeIf { f.tile(it.x, it.y).kind == Kind.MANOR }
+        val mn = Feature.Manor.SIZE - 1
+        val manorU = manor?.let { minOf(viewU(it.x, it.y), viewU(it.x + mn, it.y + mn)) } ?: 0
+        val manorV = manor?.let { minOf(viewV(it.x, it.y), viewV(it.x + mn, it.y + mn)) } ?: 0
         for (s in 0..(Farm.MAX - 1) * 2) {
+          if (manor != null && s == manorU + manorV + 2 * Feature.Manor.SIZE - 2) {
+              val bx = OX + (manorU - manorV) * (TW / 2); val by = OY + (manorU + manorV) * (TH / 2) + Feature.Manor.SIZE * TH
+              val top = by - Haunted.AY
+              ground(bx.toFloat(), by - TH * 2f, TW * 2f)
+              val (art, sl) = put(Haunted.manor, bx, bx - Haunted.AX, top)
+              hits += Hit(manor.x, manor.y, art, sl, top)
+              // Its lights come and go on their own: each window fades in and out on its own slow beat.
+              Haunted.windows.forEachIndexed { i, (wx0, wy, c) ->
+                  val on = sin(t * (0.7f + i * 0.13f) + i * 2.1f) + 0.35f * sin(t * 9f + i)
+                  if (on < -0.2f) return@forEachIndexed
+                  val wx = if (flip) Haunted.W - 1 - wx0 else wx0
+                  light(sl + wx + 0.5f, top + wy + 0.5f, 11f, c and 0xFFFFFF, (0.45f + 0.35f * on).coerceIn(0.1f, 0.9f))
+              }
+          }
           for ((h, u, w) in bigHouses) {
               if (s != u + w + 2) continue
               val bx = OX + (u - w) * (TW / 2); val by = OY + (u + w) * (TH / 2) + 32
@@ -500,6 +544,7 @@ class World {
                 val h = hash(x, y) % 7
                 // The ring right around the farm stays clear.
                 val edge = x in ox - 1..ox + land && y in oy - 1..oy + land
+                if (def.haunted) { hauntedWood(x, y, cx, cy, h, edge, def, t); continue }
                 if (h < def.trees && !edge) put(Sprites.tree(if (def.pines) 2 + 3 * (hash(y, x) % 2) else hash(y, x) % 6), cx, cx - 13, cy - 36)
                 else if (h == def.trees && def.trees > 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 continue
@@ -1033,7 +1078,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 Mode.Demolish -> when {
                     tile.kind == Kind.GRASS -> ui.selected = null
                     // Boulders are broken up from their card; water stays.
-                    tile.kind == Kind.ROCK || tile.kind == Kind.WATER -> ui.selected = x to y
+                    tile.kind == Kind.ROCK || tile.kind == Kind.WATER || tile.kind == Kind.MANOR -> ui.selected = x to y
                     ui.selected == (x to y) -> {
                         val r = f.demolish(x, y)
                         if (r == Result.OK) { buzz(); Store.changed() } else complain(r)
@@ -1046,6 +1091,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val r = when {
                         tile.kind == Kind.GRASS -> return
                         tile.kind == Kind.WATER -> { Store.toast("Water stays where nature put it"); return }
+                        tile.kind == Kind.MANOR -> { Store.toast("The manor stays where it is. Nobody's been brave enough to try"); return }
                         tile.kind == Kind.ROCK -> f.clearRock(x, y)
                         // A plant goes first; the plot under it goes on the next tap.
                         tile.kind == Kind.PLOT && tile.strain != null -> f.uproot(x, y)
@@ -1072,6 +1118,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     val from = m.from
                     if (from == null) {
                         if (tile.kind == Kind.GRASS) Store.toast("Tap something to pick it up")
+                        else if (tile.kind == Kind.MANOR) Store.toast("The manor won't budge")
                         else if (tile.kind == Kind.ROCK || tile.kind == Kind.WATER) Store.toast("That stays where nature put it")
                         else {
                             ui.mode = Mode.Move(x to y)

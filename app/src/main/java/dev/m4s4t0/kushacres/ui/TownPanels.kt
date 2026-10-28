@@ -124,6 +124,7 @@ private fun MainStreet(ui: UiState) {
 
 @Composable
 private fun ShopHeader(k: Keeper) {
+    Store.rev
     val rim = if (k == Keeper.SHADE) Neon else Gold
     val name = keeper(k)
     Row(verticalAlignment = Alignment.CenterVertically) {

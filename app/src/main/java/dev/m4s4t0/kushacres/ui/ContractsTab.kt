@@ -59,6 +59,7 @@ internal fun ContractsTab() {
 
 @Composable
 private fun RepHeader(town: String) {
+    Store.rev
     val f = Store.farm
     val rep = Contracts.rep(f, town)
     val tier = Contracts.tier(rep)
@@ -104,6 +105,7 @@ private fun Needs(c: Contract, showGot: Boolean) {
 
 @Composable
 private fun Taken(c: Contract, now: Long) {
+    Store.rev
     val f = Store.farm
     val left = (c.until - now) / 1000
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
@@ -141,6 +143,7 @@ private fun Taken(c: Contract, now: Long) {
 
 @Composable
 private fun Offer(c: Contract, i: Int, town: String, now: Long) {
+    Store.rev
     val f = Store.farm
     Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

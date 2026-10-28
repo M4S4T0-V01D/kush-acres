@@ -232,6 +232,7 @@ private fun Section(s: String) = T(s, 13.sp, Gold)
 /** Swatches for this farm's grass or plot soil, each bought with cash or Pot Bucks. */
 @Composable
 private fun GroundShop(dirt: Boolean) {
+    Store.rev
     val f = Store.farm
     val list = if (dirt) DIRT_COLORS else GRASS_COLORS
     val cur = if (dirt) f.site.dirt else f.site.grass

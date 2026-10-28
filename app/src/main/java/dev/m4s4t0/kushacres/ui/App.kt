@@ -438,6 +438,7 @@ private fun Hud(ui: UiState) {
 /** The farm you're on, the turn buttons, and the weather and clock, under the cash. */
 @Composable
 private fun SkyChip(ui: UiState) {
+    Store.rev
     val now = Store.now()
     val ctx = LocalContext.current
     val w = Clock.weather(now)
@@ -579,6 +580,7 @@ private fun BottomBar(ui: UiState) {
 /** The Tools button's row: plant with the seed picker, or switch to moving, trimming or destroying. */
 @Composable
 internal fun ToolsRow(ui: UiState) {
+    Store.rev
     val f = Store.farm
     val seed = Strains[ui.seed]!!
     fun pick(m: Mode) { ui.tools = false; startPlacing(ui, m) }
@@ -593,6 +595,7 @@ internal fun ToolsRow(ui: UiState) {
 /** Underground: which floor is on screen, and buying more room or another floor down. */
 @Composable
 private fun BunkerBar(ui: UiState) {
+    Store.rev
     val f = Store.farm
     val size = f.site.floors.getOrNull(f.floor - 1)?.size ?: return
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).woodBox().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -646,6 +649,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 Kind.LAMP -> "Grow lamp"
                 Kind.GRASS -> "Grass"
                 Kind.ROCK -> "Boulder"
+                Kind.MANOR -> "Haunted manor"
                 Kind.WATER -> "Water"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: ""
                 Kind.HOUSE -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: ""
@@ -703,6 +707,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 }
             }
             Kind.WATER -> T("Plots next to water never need watering.", 12.sp, Sky)
+            Kind.MANOR -> T("Empty for a hundred years, if you ask the town. The lights in its windows say otherwise. It isn't yours to build on, and it isn't going anywhere.", 12.sp, Dim)
             Kind.HOUSE -> WorkHouse.of(tile.item)?.let { HouseInfo(ui, x, y, it) }
             Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.let { v ->
                 T(v.desc + ".", 12.sp, Cream)
@@ -728,6 +733,7 @@ internal fun PowerLine() {
 /** A work building's card: what it does, whether it's staffed, and hiring workers for this farm. */
 @Composable
 private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
+    Store.rev
     val f = Store.farm
     val spot = f.houses().firstOrNull { it.x == x && it.y == y }
     if (h == WorkHouse.STORE) return StoreInfo(ui, x, y, spot?.staffed == true)
@@ -744,6 +750,7 @@ private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
 /** A lab storefront: what's on the shelf, how fast it sells, and growing it into the next kind of store. */
 @Composable
 private fun StoreInfo(ui: UiState, x: Int, y: Int, staffed: Boolean) {
+    Store.rev
     val f = Store.farm
     val lvl = f.tile(x, y).lvl
     val next = Storefronts.next(f)
@@ -775,6 +782,7 @@ private fun StoreInfo(ui: UiState, x: Int, y: Int, staffed: Boolean) {
 /** Hires one more worker for the farm on screen, or says why not. */
 @Composable
 internal fun WorkerButton(modifier: Modifier) {
+    Store.rev
     val f = Store.farm
     val full = f.beds() >= f.workerCap()
     val c = f.workerCost()

@@ -270,6 +270,10 @@ object Save {
             }
             if (so.has("cx") && so.has("cy")) { st.cx = so.optInt("cx").coerceIn(0, Farm.MAX - 1); st.cy = so.optInt("cy").coerceIn(0, Farm.MAX - 1) }
             readTiles(so.optJSONArray("tiles"), st.tiles, stride)
+            // The mansion stands only where its map puts it; a farm saved before it was built gets it now.
+            val manor = def.manor
+            for (k in st.tiles.indices) if (st.tiles[k].kind == Kind.MANOR && manor?.has(k % Farm.MAX, k / Farm.MAX) != true) st.tiles[k].clear()
+            if (manor != null) Sites.stampManor(manor, st.tiles)
             so.optJSONArray("floors")?.let { a ->
                 for (k in 0 until minOf(a.length(), Bunker.FLOORS)) {
                     val fo = a.optJSONObject(k) ?: continue

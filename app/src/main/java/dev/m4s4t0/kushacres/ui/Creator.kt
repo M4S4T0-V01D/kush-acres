@@ -184,6 +184,7 @@ private fun MapPicker(modifier: Modifier, cost: Long?, onDone: (Boolean) -> Unit
         for (y in 0 until M) for (x in 0 until M) {
             val col = when (tiles[y * M + x].kind) {
                 Kind.WATER -> Color(0xFF3A7AC8)
+                Kind.MANOR -> Color(0xFF3A2E48)
                 Kind.ROCK -> Color(0xFF8A8A8A)
                 Kind.HOUSE, Kind.WING -> Color(0xFFA0583A)
                 Kind.PATH -> Color(0xFFC8A870)

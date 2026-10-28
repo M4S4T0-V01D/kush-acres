@@ -983,6 +983,38 @@ class FarmTest {
         } finally { Holiday.force = null }
     }
 
+    @Test fun hauntedManorStaysPut() {
+        val def = Sites["manor"]!!
+        val m = def.manor!!
+        val h = Holiday.entries.first { it.id == def.holiday }
+        Holiday.force = h
+        try {
+            assertEquals(16, farm().mapOf(def).count { it.kind == Kind.MANOR })
+            val f = farm()
+            f.addTokens(h, 100_000)
+            assertEquals(Result.OK, f.buyHolidayFarm(h, def))
+            fun manor() = f.tiles.indices.filter { f.tiles[it].kind == Kind.MANOR }
+            val spot = manor()
+            assertEquals(16, spot.size)
+            assertEquals(Kind.MANOR, f.tile(m.x, m.y).kind)
+            assertEquals(Result.BLOCKED, f.demolish(m.x, m.y))
+            assertEquals(Result.BLOCKED, f.move(m.x, m.y, f.ox + 1, f.oy + 1))
+            // Moving the farm, wherever it lands, never moves or copies the mansion.
+            f.cash = 1_000_000_000
+            for ((cx, cy) in listOf(14 to 22, 20 to 20, 10 to 12, 30 to 30, 13 to 21)) {
+                f.relocate(cx, cy)
+                assertEquals("$cx,$cy", spot, manor())
+            }
+            // An older save without the mansion gets one when it loads, and keeps only the one.
+            val old = farm(); Save.read(Save.write(f), old)
+            old.switchTo(def.id)
+            old.tiles.forEach { if (it.kind == Kind.MANOR) it.clear() }
+            val g = farm(); Save.read(Save.write(old), g)
+            g.switchTo(def.id)
+            assertEquals(spot, g.tiles.indices.filter { g.tiles[it].kind == Kind.MANOR })
+        } finally { Holiday.force = null }
+    }
+
     @Test fun everyHolidayHasMoreToWorkFor() {
         for (h in Holiday.entries) {
             assertEquals(h.name, 5, h.strains.size)

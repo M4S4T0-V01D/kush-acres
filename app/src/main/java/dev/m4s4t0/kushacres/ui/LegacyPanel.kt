@@ -56,6 +56,7 @@ internal fun LegacySection() {
 
 @Composable
 private fun PerkRow(p: LegacyPerk) {
+    Store.rev
     val f = Store.farm
     val has = Legacy.has(f, p)
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -77,6 +78,7 @@ private fun PerkRow(p: LegacyPerk) {
 
 @Composable
 private fun SellFarm() {
+    Store.rev
     val f = Store.farm
     var confirm by remember { mutableStateOf(false) }
     var map by remember { mutableStateOf(StartMap.HOMESTEAD) }

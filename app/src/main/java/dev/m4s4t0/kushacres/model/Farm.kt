@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /** ROCK can be cleared for cash; WATER stays and keeps the plots beside it wet. */
-enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB, WING, STAIRS }
+enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB, WING, STAIRS, MANOR }
 
 /**
  * One square of land. Plots grow things; sprinklers, lamps and decor help the squares around them. The shack covers
@@ -1285,7 +1285,7 @@ class Farm(var rng: Random = Random.Default) {
         if (floor > 0) return Result.BLOCKED
         val t = tile(x, y)
         when (t.kind) {
-            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB, Kind.WING, Kind.STAIRS -> return Result.BLOCKED
+            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB, Kind.WING, Kind.STAIRS, Kind.MANOR -> return Result.BLOCKED
             Kind.PLOT -> if (t.strain != null || count(Kind.PLOT) <= 1) return Result.BLOCKED
             Kind.DECOR, Kind.PATH -> { val d = t.item ?: ""; decorInv[d] = (decorInv[d] ?: 0) + 1 }
             else -> {}
@@ -1376,7 +1376,7 @@ class Farm(var rng: Random = Random.Default) {
             cells.forEachIndexed { i, (cx, cy) -> tile(cx, cy).apply { if (i == 0) copyFrom(keep) else kind = Kind.WING; anchor = a } }
             return Result.BLOCKED
         }
-        if (from.kind == Kind.GRASS || from.kind == Kind.ROCK || from.kind == Kind.WATER || !inLand(tx, ty)) return Result.BLOCKED
+        if (from.kind == Kind.GRASS || from.kind == Kind.ROCK || from.kind == Kind.WATER || from.kind == Kind.MANOR || !inLand(tx, ty)) return Result.BLOCKED
         val to = tile(tx, ty)
         if (to.kind != Kind.GRASS) return Result.BLOCKED
         val stunt = stuntSeconds(fx, fy)
@@ -1558,6 +1558,12 @@ class Farm(var rng: Random = Random.Default) {
         // Plots bought next door come along, so they have to fit on the map too.
         val moved = s.annexes.map { it.copy(x = it.x + dx, y = it.y + dy) }
         if (moved.any { it.x < 0 || it.y < 0 || it.x + it.n > MAX || it.y + it.n > MAX }) return Result.BLOCKED
+        // The mansion stays put: the land can move over it, but nothing built can land on it.
+        s.def.manor?.let { m ->
+            var hit = false
+            eachLand { x, y, t -> if (t.kind != Kind.GRASS && t.kind != Kind.MANOR && m.has(x + dx, y + dy)) hit = true }
+            if (hit) return Result.BLOCKED
+        }
         val c = relocateCost()
         if (!free) { if (cash < c) return Result.NO_CASH; spend(c) }
         val old = ArrayList<Triple<Int, Int, Tile>>()
@@ -1567,6 +1573,7 @@ class Farm(var rng: Random = Random.Default) {
         s.annexes.clear(); s.annexes += moved
         Sites.carve(s.def, s.tiles, nx, ny, n)
         for ((x, y, o) in old) {
+            if (o.kind == Kind.MANOR || o.kind == Kind.GRASS && tile(x + dx, y + dy).kind == Kind.MANOR) continue
             val t = tile(x + dx, y + dy)
             t.copyFrom(o)
             if (t.anchor >= 0) t.anchor += dy * MAX + dx

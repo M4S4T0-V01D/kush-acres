@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs the desktop game for this user: the app in ~/.local/lib/kush-acres (where its updater swaps in new
-# versions), the icon, and a start-menu entry. Builds first unless given a tarball.
-# Usage: desktop/install.sh [KushAcres-linux.tar.gz] | --uninstall   (PREFIX, default ~/.local, picks where it goes)
+# versions), the icon, and a start-menu entry. Builds first unless given a tarball, or --latest: the Linux build
+# attached to the latest GitHub release (what Void Store installs).
+# Usage: desktop/install.sh [KushAcres-linux.tar.gz | --latest] | --uninstall   (PREFIX, default ~/.local, picks where it goes)
 # Saves live in ~/.local/share/kush-acres and are kept by reinstalls and by --uninstall.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -17,7 +18,13 @@ if [[ ${1:-} == --uninstall ]]; then
   exit 0
 fi
 tarball=${1:-}
-if [[ -z $tarball ]]; then ./build.sh :desktop:createDistributable -q; tarball=KushAcres-linux.tar.gz; fi
+if [[ $tarball == --latest ]]; then
+  dl=$(mktemp -d)
+  trap 'rm -rf "$dl"' EXIT
+  tarball=$dl/KushAcres-linux.tar.gz
+  echo "Downloading the latest release from GitHub…"
+  curl -fL --retry 2 --no-progress-meter -o "$tarball" https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres-linux.tar.gz
+elif [[ -z $tarball ]]; then ./build.sh :desktop:createDistributable -q; tarball=KushAcres-linux.tar.gz; fi
 tarball=$(realpath "$tarball")
 
 mkdir -p "$PREFIX/lib"

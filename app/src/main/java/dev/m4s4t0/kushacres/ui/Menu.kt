@@ -390,7 +390,7 @@ private fun StrainBook() {
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 T(if (seen) s.name else "???", 12.sp, if (!seen) Dim else if (s.exotic) Color(0xFFD86AF0) else if (s.hybrid) Color(0xFF5CD0E0) else Cream)
-                val kind = if (s.exotic) "Exotic" else if (s.hybrid) "Hybrid" else "Lv ${s.level}"
+                val kind = if (s.exotic) "Exotic" else if (s.hybrid) "Hybrid" else if (s.quick) "Quick · Lv ${s.level}" else "Lv ${s.level}"
                 T(if (seen) "$kind · ${dur(s.minutes * 60L)} · ${s.yield}g · ${money(s.price)}/g" else kind, 9.sp, Dim, bold = false)
                 if (seen) T(s.traits.joinToString(" · ") { it.label }, 9.sp, Sky, bold = false)
             }

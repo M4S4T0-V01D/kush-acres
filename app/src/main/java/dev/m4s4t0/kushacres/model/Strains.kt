@@ -1,5 +1,9 @@
 package dev.m4s4t0.kushacres.model
 
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
+
 /**
  * One strain you can grow. [minutes] is the grow time on dry soil with no boosts; water, nutrients and lamps make it
  * faster. Each strain earns more per hour than the one before it, and gives a bit more XP per hour, so the newest
@@ -41,6 +45,8 @@ class Strain(
     val holiday: String? = null,
     /** Pot Bucks strains (holiday "bucks"): unlocked for good for this many Pot Bucks. */
     val bucks: Long = 0,
+    /** A quick cut of a long ladder strain: a fifth of the grow time, a bit less per hour. */
+    val quick: Boolean = false,
     /** Hybrids carry both parents' traits; everything else gets one of its own. */
     inherit: Set<Trait>? = null,
     /** Event strains keep pace with the farm: they earn this many times the best ladder strain you've reached. */
@@ -171,6 +177,97 @@ object Strains {
         Strain("kosmic", "Kosmic Kush", 960, 6, 0, 18, 250000, 9000, 0xFF10102A.toInt(), 0xFFFF4AD0.toInt(), 0xFF4AFFE0.toInt(),
             "Fell from the sky in a smoking crater.", exotic = true),
     )
+
+    /**
+     * More ladder strains in the gaps between the ones above: grow time, money and XP per minute sit [F.t] of the way
+     * from [F.a] to [F.b] (past 1 for one beyond the top), so the ladder keeps climbing in order.
+     */
+    private val filler: List<Strain> = run {
+        class F(val a: String, val b: String, val t: Double, val level: Int, val id: String, val name: String, val leaf: Long, val bud: Long, val hair: Long, val blurb: String)
+        val fs = listOf(
+            F("ditch", "schwag", 0.5, 1, "bammer", "Bammer", 0xFF7A8A3A, 0xFF9A8A4E, 0xFFB0703A, "Brown, crunchy and cheaper than a soda."),
+            F("schwag", "mids", 0.5, 2, "brick", "Brick Weed", 0xFF5A7A36, 0xFF8A9A4A, 0xFFA06A3A, "Pressed flat in a car trunk somewhere."),
+            F("mids", "lemon", 0.5, 3, "skunk", "Skunk #1", 0xFF4A8A3A, 0xFFB8C45A, 0xFFE0A03A, "The granddaddy of the garden. Smells like it."),
+            F("northern", "pineapple", 0.5, 5, "blueberry", "Blueberry", 0xFF3A7A5A, 0xFF5A7AD0, 0xFFE89A5A, "Tastes like the muffin. Mostly."),
+            F("bluedream", "jack", 0.5, 7, "goldengoat", "Golden Goat", 0xFF4A8A3A, 0xFFE0C05A, 0xFFE0703A, "Started as an accident in Kansas. Nobody's sorry."),
+            F("jack", "sour", 0.5, 8, "trainwreck", "Trainwreck", 0xFF4A7A3A, 0xFFC0C878, 0xFFD0602A, "Hits like a freight car. Watch the tracks."),
+            F("sour", "ak47", 0.5, 9, "greencrack", "Green Crack", 0xFF3A9A3A, 0xFF8AE04A, 0xFFF0A02A, "Mango and pure get-up-and-go."),
+            F("ak47", "purple", 0.5, 10, "chemdawg", "Chemdawg", 0xFF4A6A3A, 0xFFB8C8A0, 0xFFC0803A, "Smells like a chemistry set. Gets the job done."),
+            F("purple", "gdp", 0.5, 11, "silverhaze", "Super Silver Haze", 0xFF4A6A4A, 0xFFE0E4E8, 0xFFE8B05A, "Shiny, spicy and up all night."),
+            F("gdp", "gsc", 0.5, 13, "dosido", "Do-Si-Dos", 0xFF3A5A3A, 0xFF9A7AC8, 0xFFF0B060, "Swing your partner round the grow room."),
+            F("gsc", "durban", 0.5, 14, "bluecheese", "Blue Cheese", 0xFF3A6A5A, 0xFF8AA8D0, 0xFFF0E0A0, "Stinks like a fancy fridge. Smokes like a dream."),
+            F("durban", "widow", 0.5, 16, "skywalker", "Skywalker OG", 0xFF3A5A4A, 0xFFA0C0E0, 0xFFE8C04A, "Use the force. Then the couch."),
+            F("widow", "strawberry", 0.5, 17, "afghan", "Afghan Kush", 0xFF3A5A2E, 0xFF7A8A4A, 0xFFC0702A, "Straight from the mountains, thick with resin."),
+            F("strawberry", "og", 0.5, 19, "headband", "Headband", 0xFF3A6A3A, 0xFFB0D06A, 0xFFE8904A, "Squeezes your temples like a hug."),
+            F("og", "banana", 0.5, 20, "bubba", "Bubba Kush", 0xFF2E5A3A, 0xFF6A8A4A, 0xFFB8603A, "Heavy, chocolatey and not going anywhere."),
+            F("banana", "gelato", 0.5, 22, "sundae", "Sundae Driver", 0xFF3E6A48, 0xFFE0A8D0, 0xFFF2C07A, "Takes the long way home. Slowly."),
+            F("gelato", "tangie", 0.5, 23, "purplepunch", "Purple Punch", 0xFF3A4A3A, 0xFFA04AC8, 0xFFFF9A5A, "Grape soda with a right hook."),
+            F("tangie", "cake", 0.5, 25, "macone", "MAC 1", 0xFF3E7A4E, 0xFFF0F0E8, 0xFFFFA05A, "Miracle Alien Cookies. Silver frost, sour finish."),
+            F("cake", "mimosa", 0.5, 27, "fritter", "Apple Fritter", 0xFF4A7A3A, 0xFFE0B87A, 0xFFF0E0A0, "Glazed, golden and gone by ten."),
+            F("mimosa", "glue", 0.5, 29, "lcg", "Lemon Cherry Gelato", 0xFF3E6A44, 0xFFF06A7A, 0xFFFFE05A, "The sweet shop at the end of the street."),
+            F("glue", "icecream", 0.5, 31, "jealousy", "Jealousy", 0xFF2E6A4A, 0xFF7AE07A, 0xFFFF7AA0, "Everyone else wants your jar."),
+            F("icecream", "zkittlez", 0.5, 33, "garypayton", "Gary Payton", 0xFF2E5A4A, 0xFF8AB0A0, 0xFFE8C05A, "Locks you down like a point guard."),
+            F("zkittlez", "cereal", 0.5, 35, "marker", "Permanent Marker", 0xFF2E4A5A, 0xFF5A6AE0, 0xFFFF5A8A, "Smells exactly like the name. Don't ask how."),
+            F("cereal", "runtz", 0.5, 37, "pinkrozay", "Pink Rozay", 0xFF3E5E4E, 0xFFFF9ACD, 0xFFFFF0F4, "Pink, fizzy and very expensive."),
+            F("runtz", "biscotti", 0.5, 39, "gushers", "Gushers", 0xFF2E5E4A, 0xFFE05AE0, 0xFF7AF0C8, "Bursts when you squeeze it."),
+            F("biscotti", "voidkush", 0.5, 41, "oreoz", "Oreoz", 0xFF2A2E2A, 0xFF4A3A3A, 0xFFF0F0F0, "Black and white and dunked in resin."),
+            F("voidkush", "stardawg", 0.5, 43, "eclipse", "Eclipse OG", 0xFF14141E, 0xFF3A3A6A, 0xFFFFC83A, "The sun goes out when you open the jar."),
+            F("galaxyglue", "phoenix", 0.5, 52, "cometkush", "Comet Kush", 0xFF1E2A3A, 0xFF8AE0FF, 0xFFFF8A3A, "Streaks across the field once every harvest."),
+            F("nebula", "titan", 0.5, 64, "skyfall", "Skyfall Haze", 0xFF2A3A5A, 0xFF7AB0FF, 0xFFFFF0C0, "Drops out of the clouds and right into your bowl."),
+            F("titan", "elysium", 0.5, 69, "olympus", "Olympus OG", 0xFF2E4A3A, 0xFFF0E8C0, 0xFF5AD0FF, "Grown by gods. Smoked by mortals."),
+            F("elysium", "crown", 0.5, 75, "zenith", "Zenith", 0xFF2A3A5A, 0xFFFFF4E0, 0xFFFF9A3A, "As high as it gets. Almost."),
+            F("elysium", "crown", 1.5, 80, "emperor", "Emperor's Stash", 0xFF1E1A2A, 0xFFFFD23A, 0xFFE8304A, "The last jar on the top shelf. Bow when you open it."),
+        )
+        val by = base.associateBy { it.id }
+        fun profit(s: Strain) = (s.price0 * s.yield - s.seed0) / s.minutes.toDouble()
+        fs.map { f ->
+            val a = by.getValue(f.a); val b = by.getValue(f.b)
+            fun lerp(x: Double, y: Double) = x + (y - x) * f.t
+            val minutes = lerp(a.minutes.toDouble(), b.minutes.toDouble()).roundToInt()
+            val seed = (a.seed0 * (b.seed0 / a.seed0.toDouble()).pow(f.t)).toLong()
+            val yield = lerp(a.yield.toDouble(), b.yield.toDouble()).roundToInt()
+            val price = ((lerp(profit(a), profit(b)) * minutes + seed) / yield).roundToLong()
+            val xp = (lerp(a.xp0 / a.minutes.toDouble(), b.xp0 / b.minutes.toDouble()) * minutes).roundToInt()
+            Strain(f.id, f.name, minutes, f.level, seed, yield, price, xp, f.leaf.toInt(), f.bud.toInt(), f.hair.toInt(), f.blurb)
+        }
+    }
+
+    /** The cash ladder, in unlock order: shortest grow first, ties (the day-long ones) by level. */
+    private val climb = (base.filter { !it.exotic } + filler).sortedWith(compareBy({ it.minutes }, { it.level }))
+
+    /**
+     * Quick cuts of the longest ladder strains: a fifth of the grow time and half the bud, for four fifths of the
+     * parent's money per hour and a bit less XP. Unlocked at the parent's level.
+     */
+    private val express: List<Strain> = run {
+        class Q(val of: String, val id: String, val name: String, val blurb: String)
+        val qs = listOf(
+            Q("cereal", "cerealbar", "Cereal Bar", "Breakfast on the go."),
+            Q("biscotti", "biscottibite", "Biscotti Bites", "Same fancy cookie, snack size."),
+            Q("voidkush", "voidblink", "Void Blink", "Gone before you notice it was there."),
+            Q("stardawg", "shootingstar", "Shooting Star", "Make a wish. Make it quick."),
+            Q("cherrypie", "cherrytart", "Cherry Tart", "All the royal flavour, half the bake."),
+            Q("galaxyglue", "pocketgalaxy", "Pocket Galaxy", "The universe, travel size."),
+            Q("phoenix", "phoenixspark", "Phoenix Spark", "Just the first flicker of the fire."),
+            Q("reserve", "housepour", "House Pour", "The Reserve, poured short."),
+            Q("nebula", "nebulashot", "Nebula Shot", "One gulp of starlight."),
+            Q("titan", "minititan", "Mini Titan", "Pickup-truck genes in a hatchback."),
+            Q("elysium", "daytrip", "Elysium Day Trip", "Heaven, back by dinner."),
+            Q("crown", "tiara", "Tiara Kush", "Not the crown jewels, but it still sparkles."),
+            Q("emperor", "royalflash", "Royal Flash", "An emperor's stash, in a hurry."),
+        )
+        val by = climb.associateBy { it.id }
+        qs.map { q ->
+            val p = by.getValue(q.of)
+            val minutes = p.minutes / 25 * 5
+            val k = minutes / p.minutes.toDouble()
+            val seed = (p.seed0 * k).toLong()
+            val yield = (p.yield + 1) / 2
+            val profit = (p.price0 * p.yield - p.seed0) / p.minutes.toDouble() * 0.8
+            Strain(q.id, q.name, minutes, p.level, seed, yield, ((profit * minutes + seed) / yield).roundToLong(), (p.xp0 * k * 0.85).roundToInt(),
+                p.leaf, mix(p.bud, 0xFFFFFFFF.toInt(), 0.25f), p.hair, q.blurb, quick = true)
+        }
+    }
 
     /** Holiday strains, five per holiday from a quick one to a day-long one, bought with that holiday's tokens. */
     private val premium = listOf(
@@ -395,6 +492,39 @@ object Strains {
         Cross("jellybean", "peeps", "eggstra", "Eggstra Dank", "Hidden in the grass. Found by noon."),
         Cross("liberty", "bottlerocket", "fireworks", "Fireworks", "Ooh. Aah. Cough."),
         Cross("cranberry", "gravy", "leftovers", "Leftovers", "Somehow better the next day."),
+        // The in-between ladder strains, each crossed with a neighbour.
+        Cross("bammer", "brick", "dirtcheap", "Dirt Cheap", "Two bargain bags, one surprisingly decent smoke."),
+        Cross("skunk", "lemon", "skunkade", "Skunkade", "Lemonade with a stink."),
+        Cross("blueberry", "bluedream", "bbmuffin", "Blueberry Muffin", "Fresh out of the oven, still steaming."),
+        Cross("goldengoat", "jack", "goldenjack", "Golden Jack", "A legend with a lucky streak."),
+        Cross("trainwreck", "greencrack", "derailed", "Derailed", "Fast, loud and off the tracks."),
+        Cross("chemdawg", "sour", "chemsour", "Chem Sour", "Fuel and bleach. Somehow it works."),
+        Cross("silverhaze", "purple", "silverlining", "Silver Lining", "Every purple cloud has one."),
+        Cross("dosido", "gsc", "cookiejar", "Cookie Jar", "Hand caught in it, every time."),
+        Cross("bluecheese", "durban", "cheeseboard", "Cheese Board", "Fancy enough for a party, strong enough to end it."),
+        Cross("skywalker", "og", "jedi", "Jedi Kush", "These are the buds you're looking for."),
+        Cross("afghan", "widow", "silkroad", "Silk Road", "Travelled a long way to reach your jar."),
+        Cross("headband", "strawberry", "halo", "Halo Berry", "Sits on your head like a crown of berries."),
+        Cross("bubba", "banana", "bubbagum", "Bubba Gum", "Blow a bubble, sink into the couch."),
+        Cross("sundae", "gelato", "funday", "Sundae Funday", "Every scoop on the menu at once."),
+        Cross("purplepunch", "gdp", "grapeape", "Grape Ape", "Big, purple and beats its chest."),
+        Cross("macone", "cake", "weddingmac", "Wedding MAC", "Cookies at the reception, aliens at the afterparty."),
+        Cross("fritter", "mimosa", "brunchbox", "Brunch Box", "Pastry and bubbly in one sticky jar."),
+        Cross("lcg", "glue", "cherryglue", "Cherry Glue", "Sweet at first, then you can't get up."),
+        Cross("jealousy", "garypayton", "fastbreak", "Fast Break", "Steals the ball and dunks it."),
+        Cross("marker", "pinkrozay", "pinkink", "Pink Ink", "Writes its name all over your evening."),
+        Cross("gushers", "oreoz", "snackattack", "Snack Attack", "The munchies, bred on purpose."),
+        Cross("eclipse", "voidkush", "totality", "Totality", "Not a speck of light left."),
+        Cross("cometkush", "galaxyglue", "cometglue", "Comet Glue", "Sticks to the sky as it flies by."),
+        Cross("skyfall", "olympus", "thunderbolt", "Thunderbolt", "Thrown down from the mountain."),
+        Cross("zenith", "emperor", "apex", "Apex Emperor", "Nothing grows higher. Nothing ever will."),
+        // Quick crosses: two quick cuts together, for a lab strain that's done in a few hours.
+        Cross("cerealbar", "biscottibite", "dunkers", "Dunkers", "Cookies and cereal, dipped in milk."),
+        Cross("voidblink", "shootingstar", "warpspeed", "Warp Speed", "Gone before the light gets here."),
+        Cross("cherrytart", "phoenixspark", "poptart", "Pop Tart", "Out of the toaster, still on fire."),
+        Cross("housepour", "nebulashot", "lastcall", "Last Call", "One more round, quick, before they close."),
+        Cross("minititan", "daytrip", "weekender", "Weekender", "Big trip, small bag."),
+        Cross("tiara", "royalflash", "flashcrown", "Flash Crown", "Royalty, on the clock."),
     )
 
     private fun mix(a: Int, b: Int, k: Float): Int {
@@ -403,7 +533,7 @@ object Strains {
     }
 
     private val hybrids: List<Strain> = run {
-        val known = (base + native + festive).associateBy { it.id }.toMutableMap()
+        val known = (base + filler + express + native + festive).associateBy { it.id }.toMutableMap()
         crosses.map { c ->
             val a = known.getValue(c.a); val b = known.getValue(c.b)
             Strain(c.id, c.name,
@@ -420,10 +550,12 @@ object Strains {
         }
     }
 
-    val all: List<Strain> = base.filter { !it.exotic } + hybrids + base.filter { it.exotic } + smuggled + native + festive + premium
+    val all: List<Strain> = climb + express + hybrids + base.filter { it.exotic } + smuggled + native + festive + premium
 
     /** The strains you buy seeds for with cash, in unlock order. */
-    val ladder = all.filter { !it.exotic && !it.hybrid && it.site == null && it.holiday == null }
+    val ladder = all.filter { !it.exotic && !it.hybrid && !it.quick && it.site == null && it.holiday == null }
+    /** Quick cuts of the long ladder strains. */
+    val quickList = express
     /** Strains that only grow on their own farm site. */
     val natives = native
     /** Town dealers' strains, one per farm town. */

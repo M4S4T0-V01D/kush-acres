@@ -39,6 +39,7 @@ import dev.m4s4t0.kushacres.model.Trophy
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Save
+import dev.m4s4t0.kushacres.model.Strain
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Sesh
 import dev.m4s4t0.kushacres.model.SeshSize
@@ -78,6 +79,19 @@ class FarmTest {
             val pa = (a.price * a.yield - a.seed) / a.minutes.toDouble()
             val pb = (b.price * b.yield - b.seed) / b.minutes.toDouble()
             assertTrue("${b.name} should beat ${a.name}", pb > pa && b.level >= a.level && (b.minutes > a.minutes || b.minutes == 960))
+        }
+    }
+
+    @Test fun quickStrainsAreFasterButEarnLess() {
+        val plain = Strains.all.filter { !it.event }
+        assertEquals(plain.size, plain.map { it.id }.toSet().size)
+        assertTrue(Strains.quickList.size >= 10 && Strains.quickList.none { it in Strains.ladder })
+        fun perMin(s: Strain) = (s.price * s.yield - s.seed) / s.minutes.toDouble()
+        for (q in Strains.quickList) {
+            val p = Strains.ladder.filter { it.level == q.level && it.minutes >= 600 }.maxBy { it.minutes }
+            assertTrue("${q.name} should be quicker", q.minutes * 4 <= p.minutes)
+            assertTrue("${q.name} should earn a bit less per hour", perMin(q) < perMin(p) && perMin(q) > perMin(p) * 0.7)
+            assertTrue(q.xp.toDouble() / q.minutes < p.xp.toDouble() / p.minutes)
         }
     }
 
@@ -151,9 +165,10 @@ class FarmTest {
         f.tick(t0 + 60_000L)
         val o = f.orders[0]!!
         o.items.forEach { f.stash[it.strain] = it.grams }
-        val before = f.cash
+        val before = f.cash; val lvl = f.level
         assertEquals(Result.OK, f.fill(0, t0 + 60_000L))
-        assertEquals(before + o.reward, f.cash)
+        // Plus any level-up bonus the order's XP earns.
+        assertEquals(before + o.reward + (lvl + 1..f.level).sumOf { 25L * it * it }, f.cash)
     }
 
     @Test fun farmhandWorksOffline() {

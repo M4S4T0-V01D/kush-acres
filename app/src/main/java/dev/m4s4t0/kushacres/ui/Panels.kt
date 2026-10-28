@@ -181,40 +181,40 @@ fun PanelHost(ui: UiState) {
     }
 }
 
-/** The seed menu's shelves: the ladder cut into four, then lab hybrids, then black-market exotics. */
+/** The seed menu's shelves: the ladder cut into four, quick cuts, lab hybrids, black-market exotics, then event strains. */
 private val SHELVES: List<Pair<String, List<Strain>>> = run {
     val per = (Strains.ladder.size + 3) / 4
     val ladder = Strains.ladder.chunked(per)
-    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Lab" to Strains.hybridList, "Exotic" to Strains.exotics, "Holiday" to Strains.holidays, "Bucks" to Strains.bucksList)
+    listOf("Street", "Mid", "Top shelf", "Legend").zip(ladder) + listOf("Quick" to Strains.quickList, "Lab" to Strains.hybridList, "Exotic" to Strains.exotics, "Holiday" to Strains.holidays, "Bucks" to Strains.bucksList)
 }
-private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFF5CD0E0, 0xFFD86AF0, 0xFFFF8A1E, 0xFF5AC05A).map { Color(it) }
+private val SHELF_EDGE = listOf(0xFF8AB04E, 0xFF5CA8E0, 0xFFE0A040, 0xFFE8664A, 0xFFF0E05A, 0xFF5CD0E0, 0xFFD86AF0, 0xFFFF8A1E, 0xFF5AC05A).map { Color(it) }
 
 @Composable
 internal fun SeedPanel(ui: UiState) {
     val f = Store.farm
     Store.rev
     var tab by remember { mutableIntStateOf(SHELVES.indexOfFirst { (_, l) -> l.any { it.id == ui.seed } }.coerceAtLeast(0)) }
-    Tabs(SHELVES.mapIndexed { i, (name, l) ->
-        when (i) {
-            4 -> "$name ${l.count { it.id in f.bred }}"
-            5 -> "$name ${l.count { (f.seeds[it.id] ?: 0) > 0 }}"
-            6, 7 -> "$name ${l.count { f.unlocked(it) }}"
+    Tabs(SHELVES.map { (name, l) ->
+        when (name) {
+            "Lab" -> "$name ${l.count { it.id in f.bred }}"
+            "Exotic" -> "$name ${l.count { (f.seeds[it.id] ?: 0) > 0 }}"
+            "Holiday", "Bucks" -> "$name ${l.count { f.unlocked(it) }}"
             else -> "$name ${l.count { f.unlocked(it) }}/${l.size}"
         }
     }, tab) { tab = it }
-    val (_, shelf) = SHELVES[tab]
+    val (kind, shelf) = SHELVES[tab]
     val edge = SHELF_EDGE[tab]
     // Lab and exotic shelves only show what you can plant; the ladder shows what's coming too.
-    val list = when (tab) {
-        4 -> shelf.filter { it.id in f.bred }
-        5 -> shelf.filter { (f.seeds[it.id] ?: 0) > 0 }
-        6, 7 -> shelf.filter { f.unlocked(it) }
+    val list = when (kind) {
+        "Lab" -> shelf.filter { it.id in f.bred }
+        "Exotic" -> shelf.filter { (f.seeds[it.id] ?: 0) > 0 }
+        "Holiday", "Bucks" -> shelf.filter { f.unlocked(it) }
         else -> shelf
     }
     if (list.isEmpty()) {
-        T(if (tab == 7) "No Pot Bucks strains yet. The Pot Bucks shop sells four, and they stay yours for good."
-            else if (tab == 6) "No holiday strains yet. Each holiday's shop sells two, and they stay yours for good."
-            else if (tab == 4) "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
+        T(if (kind == "Bucks") "No Pot Bucks strains yet. The Pot Bucks shop sells four, and they stay yours for good."
+            else if (kind == "Holiday") "No holiday strains yet. Each holiday's shop sells two, and they stay yours for good."
+            else if (kind == "Lab") "Nothing bred yet. Cross two strains in the Lab and the hybrid lands here."
             else "No exotic seeds. The back-alley dealer in Town sells them now and then.", 12.sp, Dim, bold = false)
         return
     }

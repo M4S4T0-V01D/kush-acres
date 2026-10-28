@@ -1212,7 +1212,7 @@ class Farm(var rng: Random = Random.Default) {
     /** Names of what reaching [lvl] unlocks, for the level-up card. */
     fun unlocksAt(lvl: Int): List<String> {
         val out = ArrayList<String>()
-        Strains.ladder.filter { it.level == lvl }.forEach { out += "${it.name} seeds" }
+        (Strains.ladder + Strains.quickList).filter { it.level == lvl }.forEach { out += "${it.name} seeds" }
         Upgrade.entries.filter { it.level == lvl }.forEach { out += it.title }
         LAND.filter { it.second == lvl && it.third > 0 }.forEach { out += "Land expansion to ${it.first}×${it.first}" }
         SHACKS.filter { it.level == lvl && it.cost > 0 }.forEach { out += "${it.title} upgrade" }

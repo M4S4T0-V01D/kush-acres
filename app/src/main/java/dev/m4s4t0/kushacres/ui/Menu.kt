@@ -406,7 +406,13 @@ private fun PhenoRow(id: String, best: Int) {
     Store.rev // its args stay the same when the mother changes, so read rev or the row never redraws
     val f = Store.farm
     val mom = f.mothers[id]
-    fun act(r: Result, ok: String) { if (r == Result.OK) { Audio.play(Sfx.TAP); Store.toast(ok); Store.changed() } else report(r) }
+    fun act(r: Result, ok: String) {
+        when (r) {
+            Result.OK -> { Audio.play(Sfx.TAP); Store.toast(ok); Store.changed() }
+            Result.LIMIT -> Store.toast("All ${f.motherSlots()} mother slots are full. Drop one first; you get another slot every 10 levels")
+            else -> report(r)
+        }
+    }
     Row(Modifier.fillMaxWidth().background(WoodIn).padding(start = 36.dp, end = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             T("Best: ${Pheno.label(best)}", 9.sp, if (Pheno.score(best) >= Pheno.score(Pheno.of(3, 2))) Gold else Cream, bold = false)

@@ -60,6 +60,17 @@ class SynthTest {
         assertEquals(dev.m4s4t0.kushacres.audio.Groove.STEPPERS.ordinal, Tunes.feel(steppers).drums)
     }
 
+    @Test fun everyTuneHasItsOwnMelody() {
+        val all = Tunes.areas.map { Tunes.of(it) } + Tunes.extras.map { it.third }
+        val lines = all.map { t ->
+            dev.m4s4t0.kushacres.audio.Melodist.line(t, Tunes.feel(t), t.style == dev.m4s4t0.kushacres.audio.Style.LOFI).all
+        }
+        for (l in lines) assertTrue("only ${l.size} notes", l.size >= 16)
+        // The opening phrase, in rhythm and steps between notes, so a melody moved to another key still counts as the same.
+        val heads = lines.map { l -> l.take(8).zipWithNext { a, b -> a.at to b.deg - a.deg } }
+        assertEquals(heads.size, heads.toSet().size)
+    }
+
     @Test fun wavHeader() {
         val w = Synth.wav(FloatArray(10))
         assertEquals("RIFF", String(w, 0, 4)); assertEquals(64, w.size)

@@ -171,36 +171,6 @@ object Synth {
         listOf(Triple(0f, 0.75f, 0), Triple(0.75f, 0.25f, 0), Triple(1f, 0.5f, 2), Triple(2f, 0.75f, 0), Triple(2.75f, 0.25f, 0), Triple(3f, 0.5f, 4), Triple(3.5f, 0.5f, 5)),
     )
 
-    private class N(val at: Float, val len: Float, val deg: Int)
-
-    /** A melody [beats] long from the pentatonic scale, in note lengths picked by [rhythm]. */
-    private fun phrase(r: Random, minor: Boolean, rhythm: Int, beats: Float = 8f, from: Float = 0f, rest: Float = 0.26f): List<N> {
-        val pent = if (minor) intArrayOf(0, 2, 3, 4, 6) else intArrayOf(0, 1, 2, 4, 5)
-        val lens = when (rhythm) { 1 -> listOf(0.25f, 0.5f, 0.5f, 0.5f, 0.75f, 1f); 2 -> listOf(1f, 1.5f, 2f, 2f, 3f); else -> listOf(0.5f, 0.5f, 1f, 1f, 1.5f, 2f) }
-        val out = ArrayList<N>()
-        var at = from; var i = r.nextInt(2, 6)
-        while (at < beats - 1f) {
-            val len = lens[r.nextInt(lens.size)].coerceAtMost(beats - at)
-            if (r.nextFloat() >= rest) out += N(at, len, 7 * Math.floorDiv(i, 5) + pent[Math.floorMod(i, 5)])
-            i = (i + r.nextInt(-2, 3)).coerceIn(0, 9)
-            at += len
-        }
-        if (out.isEmpty()) out += N(from, 1f, pent[2])
-        return out
-    }
-
-    /**
-     * When the lead plays, by [Feel.plan]: 0 a call in bars 5–8 and its answer in 13–16; 1 call and answer taking
-     * turns all through; 2 a one-bar hook every bar with a longer line between; 3 like 0 but starting earlier, in
-     * thirds. Returns the notes starting in bar [bi] (beats from that bar), or null.
-     */
-    private fun leadBar(plan: Int, bi: Int, drop: Boolean, call: List<N>, answer: List<N>, hook: List<N>): List<N>? = when (plan) {
-        1 -> if (bi >= 2 && bi % 2 == 0 && !drop) (if ((bi / 2) % 2 == 1) call else answer) else null
-        2 -> when { bi in 4..7 || bi in 12..15 -> hook; bi in 8..11 && bi % 2 == 0 && !drop -> call; else -> null }
-        3 -> if (bi % 2 == 0 && !drop) when (bi) { in 2..7 -> call; in 10..15 -> answer; else -> null } else null
-        else -> if (bi % 2 == 0) when (bi) { in 4..7 -> call; in 12..15 -> answer; else -> null } else null
-    }
-
     /**
      * A slow reggae loop, 16 bars: a deep bass line, a chop on the offbeats, a lead with an echo, and vinyl crackle.
      * Every tune has its own key, speed and lead voice, and its [Feel] picks the rest:
@@ -234,9 +204,7 @@ object Synth {
 
         val riffA = RIFFS[fe.bass]
         val riffB = RIFFS[(fe.bass + 3 + fe.drums) % RIFFS.size]
-        val call = phrase(r, tune.minor, fe.rhythm)
-        val answer = call.filter { it.at < 4f } + phrase(r, tune.minor, fe.rhythm, from = 4f)
-        val hook = phrase(r, tune.minor, 1, beats = 4f, rest = 0.15f)
+        val melody = Melodist.line(tune, fe, rich = false)
         // The extra layer's voice: something the lead isn't.
         val other = if (tune.lead == Lead.BELL) Lead.STEEL else Lead.BELL
         val swing = beat * (if (fe.rhythm == 1) 0.06f else 0.12f)
@@ -339,11 +307,11 @@ object Synth {
                     else if (bi % 4 == 2) wet.add(at + 3.5f * beat, 0.12f) { t -> rim(t) * 0.22f }
             }
             // The lead.
-            leadBar(fe.plan, bi, drop, call, answer, hook)?.forEach { n ->
+            for (n in melody.bar(bi, drop)) {
                 val l = n.len * beat * 0.95f
                 for ((h, v) in if (fe.plan == 3) listOf(0 to 0.1f, 2 to 0.05f) else listOf(0 to 0.1f)) {
                     val f = hz(note(n.deg + h, leadBase))
-                    wet.add(at + n.at * beat, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
+                    wet.add(n.at * beat, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
                 }
             }
         }
@@ -397,9 +365,7 @@ object Synth {
         val snare = noise(tune.seed + 4, RATE).also { lowpass(it, 4000f) }
         val kicks = listOf(floatArrayOf(0f, 2.5f), floatArrayOf(0f, 1.75f, 2.5f), floatArrayOf(0f, 0.75f, 2.5f, 3.25f))
         val kickA = kicks[r.nextInt(2)]; val kickB = kicks[2]
-        val call = phrase(r, tune.minor, fe.rhythm, from = 0.5f, rest = 0.4f)
-        val answer = phrase(r, tune.minor, fe.rhythm, from = 0.5f, rest = 0.4f)
-        val hook = phrase(r, tune.minor, 1, beats = 4f, from = 0.5f, rest = 0.2f)
+        val melody = Melodist.line(tune, fe, rich = true)
         val drag = if (fe.drums == 3) 0.035f else 0.012f
         fun snareHit(t: Float) = (snare[(t * RATE).toInt()] * exp(-t * 20) * 0.45f + sin(TAU * 185 * t) * exp(-t * 30) * 0.3f) * 0.6f
 
@@ -481,12 +447,12 @@ object Synth {
                 val f = hz(note(deg + s + 7, chordBase))
                 wet.add(at + e * beat + 0.5f * beat + swing, beat) { t -> bell(f, t, 3f) * rel(t, beat) * 0.035f }
             }
-            leadBar(fe.plan, bi, false, call, answer, hook)?.forEach { n ->
+            for (n in melody.bar(bi, false)) {
                 val l = n.len * beat * 0.9f
-                val off = if (n.at % 1f != 0f) swing else 0f
+                val off = if (n.at % 1f == 0.5f) swing else 0f
                 for ((h, v) in if (fe.plan == 3) listOf(0 to 0.085f, 2 to 0.04f) else listOf(0 to 0.085f)) {
                     val f = hz(note(n.deg + h, leadBase))
-                    wet.add(at + n.at * beat + off, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
+                    wet.add(n.at * beat + off, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
                 }
             }
         }

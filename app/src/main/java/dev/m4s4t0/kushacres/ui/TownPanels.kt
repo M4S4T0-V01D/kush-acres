@@ -370,6 +370,32 @@ private fun GusShop() {
 
 // ---- Shade: the black market ----
 
+private fun bmIcon(item: BmItem) = when {
+    item.strain != null -> Strains[item.strain]?.let { Sprites.strainIcon(it) } ?: Sprites.bag
+    item.decor != null -> DecorArt.sprite(item.decor)
+    item == BmItem.SCANNER -> Sprites.lock
+    item == BmItem.MOONOIL -> Sprites.moon
+    item == BmItem.TICKET -> Sprites.map
+    item == BmItem.BLOOM -> Sprites.flask
+    item == BmItem.GEM -> Sprites.star
+    item == BmItem.CRATE -> Sprites.gift
+    item == BmItem.BUGBOMB -> Sprites.fog
+    item == BmItem.SEEDER -> Sprites.rain
+    item.buff != null -> Sprites.star
+    else -> Sprites.bag
+}
+
+private fun bmThanks(item: BmItem) = when {
+    item.strain != null -> "Plant them from the Seeds menu"
+    item.decor != null -> "In your shed. Place it from Build > Decor"
+    item == BmItem.CRATE -> "You crack it open: ${Store.farm.bmNote}"
+    item == BmItem.BUGBOMB -> "Psssht. Not a bug left on this farm"
+    item == BmItem.SEEDER -> "The clouds open up over your plots"
+    item == BmItem.BLOOM -> "Your plants shoot up overnight. Well, in a minute"
+    item == BmItem.SCANNER -> "You'll hear them coming for the next 2 hours"
+    else -> "Pleasure doing business"
+}
+
 @Composable
 private fun ShadeShop() {
     val f = Store.farm
@@ -390,20 +416,22 @@ private fun ShadeShop() {
             val item = stock[i]
             val sold = f.bmSold(i)
             val c = item.price(f.level)
-            val icon = when {
-                item.strain != null -> Strains[item.strain]?.let { Sprites.strainIcon(it) } ?: Sprites.bag
-                item.decor != null -> DecorArt.sprite(item.decor)
-                item == BmItem.ENVELOPE -> Sprites.bag
-                item.buff != null -> Sprites.star
-                else -> Sprites.bag
-            }
-            Card(icon, item.title, item.desc, if (sold) "Sold out" else null, if (sold) "SOLD" else money(c), !sold && f.cash >= c) {
+            Card(bmIcon(item), item.title, item.desc, if (sold) "Sold out" else null, if (sold) "SOLD" else money(c), !sold && f.cash >= c) {
                 val r = f.bmBuy(i, Store.now()); report(r)
-                if (r == Result.OK) Store.toast(when {
-                    item.strain != null -> "Plant them from the Seeds menu"
-                    item.decor != null -> "In your shed. Place it from Build > Decor"
-                    else -> "Pleasure doing business"
-                })
+                if (r == Result.OK) Store.toast(bmThanks(item))
+            }
+        }
+        item {
+            Store.rev
+            T("The back room: always in stock, dearer each time until the shelf turns over", 11.sp, Neon, bold = false)
+        }
+        items(f.bmStaples()) { item ->
+            Store.rev
+            val c = f.bmStaplePrice(item, now)
+            val n = f.bmStaple[item.name] ?: 0
+            Card(bmIcon(item), item.title, item.desc, if (n > 0) "Bought $n this time" else null, money(c), f.cash >= c) {
+                val r = f.bmBuyStaple(item, Store.now()); report(r)
+                if (r == Result.OK) Store.toast(bmThanks(item))
             }
         }
         val exotics = f.seeds.entries.filter { it.value > 0 }

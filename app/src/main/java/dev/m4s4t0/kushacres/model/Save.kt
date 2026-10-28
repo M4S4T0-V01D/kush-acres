@@ -85,7 +85,7 @@ object Save {
         o.put("lastTick", f.lastTick)
         o.put("harvests", f.totalHarvests); o.put("earned", f.totalEarned)
         o.put("envelopes", f.envelopes)
-        o.put("bmRot", f.bmRot); o.put("bmBought", JSONArray(f.bmBought.toList()))
+        o.put("bmRot", f.bmRot); o.put("bmBought", JSONArray(f.bmBought.toList())); o.put("bmStaple", ints(f.bmStaple))
         o.put("stash", ints(f.stash)); o.put("goods", ints(f.goods)); o.put("seeds", ints(f.seeds)); o.put("decor", ints(f.decorInv))
         o.put("supplies", JSONObject().apply { Supply.entries.forEach { put(it.name, f.supplies[it.ordinal]) } })
         o.put("buffs", JSONObject().apply { f.buffs.forEach { (k, v) -> put(k.name, v) } })
@@ -157,6 +157,7 @@ object Save {
         f.envelopes = o.optInt("envelopes")
         f.bmRot = o.optLong("bmRot", -1); f.bmBought.clear()
         o.optJSONArray("bmBought")?.let { a -> for (j in 0 until a.length()) f.bmBought += a.getInt(j) }
+        f.bmStaple.clear(); readInts(o.optJSONObject("bmStaple"), f.bmStaple) { id -> BmItem.entries.any { it.name == id && it.staple } }
         val oldUp = o.optJSONObject("up")
         readInts(o.optJSONObject("stash"), f.stash) { Strains[it] != null }
         readInts(o.optJSONObject("goods"), f.goods) { f.goodsParts(it) != null }

@@ -221,6 +221,10 @@ class Farm(var rng: Random = Random.Default) {
     var happening: Happening? = null
     var bmRot = -1L
     val bmBought = HashSet<Int>()
+    /** Back-room staples bought this rotation, by item name. */
+    val bmStaple = HashMap<String, Int>()
+    /** What the last Mystery Crate held, for the toast. */
+    var bmNote = ""
 
     var totalHarvests = 0L
     var totalEarned = 0L
@@ -405,7 +409,8 @@ class Farm(var rng: Random = Random.Default) {
     fun lampCost(): Long = nice(3000.0 * 1.6.pow(count(Kind.LAMP)))
     fun facilityCost(f: Facility): Long = nice(f.cost * 3.0.pow(count(f)))
     fun count(g: Generator) = tiles.count { it.kind == Kind.POWER && it.item == g.name }
-    fun generatorCost(g: Generator): Long = nice(g.cost * 1.5.pow(count(g)))
+    /** Each extra generator of a kind on the same farm costs twice the last one. */
+    fun generatorCost(g: Generator): Long = nice(g.cost * 2.0.pow(count(g)))
     /** A ground colour costs more the further you get; going back to the farm's own colour is free. */
     fun groundCost(): Long = nice(1000.0 * 1.2.pow(level))
 
@@ -738,7 +743,7 @@ class Farm(var rng: Random = Random.Default) {
         val dog = placed(Decor.DOG)
         val pests = growing().filter { (x, y) -> !protected(x, y) && !hardy(x, y) }
         val choices = ArrayList<Pair<EventKind, Int>>()
-        if (level >= 5 && cash >= 500 && !built(Special.TEMPLE)) choices += EventKind.RAID to (if (dog) 1 else 2)
+        if (level >= 5 && cash >= 500 && !built(Special.TEMPLE) && !on(Buff.SCANNER)) choices += EventKind.RAID to (if (dog) 1 else 2)
         if (pests.isNotEmpty()) choices += EventKind.PESTS to 3
         if (count(Kind.PLOT) > 0) choices += EventKind.RAIN to 2
         choices += EventKind.RUSH to 2
@@ -1407,7 +1412,7 @@ class Farm(var rng: Random = Random.Default) {
         upgrades.fill(0); helpers.fill(false); supplies.fill(0)
         stash.clear(); goods.clear(); seeds.clear(); decorInv.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
-        shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmRot = -1L
+        shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear(); bmRot = -1L
         totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
         legacy = 0; legacyPerks.clear(); heirlooms.clear(); finds.clear(); mothers.clear(); hunting.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
@@ -1767,12 +1772,32 @@ class Farm(var rng: Random = Random.Default) {
 
     fun bmStock(now: Long): List<BmItem> {
         val rot = now / BM_ROTATION
-        if (rot != bmRot) { bmRot = rot; bmBought.clear() }
+        turnOver(now)
         // Each town's dealer stocks their own mix, with the town's special always first.
         val here = site.def.id
         val local = BmItem.entries.filter { it.site == here && it.level <= level }
-        val rest = BmItem.entries.filter { it.site == null && it.level <= level }.shuffled(Random(rot * 7919 + 13 + here.hashCode() * 31L))
-        return (local + rest).take(if (level >= 30) 5 else 4)
+        val rest = BmItem.entries.filter { it.site == null && !it.staple && it.level <= level }.shuffled(Random(rot * 7919 + 13 + here.hashCode() * 31L))
+        return (local + rest).take(if (level >= 30) 8 else 6)
+    }
+
+    private fun turnOver(now: Long) {
+        val rot = now / BM_ROTATION
+        if (rot != bmRot) { bmRot = rot; bmBought.clear(); bmStaple.clear() }
+    }
+
+    /** The back room: staples that are always in, at your level. */
+    fun bmStaples(): List<BmItem> = BmItem.entries.filter { it.staple && it.level <= level }
+    fun bmStaplePrice(item: BmItem, now: Long): Long { turnOver(now); return item.price(level, bmStaple[item.name] ?: 0) }
+
+    fun bmBuyStaple(item: BmItem, now: Long): Result {
+        if (level < BLACK_MARKET_LEVEL || level < item.level) return Result.LOCKED
+        if (!item.staple) return Result.BLOCKED
+        val c = bmStaplePrice(item, now)
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        bmStaple[item.name] = (bmStaple[item.name] ?: 0) + 1
+        bmGive(item, now)
+        return Result.OK
     }
 
     /** Whether [slot] of this town's black-market shelf has been bought this rotation. */
@@ -1789,13 +1814,46 @@ class Farm(var rng: Random = Random.Default) {
         if (cash < c) return Result.NO_CASH
         spend(c)
         bmBought += bmKey(slot)
+        bmGive(item, now)
+        return Result.OK
+    }
+
+    private fun bmGive(item: BmItem, now: Long) {
         when {
             item.strain != null -> seeds[item.strain] = (seeds[item.strain] ?: 0) + BmItem.EXOTIC_PACK
             item.buff != null -> addBuff(item.buff, now, item.minutes)
             item.decor != null -> decorInv[item.decor.name] = (decorInv[item.decor.name] ?: 0) + 1
             item == BmItem.ENVELOPE -> envelopes++
+            item == BmItem.GEM -> gems++
+            item == BmItem.BUGBOMB -> eachLand { _, _, t -> if (t.pest || t.mould) { t.pest = false; t.mould = false; bump(Stat.PESTS) } }
+            item == BmItem.SEEDER -> eachLand { _, _, t -> if (t.kind == Kind.PLOT) t.wetUntil = max(t.wetUntil, now + waterMillis()) }
+            item == BmItem.BLOOM -> eachLand { _, _, t ->
+                val s = t.strain?.let { Strains[it] } ?: return@eachLand
+                if (t.kind != Kind.PLOT || t.pest || t.mould || t.progress >= s.seconds) return@eachLand
+                t.progress = min(s.seconds.toDouble(), t.progress + BmItem.BLOOM_SECONDS)
+                if (t.progress >= s.seconds) t.ripeAt = now
+            }
+            item == BmItem.CRATE -> bmNote = crate(item.price(level), now)
         }
-        return Result.OK
+    }
+
+    /** Opens a Mystery Crate that cost [paid]: usually worth it, now and then a lot more. */
+    private fun crate(paid: Long, now: Long): String {
+        val roll = rng.nextInt(100)
+        return when {
+            roll < 35 -> nice(paid * 2.5).let { earn(it); "A roll of bills: +${'$'}$it" }
+            roll < 60 -> {
+                val pick = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= level }.random(rng)
+                seeds[pick.strain!!] = (seeds[pick.strain] ?: 0) + 3
+                "3 ${Strains[pick.strain]?.name} seeds"
+            }
+            roll < 85 -> {
+                val b = listOf(Buff.JUICE, Buff.DUST, Buff.TIP, Buff.FOCUS, Buff.VIBES).random(rng)
+                addBuff(b, now, 30); "${b.title} for 30 min"
+            }
+            roll < 97 -> { gems++; "A Kush Gem" }
+            else -> { gems += 3; "Jackpot: 3 Kush Gems" }
+        }
     }
 
     // ---- Selling and orders ----
@@ -2032,7 +2090,7 @@ class Farm(var rng: Random = Random.Default) {
         upgrades.fill(0); helpers.fill(false); supplies.fill(0)
         stash.clear(); goods.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); mineAt = 0
-        shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear()
+        shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear()
         // Towns remember you, but deals in hand go with the farm.
         offers.clear(); offerDay.clear(); deals.clear()
         legacy++

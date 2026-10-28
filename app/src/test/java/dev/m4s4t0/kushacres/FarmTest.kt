@@ -16,6 +16,7 @@ import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
 import dev.m4s4t0.kushacres.model.Facility
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Holiday
@@ -42,6 +43,7 @@ import dev.m4s4t0.kushacres.model.FarmEvent
 import dev.m4s4t0.kushacres.model.FarmGoal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.json.JSONObject
@@ -293,13 +295,33 @@ class FarmTest {
         val f = farm()
         f.cash = 100_000_000; f.level = 40
         val stock = f.bmStock(t0)
-        assertEquals(5, stock.size) // level 30+ gets a fifth slot
+        assertEquals(8, stock.size) // level 30+ gets a bigger shelf
+        assertTrue(stock.none { it.staple })
         assertEquals(stock, f.bmStock(t0 + 1000))
         assertEquals(Result.OK, f.bmBuy(0, t0))
         assertEquals(Result.BLOCKED, f.bmBuy(0, t0))
         val item = stock[0]
         if (item.strain != null) assertEquals(BmItem.EXOTIC_PACK, f.seeds[item.strain])
         assertTrue(f.bmRefreshIn(t0) in 1..Farm.BM_ROTATION)
+    }
+
+    @Test fun backRoomStaplesClimbInPriceAndWork() {
+        val f = farm()
+        f.cash = 100_000_000; f.level = 20
+        val p0 = f.bmStaplePrice(BmItem.BUGBOMB, t0)
+        val pests = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT }
+        for ((x, y) in pests) f.tile(x, y).pest = true
+        assertEquals(Result.OK, f.bmBuyStaple(BmItem.BUGBOMB, t0))
+        assertTrue(pests.none { (x, y) -> f.tile(x, y).pest })
+        assertTrue(f.bmStaplePrice(BmItem.BUGBOMB, t0) > p0)
+        assertEquals(Result.OK, f.bmBuyStaple(BmItem.ENVELOPE, t0))
+        assertEquals(1, f.envelopes)
+        assertEquals(Result.BLOCKED, f.bmBuyStaple(BmItem.GEM, t0))
+        // The next rotation puts prices back.
+        assertEquals(p0, f.bmStaplePrice(BmItem.BUGBOMB, t0 + Farm.BM_ROTATION))
+        // A police scanner keeps raids away while it's on.
+        f.addBuff(Buff.SCANNER, t0, 120); f.tick(t0 + 1000)
+        repeat(50) { assertNotEquals(EventKind.RAID, f.makeEvent(t0 + 2000)?.kind) }
     }
 
     @Test fun v2SaveKeepsTheNewStuff() {
@@ -674,6 +696,19 @@ class FarmTest {
         assertEquals(1, f.sites.size)
         assertEquals("home", f.site.def.id)
         assertEquals(Kind.SHACK, f.tile(0, 0).kind)
+    }
+
+    @Test fun extraGeneratorsCostMore() {
+        val f = rich()
+        f.level = 30
+        fun grass() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
+        val made = f.powerMade()
+        val first = f.generatorCost(Generator.DIESEL)
+        grass().let { (x, y) -> assertEquals(Result.OK, f.buildPower(x, y, Generator.DIESEL)) }
+        assertEquals(first * 2, f.generatorCost(Generator.DIESEL))
+        grass().let { (x, y) -> assertEquals(Result.OK, f.buildPower(x, y, Generator.DIESEL)) }
+        assertEquals(2, f.count(Generator.DIESEL))
+        assertEquals(made + 2 * Generator.DIESEL.watts, f.powerMade())
     }
 
     @Test fun workBuildingsAndWorkers() {

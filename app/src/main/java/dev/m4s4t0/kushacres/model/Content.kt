@@ -200,6 +200,7 @@ enum class Buff(val title: String) {
     HARVEST_MOON("Harvest moon: yield ×1.5"),
     TOURISTS("Tourist bus: orders pay ×1.5"),
     HEATWAVE("Heatwave: water dries ×2 faster"),
+    SCANNER("Police scanner: no raids"),
 }
 
 enum class EventKind {
@@ -291,7 +292,11 @@ val DIRT_COLORS = listOf(
 const val GROUND_BUCKS = 8L
 
 /** Black-market goods. Seed packs give [EXOTIC_PACK] seeds; prices scale with your level except for seeds. */
-enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0, val site: String? = null) {
+/**
+ * The back alley shelf. [staple]s sit in the back room and never sell out, but each one bought costs more until the
+ * stock turns over; the rest rotate on the shelf, one of each per rotation.
+ */
+enum class BmItem(val title: String, val desc: String, val level: Int, val base: Double, val strain: String? = null, val decor: Decor? = null, val buff: Buff? = null, val minutes: Int = 0, val site: String? = null, val staple: Boolean = false) {
     GHOST("Ghost Train seeds", "5 exotic seeds. 40 min, huge yield", 6, 2_500.0, strain = "ghost"),
     DRAGON("Dragon's Breath seeds", "5 exotic seeds. 3 h, fire bud", 12, 40_000.0, strain = "dragon"),
     UNICORN("Unicorn Poop seeds", "5 exotic seeds. 8 h, sparkles", 20, 280_000.0, strain = "unicorn"),
@@ -301,7 +306,15 @@ enum class BmItem(val title: String, val desc: String, val level: Int, val base:
     DUST("Lucky Dust", "+15% golden harvests for 15 min", 6, 50.0, buff = Buff.DUST, minutes = 15),
     TIP("Street Tip", "Prices ×1.25 for 30 min", 6, 45.0, buff = Buff.TIP, minutes = 30),
     FOCUS("Smart Brownie", "XP ×1.5 for 30 min", 10, 60.0, buff = Buff.FOCUS, minutes = 30),
-    ENVELOPE("Bribe Envelope", "Makes the next raid go away", 6, 30.0),
+    SCANNER("Police Scanner", "No raids for 2 h", 8, 70.0, buff = Buff.SCANNER, minutes = 120),
+    MOONOIL("Moon Oil", "Harvests yield ×1.5 for 20 min", 14, 90.0, buff = Buff.HARVEST_MOON, minutes = 20),
+    TICKET("Fake Bus Tickets", "A tour bus shows up: orders pay ×1.5 for 30 min", 12, 70.0, buff = Buff.TOURISTS, minutes = 30),
+    BLOOM("Bloom Booster", "Every growing plant on this farm jumps 20 min ahead", 16, 80.0),
+    GEM("Hot Gem", "1 Kush Gem, no questions asked", 10, 500.0),
+    CRATE("Mystery Crate", "Could be anything. Probably fine", 12, 60.0),
+    ENVELOPE("Bribe Envelope", "Makes the next raid go away", 6, 30.0, staple = true),
+    BUGBOMB("Bug Bomb", "Clears every pest and mould on this farm", 6, 25.0, staple = true),
+    SEEDER("Cloud Seeder", "Waters every plot on this farm", 8, 20.0, staple = true),
     NEON("Neon Leaf Sign", "Decor: everything sells 5% higher", 6, 300.0, decor = Decor.NEON),
     LAVA("Giant Lava Lamp", "Decor: neighbours grow 15% faster", 6, 500.0, decor = Decor.LAVA),
     ALIEN("Alien Statue", "Decor: neighbours +6% golden chance", 6, 900.0, decor = Decor.ALIEN),
@@ -327,7 +340,14 @@ enum class BmItem(val title: String, val desc: String, val level: Int, val base:
         else -> nice(base * 1.22.pow(playerLevel))
     }
 
+    /** A back-room staple after [bought] of them this rotation. */
+    fun price(playerLevel: Int, bought: Int): Long = nice(price(playerLevel) * STAPLE_STEP.pow(bought))
+
     companion object {
         const val EXOTIC_PACK = 5
+        /** Each back-room staple bought makes the next one cost this much more. */
+        const val STAPLE_STEP = 1.5
+        /** How far a Bloom Booster pushes growing plants, in seconds. */
+        const val BLOOM_SECONDS = 20 * 60
     }
 }

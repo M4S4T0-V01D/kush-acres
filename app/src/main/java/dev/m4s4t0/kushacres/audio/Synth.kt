@@ -156,14 +156,64 @@ object Synth {
         }.s.let { norm(it, 0.6f) }
     }
 
+    /** Bass riffs, a bar each: (beat, length, scale step over the chord root). */
+    private val RIFFS = listOf(
+        listOf(Triple(0f, 1.5f, 0), Triple(1.5f, 0.5f, 0), Triple(2f, 1f, 4), Triple(3f, 0.5f, 2), Triple(3.5f, 0.5f, 1)),
+        listOf(Triple(0f, 0.75f, 0), Triple(1f, 0.5f, 2), Triple(1.5f, 1f, 4), Triple(3f, 0.5f, 7), Triple(3.5f, 0.5f, 4)),
+        listOf(Triple(0.5f, 1f, 0), Triple(1.5f, 0.5f, 0), Triple(2.5f, 0.5f, 2), Triple(3f, 1f, 4)),
+        listOf(Triple(0f, 2f, 0), Triple(2.5f, 0.5f, -1), Triple(3f, 1f, 0)),
+        listOf(Triple(0f, 1f, 0), Triple(1f, 0.5f, 4), Triple(1.5f, 0.5f, 5), Triple(2f, 1f, 4), Triple(3.5f, 0.5f, 2)),
+        // Steppers: pumping eighths, root and octave.
+        listOf(Triple(0f, 0.5f, 0), Triple(0.5f, 0.5f, 7), Triple(1f, 0.5f, 0), Triple(1.5f, 0.5f, 7), Triple(2f, 0.5f, 0), Triple(2.5f, 0.5f, 7), Triple(3f, 0.5f, 4), Triple(3.5f, 0.5f, 2)),
+        listOf(Triple(0f, 3f, 0), Triple(3f, 1f, -3)),
+        listOf(Triple(0f, 0.5f, 0), Triple(0.5f, 0.5f, 1), Triple(1f, 0.5f, 2), Triple(1.5f, 1f, 4), Triple(2.5f, 0.5f, 2), Triple(3f, 1f, 0)),
+        listOf(Triple(0.5f, 0.5f, 0), Triple(1f, 0.5f, 0), Triple(2f, 0.75f, 4), Triple(2.75f, 0.75f, 3), Triple(3.5f, 0.5f, 2)),
+        listOf(Triple(0f, 0.75f, 0), Triple(0.75f, 0.25f, 0), Triple(1f, 0.5f, 2), Triple(2f, 0.75f, 0), Triple(2.75f, 0.25f, 0), Triple(3f, 0.5f, 4), Triple(3.5f, 0.5f, 5)),
+    )
+
+    private class N(val at: Float, val len: Float, val deg: Int)
+
+    /** A melody [beats] long from the pentatonic scale, in note lengths picked by [rhythm]. */
+    private fun phrase(r: Random, minor: Boolean, rhythm: Int, beats: Float = 8f, from: Float = 0f, rest: Float = 0.26f): List<N> {
+        val pent = if (minor) intArrayOf(0, 2, 3, 4, 6) else intArrayOf(0, 1, 2, 4, 5)
+        val lens = when (rhythm) { 1 -> listOf(0.25f, 0.5f, 0.5f, 0.5f, 0.75f, 1f); 2 -> listOf(1f, 1.5f, 2f, 2f, 3f); else -> listOf(0.5f, 0.5f, 1f, 1f, 1.5f, 2f) }
+        val out = ArrayList<N>()
+        var at = from; var i = r.nextInt(2, 6)
+        while (at < beats - 1f) {
+            val len = lens[r.nextInt(lens.size)].coerceAtMost(beats - at)
+            if (r.nextFloat() >= rest) out += N(at, len, 7 * Math.floorDiv(i, 5) + pent[Math.floorMod(i, 5)])
+            i = (i + r.nextInt(-2, 3)).coerceIn(0, 9)
+            at += len
+        }
+        if (out.isEmpty()) out += N(from, 1f, pent[2])
+        return out
+    }
+
     /**
-     * A slow reggae loop, 16 bars of one-drop: kick and rim together on beat 3, an offbeat guitar chop with an organ
-     * bubble, a deep bass line, a lead that answers itself in bars 5–8 and 13–16, dub echo on the lead and rim, and
-     * vinyl crackle. Every area has its own [Tune], so each loop is in its own key, speed and voice.
+     * When the lead plays, by [Feel.plan]: 0 a call in bars 5–8 and its answer in 13–16; 1 call and answer taking
+     * turns all through; 2 a one-bar hook every bar with a longer line between; 3 like 0 but starting earlier, in
+     * thirds. Returns the notes starting in bar [bi] (beats from that bar), or null.
+     */
+    private fun leadBar(plan: Int, bi: Int, drop: Boolean, call: List<N>, answer: List<N>, hook: List<N>): List<N>? = when (plan) {
+        1 -> if (bi >= 2 && bi % 2 == 0 && !drop) (if ((bi / 2) % 2 == 1) call else answer) else null
+        2 -> when { bi in 4..7 || bi in 12..15 -> hook; bi in 8..11 && bi % 2 == 0 && !drop -> call; else -> null }
+        3 -> if (bi % 2 == 0 && !drop) when (bi) { in 2..7 -> call; in 10..15 -> answer; else -> null } else null
+        else -> if (bi % 2 == 0) when (bi) { in 4..7 -> call; in 12..15 -> answer; else -> null } else null
+    }
+
+    /**
+     * A slow reggae loop, 16 bars: a deep bass line, a chop on the offbeats, a lead with an echo, and vinyl crackle.
+     * Every tune has its own key, speed and lead voice, and its [Feel] picks the rest:
+     * - drums: 0 one drop (kick and rim on 3), 1 rockers (kick on 1 and 3), 2 steppers (kick on every beat), 3 dancehall;
+     * - chop: 0 guitar on 2 and 4, 1 double chop, 2 piano stabs, 3 organ-led, 4 ska upstrokes on every offbeat;
+     * - hats: 0 swung eighths, 1 sixteenths, 2 open on the offbeats, 3 a triplet shuffle;
+     * - percussion: 0 none, 1 shaker, 2 hand drums, 3 cowbell and woodblock, 4 tambourine;
+     * - extra: 0 none, 1 a bell arpeggio, 2 a soft pad, 3 horn stabs, 4 dub sirens and echo throws.
+     * Dub strips the chop back, sends it through the echo and drops the band out for bars 9–12.
      */
     fun music(tune: Tune = Tunes.of("home")): FloatArray {
-        if (tune.style == Style.LOFI) return lofi(tune)
-        // Dub: the skank goes through the echo, the band drops out to bass and drums for bars 9–12, sparser hats.
+        val fe = Tunes.feel(tune)
+        if (tune.style == Style.LOFI) return lofi(tune, fe)
         val dub = tune.style == Style.DUB
         val beat = 60f / tune.bpm
         val bar = beat * 4
@@ -178,50 +228,49 @@ object Synth {
         val leadBase = chordBase + 12
         val hat = noise(tune.seed + 3, RATE).let { n -> FloatArray(n.size) { i -> if (i == 0) 0f else n[i] - n[i - 1] } }
         val snap = noise(tune.seed + 4, RATE)
+        val snr = noise(tune.seed + 5, RATE).also { lowpass(it, 5000f) }
         fun rel(t: Float, len: Float) = if (t > len - 0.05f) ((len - t) / 0.05f).coerceAtLeast(0f) else 1f
+        fun rim(t: Float) = (sin(TAU * 1650 * t) * 0.6f + snap[(t * RATE).toInt()]) * exp(-t * 55)
 
-        // Two bass riffs, picked for this tune: (beat, length, scale step over the chord root).
-        val riffs = listOf(
-            listOf(Triple(0f, 1.5f, 0), Triple(1.5f, 0.5f, 0), Triple(2f, 1f, 4), Triple(3f, 0.5f, 2), Triple(3.5f, 0.5f, 1)),
-            listOf(Triple(0f, 0.75f, 0), Triple(1f, 0.5f, 2), Triple(1.5f, 1f, 4), Triple(3f, 0.5f, 7), Triple(3.5f, 0.5f, 4)),
-            listOf(Triple(0.5f, 1f, 0), Triple(1.5f, 0.5f, 0), Triple(2.5f, 0.5f, 2), Triple(3f, 1f, 4)),
-            listOf(Triple(0f, 2f, 0), Triple(2.5f, 0.5f, -1), Triple(3f, 1f, 0)),
-            listOf(Triple(0f, 1f, 0), Triple(1f, 0.5f, 4), Triple(1.5f, 0.5f, 5), Triple(2f, 1f, 4), Triple(3.5f, 0.5f, 2)),
-        )
-        val riffA = riffs[r.nextInt(riffs.size)]
-        val riffB = riffs[r.nextInt(riffs.size)]
-        // A two-bar motif from the pentatonic scale, played again with a new ending.
-        val pent = if (tune.minor) intArrayOf(0, 2, 3, 4, 6) else intArrayOf(0, 1, 2, 4, 5)
-        class N(val at: Float, val len: Float, val deg: Int)
-        fun phrase(): List<N> {
-            val out = ArrayList<N>()
-            var at = 0f; var i = r.nextInt(2, 5)
-            while (at < 7f) {
-                val len = listOf(0.5f, 0.5f, 1f, 1f, 1.5f, 2f)[r.nextInt(6)].coerceAtMost(8f - at)
-                if (r.nextFloat() < 0.74f) out += N(at, len, 7 * Math.floorDiv(i, 5) + pent[Math.floorMod(i, 5)])
-                i = (i + r.nextInt(-2, 3)).coerceIn(0, 8)
-                at += len
-            }
-            return out
-        }
-        val call = phrase(); val answer = call.filter { it.at < 4f } + phrase().filter { it.at >= 4f }
+        val riffA = RIFFS[fe.bass]
+        val riffB = RIFFS[(fe.bass + 3 + fe.drums) % RIFFS.size]
+        val call = phrase(r, tune.minor, fe.rhythm)
+        val answer = call.filter { it.at < 4f } + phrase(r, tune.minor, fe.rhythm, from = 4f)
+        val hook = phrase(r, tune.minor, 1, beats = 4f, rest = 0.15f)
+        // The extra layer's voice: something the lead isn't.
+        val other = if (tune.lead == Lead.BELL) Lead.STEEL else Lead.BELL
+        val swing = beat * (if (fe.rhythm == 1) 0.06f else 0.12f)
 
         for (bi in 0 until bars) {
             val at = bi * bar
             val deg = tune.prog[(bi / tune.bars) % tune.prog.size]
             val chord = intArrayOf(note(deg, chordBase), note(deg + 2, chordBase), note(deg + 4, chordBase))
             val drop = dub && bi in 8..11
-            // The skank: a muted guitar chop on 2 and 4, an organ bubbling on the offbeats.
             val sk = if (dub) wet else b
-            if (!drop) for (k in intArrayOf(1, 3)) for ((j, n) in chord.withIndex()) {
-                if (dub && k == 1 && bi % 2 == 1) continue
-                val f = hz(n)
-                sk.add(at + k * beat + j * 0.006f, 0.16f) { t -> guitar(f, t) * 0.07f * rel(t, 0.16f) }
+            // The chop.
+            if (!drop) {
+                val hits: List<Pair<Float, Float>> = when (fe.chop) {
+                    1 -> listOf(1f to 0.1f, 1.5f to 0.08f, 3f to 0.1f, 3.5f to 0.08f)
+                    3 -> listOf(3f to 0.14f)
+                    4 -> listOf(0.5f to 0.09f, 1.5f to 0.09f, 2.5f to 0.09f, 3.5f to 0.09f)
+                    else -> listOf(1f to 0.16f, 3f to 0.16f)
+                }
+                for ((k, len) in hits) {
+                    if (dub && k < 2f && bi % 2 == 1) continue
+                    for ((j, n) in chord.withIndex()) {
+                        val f = hz(n + if (fe.chop == 4) 12 else 0)
+                        if (fe.chop == 2) sk.add(at + k * beat + j * 0.004f, 0.3f) { t -> piano(f, t) * 0.08f * rel(t, 0.3f) }
+                        else sk.add(at + k * beat + j * 0.006f, len) { t -> guitar(f, t) * (if (fe.chop == 4) 0.055f else 0.07f) * rel(t, len) }
+                    }
+                }
             }
-            if (!drop && !(dub && bi % 2 == 1)) for (e in 0 until 8) if (e % 2 == 1 || tune.bubble) for (n in chord) {
+            // The organ bubble: on the offbeats, the downbeats too if the tune asks or the organ leads the chop.
+            val bubble = tune.bubble || fe.chop == 3
+            if (!drop && !(dub && bi % 2 == 1)) for (e in 0 until 8) if (e % 2 == 1 || bubble) for (n in chord) {
                 val f = hz(n - if (e % 2 == 0) 12 else 0)
                 val len = beat * 0.42f
-                b.add(at + e * beat / 2, len) { t -> organ(f, t) * (if (e % 2 == 1) 0.032f else 0.02f) * attack(t, 0.01f) * rel(t, len) }
+                val v = (if (e % 2 == 1) 0.032f else 0.02f) * (if (fe.chop == 3) 1.5f else 1f)
+                b.add(at + e * beat / 2, len) { t -> organ(f, t) * v * attack(t, 0.01f) * rel(t, len) }
             }
             // Bass.
             val riff = if (bi % 4 == 3) riffB else riffA
@@ -231,29 +280,79 @@ object Synth {
                 val vol = if (dub) 0.44f else 0.36f
                 b.add(at + pos * beat, l) { t -> (sin(TAU * f * t) + 0.35f * sin(TAU * 2 * f * t) + 0.1f * sin(TAU * 3 * f * t)) * exp(-t * 0.7f) * attack(t, 0.012f) * rel(t, l) * vol }
             }
-            // One drop: nothing on 1, kick and rim on 3, swung hats, a cross-stick fill now and then.
-            b.add(at + 2 * beat, 0.4f) { t -> sin(TAU * (62 - t * 50) * t) * exp(-t * 8) * 0.62f }
-            wet.add(at + 2 * beat, 0.12f) { t -> (sin(TAU * 1650 * t) * 0.6f + snap[(t * RATE).toInt()]) * exp(-t * 55) * 0.2f }
-            if (bi % 4 == 3 || (dub && bi % 2 == 1)) wet.add(at + 3.5f * beat, 0.1f) { t -> (sin(TAU * 1650 * t) * 0.6f + snap[(t * RATE).toInt()]) * exp(-t * 60) * 0.1f }
-            for (e in 0 until 8) {
-                if (dub && e % 2 == 0) continue
-                val te = at + e * beat / 2 + if (e % 2 == 1) beat * 0.12f else 0f
-                val open = e == 7 && bi % 2 == 1
-                b.add(te, if (open) 0.3f else 0.06f) { t -> hat[(t * RATE).toInt()] * exp(-t * (if (open) 10f else 80f)) * (if (e % 2 == 0) 0.05f else 0.035f) }
+            // Kick and snare.
+            val kicks = when (fe.drums) { 1 -> floatArrayOf(0f, 2f); 2 -> floatArrayOf(0f, 1f, 2f, 3f); 3 -> floatArrayOf(0f, 1.5f, 2.5f); else -> floatArrayOf(2f) }
+            for (k in kicks) b.add(at + k * beat, 0.4f) { t -> sin(TAU * (62 - t * 50) * t) * exp(-t * 8) * (if (fe.drums == 2 && k != 2f) 0.5f else 0.62f) }
+            when (fe.drums) {
+                2 -> b.add(at + 2 * beat, 0.25f) { t -> (snr[(t * RATE).toInt()] * exp(-t * 16) * 0.5f + sin(TAU * 190 * t) * exp(-t * 22) * 0.4f) * 0.4f }
+                3 -> for (k in intArrayOf(1, 3)) b.add(at + k * beat, 0.25f) { t -> (snr[(t * RATE).toInt()] * exp(-t * 18) * 0.5f + sin(TAU * 200 * t) * exp(-t * 25) * 0.4f) * 0.38f }
+                else -> wet.add(at + 2 * beat, 0.12f) { t -> rim(t) * 0.2f }
             }
-            // The lead: the call in bars 5–8, the answer in 13–16.
-            val ph = when (bi) { in 4..7 -> call; in 12..15 -> answer; else -> null }
-            if (ph != null && bi % 2 == 0) for (n in ph) {
-                val f = hz(note(n.deg, leadBase))
+            if (bi % 4 == 3 || (dub && bi % 2 == 1)) wet.add(at + 3.5f * beat, 0.1f) { t -> rim(t) * 0.1f }
+            // Hats.
+            val fill = bi % 8 == 7 && fe.hats % 2 == 0
+            when (fe.hats) {
+                1 -> for (s in 0 until 16) {
+                    if (dub && s % 4 == 0) continue
+                    b.add(at + s * beat / 4, 0.05f) { t -> hat[(t * RATE).toInt()] * exp(-t * 90) * (if (s % 2 == 0) 0.04f else 0.02f) }
+                }
+                2 -> for (e in 0 until 8) {
+                    val open = e % 2 == 1
+                    if (dub && !open) continue
+                    b.add(at + e * beat / 2, if (open) 0.22f else 0.05f) { t -> hat[(t * RATE).toInt()] * exp(-t * (if (open) 16f else 90f)) * (if (open) 0.04f else 0.025f) }
+                }
+                3 -> for (k in 0 until 4) for (tr in intArrayOf(0, 2)) {
+                    if (dub && tr == 0 && k % 2 == 0) continue
+                    b.add(at + (k + tr / 3f) * beat, 0.06f) { t -> hat[(t * RATE).toInt()] * exp(-t * 80) * (if (tr == 0) 0.045f else 0.03f) }
+                }
+                else -> for (e in 0 until 8) {
+                    if (dub && e % 2 == 0) continue
+                    val te = at + e * beat / 2 + if (e % 2 == 1) swing else 0f
+                    val open = e == 7 && bi % 2 == 1
+                    b.add(te, if (open) 0.3f else 0.06f) { t -> hat[(t * RATE).toInt()] * exp(-t * (if (open) 10f else 80f)) * (if (e % 2 == 0) 0.05f else 0.035f) }
+                }
+            }
+            // A tom fill into every eighth bar.
+            if (fill) for ((i, f) in floatArrayOf(210f, 180f, 150f, 120f).withIndex()) b.add(at + (3f + i * 0.25f) * beat, 0.3f) { t -> sin(TAU * (f - t * 60) * t) * exp(-t * 10) * 0.3f }
+            // Percussion.
+            when (fe.perc) {
+                1 -> for (s in 0 until 16) b.add(at + s * beat / 4, 0.08f) { t -> hat[(t * RATE).toInt() + 3000] * attack(t, 0.012f) * exp(-t * 40) * (if (s % 4 == 2) 0.03f else 0.016f) }
+                2 -> {
+                    for (k in floatArrayOf(0f, 2f)) b.add(at + k * beat, 0.4f) { t -> sin(TAU * 105 * t + 0.6f * exp(-t * 30)) * exp(-t * 9) * 0.22f }
+                    for (k in floatArrayOf(0.5f, 1.5f, 1.75f, 2.5f, 3.5f)) b.add(at + k * beat, 0.2f) { t -> sin(TAU * 245 * t + 0.4f * exp(-t * 40)) * exp(-t * 18) * (if (k % 1f == 0.75f) 0.08f else 0.13f) }
+                }
+                3 -> {
+                    for (k in intArrayOf(1, 3)) b.add(at + k * beat, 0.2f) { t -> (sin(TAU * 545 * t) + 0.6f * sin(TAU * 815 * t)) * exp(-t * 16) * 0.05f }
+                    for (k in floatArrayOf(0.75f, 2.75f)) wet.add(at + k * beat, 0.08f) { t -> sin(TAU * 1100 * t) * exp(-t * 50) * 0.08f }
+                }
+                4 -> for (k in floatArrayOf(1f, 3f, 3.5f)) b.add(at + k * beat, 0.18f) { t -> (hat[(t * RATE).toInt() + 7000] * 0.6f + sin(TAU * 6200 * t) * 0.3f) * exp(-t * 22) * (if (k == 3.5f) 0.03f else 0.05f) }
+            }
+            // The extra layer.
+            when (fe.extra) {
+                1 -> if (bi >= 8 && !drop) for (e in 0 until 8) {
+                    val f = hz(note(deg + intArrayOf(0, 2, 4, 7, 4, 2, 4, 7)[e], leadBase))
+                    wet.add(at + e * beat / 2, beat * 0.5f) { t -> lead(other, f, t) * rel(t, beat * 0.5f) * 0.03f }
+                }
+                2 -> if (!drop) for (n in chord) { val f = hz(n - 12); b.add(at, bar) { t -> pad(f, t, bar) * 0.03f } }
+                3 -> if (bi % 2 == 1 && !drop) for (n in chord) { val f = hz(n); wet.add(at + 3.5f * beat, 0.3f) { t -> lead(Lead.HORN, f, t) * rel(t, 0.3f) * 0.045f } }
+                4 -> if (bi % 8 == 0) wet.add(at, bar) { t -> sin(TAU * (700f * t + 260f * (1 - kotlin.math.cos(TAU * 1.5f * t)) / (TAU * 1.5f))) * attack(t, 0.1f) * rel(t, bar) * 0.04f }
+                    else if (bi % 4 == 2) wet.add(at + 3.5f * beat, 0.12f) { t -> rim(t) * 0.22f }
+            }
+            // The lead.
+            leadBar(fe.plan, bi, drop, call, answer, hook)?.forEach { n ->
                 val l = n.len * beat * 0.95f
-                wet.add(at + n.at * beat, l) { t -> lead(tune.lead, f, t) * rel(t, l) * 0.1f }
+                for ((h, v) in if (fe.plan == 3) listOf(0 to 0.1f, 2 to 0.05f) else listOf(0 to 0.1f)) {
+                    val f = hz(note(n.deg + h, leadBase))
+                    wet.add(at + n.at * beat, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
+                }
             }
         }
-        // Dub echo, a dotted eighth, carried round the loop so the tail wraps without a gap.
-        val d = (beat * 0.75f * RATE).toInt()
+        // The echo, carried round the loop so the tail wraps without a gap: a dotted eighth, or an eighth for busy leads.
+        val d = (beat * (if (fe.rhythm == 1) 0.5f else 0.75f) * RATE).toInt()
         val n = wet.s.size
         val echo = wet.s.copyOf()
-        repeat(2) { for (i in 0 until n) echo[i] = wet.s[i] + tune.dub * echo[(i - d + n) % n] }
+        val fb = if (fe.extra == 4) (tune.dub + 0.1f).coerceAtMost(0.8f) else tune.dub
+        repeat(2) { for (i in 0 until n) echo[i] = wet.s[i] + fb * echo[(i - d + n) % n] }
         for (i in 0 until n) echo[i] -= wet.s[i]
         lowpass(echo, if (dub) 1200f else 1600f)
         for (i in 0 until n) b.s[i] += wet.s[i] + echo[i]
@@ -270,10 +369,16 @@ object Synth {
     }
 
     /**
-     * Lo-fi hip hop: a lazy swung boom-bap beat, seventh chords on a warbly electric piano, a round sine bass, a few
-     * lead notes through a short echo, and a dusty record with plenty of crackle, all under a dark tape filter.
+     * Lo-fi hip hop: a lazy swung beat, seventh chords, a bass, a few lead notes through a short echo, and a dusty
+     * record, all under a dark tape filter. The [Feel] picks:
+     * - drums: 0 boom bap, 1 half time, 2 jazzy ride and cross-stick, 3 loose and dragged;
+     * - chords (chop): 0 electric piano, 1 nylon guitar picking, 2 felt piano, 3 vibraphone, 4 a pad with piano;
+     * - bass: 0 round sine, 1 walking upright, 2 long sub;
+     * - hats: 0 eighths, 1 sixteenths, 2 none, 3 eighths with an open hat;
+     * - percussion: 0 none, 1 shaker, 2 rain, 3 an old crackly record, 4 finger snaps;
+     * - extra: 0 none, 1 tape wobble, 2 a pad under it all, 3 a bell counter-melody, 4 ninth chords.
      */
-    private fun lofi(tune: Tune): FloatArray {
+    private fun lofi(tune: Tune, fe: Feel): FloatArray {
         val beat = 60f / tune.bpm
         val bar = beat * 4
         val bars = 16
@@ -285,61 +390,104 @@ object Synth {
         var bassBase = tune.root - 24; while (bassBase < 33) bassBase += 12
         var chordBase = tune.root; while (chordBase < 52) chordBase += 12
         val leadBase = chordBase + 12
-        val swing = beat * 0.17f
+        val swing = beat * (0.12f + 0.04f * fe.rhythm)
         fun eighth(e: Int) = e * beat / 2 + if (e % 2 == 1) swing else 0f
         fun rel(t: Float, len: Float) = if (t > len - 0.06f) ((len - t) / 0.06f).coerceAtLeast(0f) else 1f
         val hat = noise(tune.seed + 3, RATE).let { n -> FloatArray(n.size) { i -> if (i == 0) 0f else n[i] - n[i - 1] } }
         val snare = noise(tune.seed + 4, RATE).also { lowpass(it, 4000f) }
-        // Two kick patterns, in beats; the second comes round every fourth bar.
         val kicks = listOf(floatArrayOf(0f, 2.5f), floatArrayOf(0f, 1.75f, 2.5f), floatArrayOf(0f, 0.75f, 2.5f, 3.25f))
         val kickA = kicks[r.nextInt(2)]; val kickB = kicks[2]
-        val pent = if (tune.minor) intArrayOf(0, 2, 3, 4, 6) else intArrayOf(0, 1, 2, 4, 5)
-        class N(val at: Float, val len: Float, val deg: Int)
-        fun phrase(): List<N> {
-            val out = ArrayList<N>()
-            var at = 0.5f; var i = r.nextInt(3, 6)
-            while (at < 7f) {
-                val len = listOf(0.5f, 1f, 1f, 1.5f, 2f)[r.nextInt(5)].coerceAtMost(8f - at)
-                if (r.nextFloat() < 0.6f) out += N(at, len, 7 * Math.floorDiv(i, 5) + pent[Math.floorMod(i, 5)])
-                i = (i + r.nextInt(-2, 3)).coerceIn(0, 8)
-                at += len
-            }
-            return out
-        }
-        val call = phrase(); val answer = phrase()
+        val call = phrase(r, tune.minor, fe.rhythm, from = 0.5f, rest = 0.4f)
+        val answer = phrase(r, tune.minor, fe.rhythm, from = 0.5f, rest = 0.4f)
+        val hook = phrase(r, tune.minor, 1, beats = 4f, from = 0.5f, rest = 0.2f)
+        val drag = if (fe.drums == 3) 0.035f else 0.012f
+        fun snareHit(t: Float) = (snare[(t * RATE).toInt()] * exp(-t * 20) * 0.45f + sin(TAU * 185 * t) * exp(-t * 30) * 0.3f) * 0.6f
 
         for (bi in 0 until bars) {
             val at = bi * bar
             val deg = tune.prog[(bi / tune.bars) % tune.prog.size]
-            // Seventh chords, rolled a little, on the one and pushed ahead of beat 3.
-            val chord = IntArray(4) { note(deg + it * 2, chordBase) }
-            for ((pos, len) in listOf(0f to beat * 2.3f, 2.5f to beat * 1.4f)) for ((j, n) in chord.withIndex()) {
-                val f = hz(n)
-                val v = if (pos == 0f) 0.07f else 0.05f
-                b.add(at + pos * beat + (if (pos > 0) swing else 0f) + j * 0.014f, len) { t -> keys(f, t) * v * rel(t, len) }
+            val chord = IntArray(if (fe.extra == 4) 5 else 4) { note(deg + it * 2, chordBase) }
+            // Chords.
+            when (fe.chop) {
+                1 -> for (e in 0 until 8) {
+                    val f = hz(chord[intArrayOf(0, 1, 2, 3, 2, 1, 2, 3)[e] % chord.size])
+                    b.add(at + eighth(e), beat * 0.9f) { t -> nylon(f, t) * 0.09f * rel(t, beat * 0.9f) }
+                }
+                2 -> for ((pos, len) in listOf(0f to beat * 1.9f, 1.5f to beat * 2.3f)) for ((j, n) in chord.withIndex()) {
+                    val f = hz(n)
+                    b.add(at + pos * beat + (if (pos % 1f != 0f) swing else 0f) + j * 0.01f, len) { t -> piano(f, t) * (if (pos == 0f) 0.07f else 0.045f) * rel(t, len) }
+                }
+                3 -> for (pos in floatArrayOf(0f, 2f)) for ((j, n) in chord.withIndex()) {
+                    val f = hz(n)
+                    b.add(at + pos * beat + j * 0.02f, beat * 1.9f) { t -> vibes(f, t) * 0.06f * rel(t, beat * 1.9f) }
+                }
+                4 -> {
+                    for (n in chord) { val f = hz(n); b.add(at, bar) { t -> pad(f, t, bar) * 0.045f } }
+                    val f = hz(chord.last() + 12); b.add(at + 2.5f * beat + swing, beat) { t -> piano(f, t) * 0.06f * rel(t, beat) }
+                }
+                else -> for ((pos, len) in listOf(0f to beat * 2.3f, 2.5f to beat * 1.4f)) for ((j, n) in chord.withIndex()) {
+                    val f = hz(n)
+                    val v = if (pos == 0f) 0.07f else 0.05f
+                    b.add(at + pos * beat + (if (pos > 0) swing else 0f) + j * 0.014f, len) { t -> keys(f, t) * v * rel(t, len) }
+                }
             }
-            // Bass: the root, a push before 3, the fifth to walk back.
-            for ((pos, len, step) in listOf(Triple(0f, 1.6f, 0), Triple(2.5f, 0.5f, 0), Triple(3f, 1f, if (bi % 2 == 0) 4 else 2))) {
+            if (fe.extra == 2 && fe.chop != 4) for (n in chord) { val f = hz(n - 12); b.add(at, bar) { t -> pad(f, t, bar) * 0.025f } }
+            // Bass.
+            val line = when (fe.bass % 3) {
+                1 -> listOf(Triple(0f, 1f, 0), Triple(1f, 1f, 2), Triple(2f, 1f, 4), Triple(3f, 1f, if (bi % 2 == 0) 5 else -1))
+                2 -> listOf(Triple(0f, 3f, 0), Triple(3.5f, 0.5f, 4))
+                else -> listOf(Triple(0f, 1.6f, 0), Triple(2.5f, 0.5f, 0), Triple(3f, 1f, if (bi % 2 == 0) 4 else 2))
+            }
+            for ((pos, len, step) in line) {
                 val f = hz(note(deg + step, bassBase))
-                val l = len * beat
-                b.add(at + pos * beat + (if (pos % 1f != 0f) swing else 0f), l) { t -> (sin(TAU * f * t) + 0.15f * sin(TAU * 2 * f * t)) * exp(-t * 1.1f) * attack(t, 0.01f) * rel(t, l) * 0.4f }
+                val l = len * beat * 0.95f
+                val off = if (pos % 1f != 0f) swing else 0f
+                if (fe.bass % 3 == 1) b.add(at + pos * beat + off, l) { t -> (sin(TAU * f * t) + 0.3f * sin(TAU * 2 * f * t) * exp(-t * 6)) * exp(-t * 3f) * attack(t, 0.006f) * rel(t, l) * 0.5f }
+                else b.add(at + pos * beat + off, l) { t -> (sin(TAU * f * t) + 0.15f * sin(TAU * 2 * f * t)) * exp(-t * (if (fe.bass % 3 == 2) 0.4f else 1.1f)) * attack(t, 0.01f) * rel(t, l) * 0.4f }
             }
-            // Boom bap.
-            val kick = if (bi % 4 == 3) kickB else kickA
-            for (k in kick) b.add(at + k * beat + (if (k % 1f != 0f) swing / 2 else 0f), 0.35f) { t -> sin(TAU * (75 - t * 70) * t) * exp(-t * 11) * 0.75f }
-            for (k in intArrayOf(1, 3)) b.add(at + k * beat + 0.012f, 0.25f) { t ->
-                (snare[(t * RATE).toInt()] * exp(-t * 20) * 0.45f + sin(TAU * 185 * t) * exp(-t * 30) * 0.3f) * 0.6f
+            // Drums.
+            when (fe.drums) {
+                1 -> {
+                    for (k in floatArrayOf(0f, 2.75f)) b.add(at + k * beat, 0.4f) { t -> sin(TAU * (70 - t * 60) * t) * exp(-t * 9) * 0.8f }
+                    b.add(at + 2 * beat + drag, 0.35f) { t -> snareHit(t) * 1.3f }
+                }
+                2 -> {
+                    for ((i, k) in floatArrayOf(0f, 1f, 1.67f, 2f, 3f, 3.67f).withIndex()) b.add(at + k * beat, 0.6f) { t ->
+                        (hat[(t * RATE).toInt()] * 0.4f + sin(TAU * 3200 * t) * 0.25f + sin(TAU * 4710 * t) * 0.15f) * exp(-t * 7) * (if (i % 3 == 2) 0.035f else 0.05f)
+                    }
+                    for (k in intArrayOf(1, 3)) b.add(at + k * beat, 0.1f) { t -> (sin(TAU * 1500 * t) + snare[(t * RATE).toInt()]) * exp(-t * 60) * 0.12f }
+                    for (k in floatArrayOf(0f, 2.5f)) b.add(at + k * beat + (if (k % 1f != 0f) swing else 0f), 0.35f) { t -> sin(TAU * (70 - t * 60) * t) * exp(-t * 11) * 0.5f }
+                }
+                else -> {
+                    val kick = if (fe.drums == 3) floatArrayOf(0f, 0.75f, 2.25f, 2.5f) else if (bi % 4 == 3) kickB else kickA
+                    for (k in kick) b.add(at + k * beat + (if (k % 1f != 0f) swing / 2 else 0f), 0.35f) { t -> sin(TAU * (75 - t * 70) * t) * exp(-t * 11) * 0.75f }
+                    for (k in intArrayOf(1, 3)) b.add(at + k * beat + drag, 0.25f) { t -> snareHit(t) }
+                }
             }
-            for (e in 0 until 8) {
-                val soft = e % 2 == 1
-                b.add(at + eighth(e), 0.05f) { t -> hat[(t * RATE).toInt()] * exp(-t * 90) * (if (soft) 0.025f else 0.04f) }
+            if (fe.drums != 2) when (fe.hats) {
+                1 -> for (s in 0 until 16) b.add(at + s * beat / 4 + (if (s % 2 == 1) swing / 2 else 0f), 0.04f) { t -> hat[(t * RATE).toInt()] * exp(-t * 100) * (if (s % 2 == 0) 0.032f else 0.018f) }
+                2 -> {}
+                else -> for (e in 0 until 8) {
+                    val open = fe.hats == 3 && e == 7
+                    val jit = if (fe.drums == 3) r.nextFloat() * 0.02f else 0f
+                    b.add(at + eighth(e) + jit, if (open) 0.25f else 0.05f) { t -> hat[(t * RATE).toInt()] * exp(-t * (if (open) 12f else 90f)) * (if (e % 2 == 1) 0.025f else 0.04f) }
+                }
             }
-            val ph = when (bi) { in 4..7 -> call; in 12..15 -> answer; else -> null }
-            if (ph != null && bi % 2 == 0) for (n in ph) {
-                val f = hz(note(n.deg, leadBase))
+            when (fe.perc) {
+                1 -> for (e in 0 until 8) b.add(at + eighth(e), 0.09f) { t -> hat[(t * RATE).toInt() + 4000] * attack(t, 0.015f) * exp(-t * 35) * 0.02f }
+                4 -> for (k in intArrayOf(1, 3)) b.add(at + k * beat + 0.02f, 0.08f) { t -> (snare[(t * RATE).toInt() + 5000] * 0.6f + sin(TAU * 2100 * t) * 0.4f) * exp(-t * 55) * 0.12f }
+            }
+            if (fe.extra == 3 && bi >= 8) for ((e, s) in intArrayOf(4, 2, 0, 2).withIndex()) {
+                val f = hz(note(deg + s + 7, chordBase))
+                wet.add(at + e * beat + 0.5f * beat + swing, beat) { t -> bell(f, t, 3f) * rel(t, beat) * 0.035f }
+            }
+            leadBar(fe.plan, bi, false, call, answer, hook)?.forEach { n ->
                 val l = n.len * beat * 0.9f
                 val off = if (n.at % 1f != 0f) swing else 0f
-                wet.add(at + n.at * beat + off, l) { t -> lead(tune.lead, f, t) * rel(t, l) * 0.085f }
+                for ((h, v) in if (fe.plan == 3) listOf(0 to 0.085f, 2 to 0.04f) else listOf(0 to 0.085f)) {
+                    val f = hz(note(n.deg + h, leadBase))
+                    wet.add(at + n.at * beat + off, l) { t -> lead(tune.lead, f, t) * rel(t, l) * v }
+                }
             }
         }
         // A short, dark echo on the lead.
@@ -350,16 +498,39 @@ object Synth {
         for (i in 0 until n) echo[i] -= wet.s[i]
         lowpass(echo, 1400f)
         for (i in 0 until n) b.s[i] += wet.s[i] + echo[i]
-        lowpass(b.s, 2300f)
+        lowpass(b.s, if (fe.perc == 3) 1900f else 2300f)
+        // Tape wobble: read the loop back a little early and late, a whole number of slow wobbles round it.
+        if (fe.extra == 1) {
+            val x = b.s.copyOf()
+            val cyc = maxOf(1, (n / RATE.toFloat() / 2.2f).toInt())
+            val depth = RATE * 0.0025f
+            for (i in 0 until n) {
+                val p = i + depth * sin(TAU * cyc * i / n)
+                val i0 = Math.floorMod(kotlin.math.floor(p).toInt(), n); val fr = p - kotlin.math.floor(p)
+                b.s[i] = x[i0] * (1 - fr) + x[(i0 + 1) % n] * fr
+            }
+        }
         val v = Random(tune.seed + 1)
+        var lp = 0f
         for (i in b.s.indices) {
-            b.s[i] += (v.nextFloat() - 0.5f) * 0.012f
-            if (v.nextInt(2500) == 0) b.s[i] += (v.nextFloat() - 0.5f) * 0.3f
+            b.s[i] += (v.nextFloat() - 0.5f) * (if (fe.perc == 3) 0.02f else 0.012f)
+            if (v.nextInt(if (fe.perc == 3) 900 else 2500) == 0) b.s[i] += (v.nextFloat() - 0.5f) * 0.3f
+            if (fe.perc == 2) { lp += 0.3f * (v.nextFloat() * 2 - 1 - lp); b.s[i] += lp * 0.03f; if (v.nextInt(3000) == 0) b.s[i] += (v.nextFloat() - 0.5f) * 0.12f }
         }
         val fade = RATE / 100
         for (i in 0 until fade) { val k = i / fade.toFloat(); b.s[i] *= k; b.s[b.s.size - 1 - i] *= k }
         return norm(b.s, 0.7f)
     }
+
+    /** A felt piano: soft hammer, quick fade. */
+    private fun piano(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 2) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 4)) * exp(-t * 1.8f) * attack(t, 0.003f)
+    /** A nylon-string guitar pluck. */
+    private fun nylon(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 5) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 8)) * exp(-t * 3.5f) * attack(t, 0.003f)
+    /** A vibraphone, its motor wobbling. */
+    private fun vibes(f: Float, t: Float) = (sin(TAU * f * t) + 0.2f * sin(TAU * 4 * f * t) * exp(-t * 6)) * exp(-t * 1.2f) * (1 + 0.3f * sin(TAU * 5.5f * t)) * attack(t, 0.003f)
+    /** A soft pad of two detuned voices, swelling in and out over [len] seconds. */
+    private fun pad(f: Float, t: Float, len: Float) = (sin(TAU * f * t) + sin(TAU * f * 1.006f * t) + 0.3f * sin(TAU * 2 * f * t)) * 0.5f *
+        (t / 0.4f).coerceAtMost(1f) * ((len - t) / 0.4f).coerceIn(0f, 1f)
 
     /** An electric piano: a soft tine with a little bell on the attack and a slow tremolo. */
     private fun keys(f: Float, t: Float) = (sin(TAU * f * t) + 0.25f * sin(TAU * 2 * f * t) * exp(-t * 3) + 0.12f * sin(TAU * 7.1f * f * t) * exp(-t * 18)) *

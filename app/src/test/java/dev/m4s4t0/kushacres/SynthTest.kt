@@ -50,6 +50,16 @@ class SynthTest {
         assertEquals(sounds.size, sounds.toSet().size)
     }
 
+    @Test fun tunesOfAStyleDifferInFeel() {
+        val all = Tunes.areas.map { Tunes.of(it) } + Tunes.extras.map { it.third }
+        for ((i, a) in all.withIndex()) for (b in all.drop(i + 1)) if (a.style == b.style) {
+            val diff = Tunes.feel(a).parts.zip(Tunes.feel(b).parts).count { (x, y) -> x != y }
+            assertTrue("${a.seed} and ${b.seed} differ in only $diff parts", diff >= dev.m4s4t0.kushacres.audio.Feel.APART)
+        }
+        val steppers = Tunes.extras.first { it.third.groove == dev.m4s4t0.kushacres.audio.Groove.STEPPERS }.third
+        assertEquals(dev.m4s4t0.kushacres.audio.Groove.STEPPERS.ordinal, Tunes.feel(steppers).drums)
+    }
+
     @Test fun wavHeader() {
         val w = Synth.wav(FloatArray(10))
         assertEquals("RIFF", String(w, 0, 4)); assertEquals(64, w.size)

@@ -215,8 +215,8 @@ private fun Upgrades() {
 @Composable
 private fun DexShop() {
     var tab by remember { mutableIntStateOf(0) }
-    Tabs(listOf("Bud", "Goods", "Contracts"), tab) { tab = it }
-    when (tab) { 0 -> Selling(); 1 -> GoodsSelling(); else -> ContractsTab() }
+    Tabs(listOf("Bud", "Goods", "Contracts", "Ship", "Clinic"), tab) { tab = it }
+    when (tab) { 0 -> Selling(); 1 -> GoodsSelling(); 2 -> ContractsTab(); 3 -> ShipTab(); else -> ClinicTab() }
 }
 
 @Composable

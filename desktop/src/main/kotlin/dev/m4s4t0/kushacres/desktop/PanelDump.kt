@@ -251,6 +251,26 @@ internal fun dumpPanels(dir: String) {
     shot("store", 0, 900) { dev.m4s4t0.kushacres.ui.Interior(UiState().apply { room = dev.m4s4t0.kushacres.model.RoomKind.STORE }) }
     val grown = (0 until 60).flatMap { yy -> (0 until 60).map { it to yy } }.firstOrNull { (xx, yy) -> f.inLand(xx, yy) && f.tile(xx, yy).strain != null }
     if (grown != null) shot("trim", 0, 1300) { dev.m4s4t0.kushacres.ui.TrimOverlay(UiState().apply { trim = grown }) }
+    // Smoking: the shack's sesh list, Dex's ship and clinic tabs, then moments of a trip in a few themes.
+    run {
+        val first = f.stash.keys.first()
+        dev.m4s4t0.kushacres.model.Sesh.smoke(f, first, dev.m4s4t0.kushacres.model.SeshSize.JOINT, now)
+        shot("sesh", 0, 900) { androidx.compose.foundation.lazy.LazyColumn { item { dev.m4s4t0.kushacres.ui.SeshSection(UiState()) } } }
+        shot("ship", 0, 900) { dev.m4s4t0.kushacres.ui.ShipTab() }
+        dev.m4s4t0.kushacres.model.Sesh.ship(f, first, 250, now)
+        shot("ship-busy", 0, 600) { dev.m4s4t0.kushacres.ui.ShipTab() }
+        shot("clinic", 0, 700) { dev.m4s4t0.kushacres.ui.ClinicTab() }
+        val len = 3_500L + 5 * 60_000L
+        for ((theme, e) in listOf(dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 1_200L, dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 3_000L, dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 60_000L, dev.m4s4t0.kushacres.ui.TripTheme.HALLOWEEN to 2_200L, dev.m4s4t0.kushacres.ui.TripTheme.HALLOWEEN to 90_000L,
+                dev.m4s4t0.kushacres.ui.TripTheme.CHRISTMAS to 3_200L, dev.m4s4t0.kushacres.ui.TripTheme.VALENTINE to 120_000L, dev.m4s4t0.kushacres.ui.TripTheme.BUCKS to 2_800L, dev.m4s4t0.kushacres.ui.TripTheme.FOURTWENTY to 45_000L, dev.m4s4t0.kushacres.ui.TripTheme.STPATRICK to 30_000L, dev.m4s4t0.kushacres.ui.TripTheme.EASTER to 3_000L)) {
+            shot("trip-${theme.name.lowercase()}-$e", 0, 900) {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.lazy.LazyColumn { item { dev.m4s4t0.kushacres.ui.SeshSection(UiState()) } }
+                    dev.m4s4t0.kushacres.ui.TripLayer(theme, e, len)
+                }
+            }
+        }
+    }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

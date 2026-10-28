@@ -3,6 +3,7 @@ package dev.m4s4t0.kushacres.audio
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import android.media.SoundPool
 import android.os.SystemClock
 import android.util.Log
@@ -34,6 +35,9 @@ object Audio {
     private val loaded = BooleanArray(Sfx.entries.size)
     private val last = LongArray(Sfx.entries.size)
     private var song: MediaPlayer? = null
+    /** Music speed and pitch while you're high (see [trip]); 1 is normal. */
+    private var rate = 1f
+    private var rateOn = 1f
     private val amb = arrayOfNulls<MediaPlayer>(Amb.entries.size)
     private var ambWant: Amb? = null
     private var foreground = false
@@ -82,6 +86,7 @@ object Audio {
                 if (f != null) {
                     song?.release()
                     song = player(f, music * 0.6f)
+                    rateOn = 1f
                     areaHave = id
                     refresh()
                 }
@@ -114,12 +119,18 @@ object Audio {
     fun start() { foreground = true; refresh() }
     fun stop() { foreground = false; refresh() }
 
+    /** Slows or speeds the music, pitch and all, while a sesh lasts; 1 puts it back. */
+    fun trip(r: Float) { if (r != rate) { rate = r; refresh() } }
+
     fun changeMusic(v: Float) { music = v; prefs().edit().putFloat("music", v).apply(); refresh() }
     fun changeSound(v: Float) { sound = v; prefs().edit().putFloat("sound", v).apply() }
     fun changeHaptics(v: Boolean) { haptics = v; prefs().edit().putBoolean("haptics", v).apply() }
 
     private fun refresh() {
-        song?.let { p -> val v = music * 0.6f; p.setVolume(v, v); if (foreground && v > 0f) { if (!p.isPlaying) p.start() } else if (p.isPlaying) p.pause() }
+        song?.let { p -> val v = music * 0.6f; p.setVolume(v, v); if (foreground && v > 0f) { if (!p.isPlaying) p.start() } else if (p.isPlaying) p.pause()
+            // A speed set on a paused player starts it, so only change it while it plays.
+            if (p.isPlaying && rateOn != rate) runCatching { p.playbackParams = PlaybackParams().setSpeed(rate).setPitch(rate); rateOn = rate }
+        }
         for (k in Amb.entries) amb[k.ordinal]?.let { p ->
             val v = if (k == ambWant) sound * 0.35f else 0f
             p.setVolume(v, v)

@@ -32,7 +32,10 @@ object Audio {
     private val voices = ArrayList<Voice>()
     @Volatile private var ambWant: Amb? = null
     @Volatile private var foreground = false
-    private var songPos = 0
+    private var songPos = 0.0
+    /** Music speed and pitch while you're high (see [trip]), with a slow wobble on top. */
+    @Volatile private var rate = 1f
+    private var wob = 0.0
     /** A loop waiting to take over once the current one has faded out. */
     @Volatile private var nextSong: FloatArray? = null
     private var songGain = 0f
@@ -92,6 +95,20 @@ object Audio {
     fun start() { foreground = true }
     fun stop() { foreground = false }
 
+    /** Slows or speeds the music, pitch and all, while a sesh lasts; 1 puts it back. */
+    fun trip(r: Float) { rate = r }
+
+    private fun at(s: FloatArray, p: Double): Float {
+        val i = p.toInt(); val fr = (p - i).toFloat()
+        return s[i] + (s[(i + 1) % s.size] - s[i]) * fr
+    }
+    private fun step(p: Double, size: Int): Double {
+        val r = rate
+        if (r == 1f) return (p + 1) % size
+        wob += 0.000_02
+        return (p + r * (1 + 0.02 * kotlin.math.sin(wob))) % size
+    }
+
     fun changeMusic(v: Float) { music = v; prefs().edit().putFloat("music", v).apply() }
     fun changeSound(v: Float) { sound = v; prefs().edit().putFloat("sound", v).apply() }
     fun changeHaptics(v: Boolean) { haptics = v; prefs().edit().putBoolean("haptics", v).apply() }
@@ -111,9 +128,9 @@ object Audio {
             song?.let { s ->
                 val v = if (on && nextSong == null) music * 0.6f else 0f
                 var g = songGain
-                if (g > 0f || v > 0f) for (i in 0 until n) { g += (v - g) * 0.0008f; buf[i] += s[songPos] * g; songPos = (songPos + 1) % s.size }
+                if (g > 0f || v > 0f) for (i in 0 until n) { g += (v - g) * 0.0008f; buf[i] += at(s, songPos) * g; songPos = step(songPos, s.size) }
                 songGain = if (v == 0f && g < 0.001f) 0f else g
-                nextSong?.let { if (songGain == 0f) { song = it; songPos = 0; nextSong = null } }
+                nextSong?.let { if (songGain == 0f) { song = it; songPos = 0.0; nextSong = null } }
             }
             amb?.let { loops ->
                 for (k in Amb.entries) {

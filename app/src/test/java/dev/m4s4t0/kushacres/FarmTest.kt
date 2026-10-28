@@ -40,6 +40,8 @@ import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Save
 import dev.m4s4t0.kushacres.model.Strains
+import dev.m4s4t0.kushacres.model.Sesh
+import dev.m4s4t0.kushacres.model.SeshSize
 import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.Supply
 import dev.m4s4t0.kushacres.model.Upgrade
@@ -1648,5 +1650,69 @@ class FarmTest {
         assertEquals(Kind.PLOT, f.tile(f.ox + n + 1, f.oy + 1).kind)
         f.level = 1
         assertEquals(Result.LOCKED, f.buyAnnex(1))
+    }
+
+    @Test fun seshGivesTraitBuffsThatFadeOut() {
+        val f = farm()
+        val s = Strains.ladder.first { it.traits == setOf(Trait.THRIFTY) }
+        f.stash[s.id] = 1000
+        val before = f.priceMult()
+        assertEquals(Result.OK, Sesh.smoke(f, s.id, SeshSize.JOINT, t0))
+        assertEquals(1000 - SeshSize.JOINT.grams, f.stash[s.id])
+        assertTrue(f.on(Buff.HIGH_PRICE))
+        assertFalse(f.on(Buff.HIGH_GROW))
+        assertEquals(before * 1.15, f.priceMult(), 1e-9)
+        assertEquals(SeshSize.JOINT.grams.toLong(), f.stat(Stat.SMOKED))
+        // Hotboxing over and over never passes the cap, and each one adds less.
+        var last = Long.MAX_VALUE
+        repeat(8) {
+            val was = f.buffs[Buff.HIGH_PRICE]!!
+            if (Sesh.smoke(f, s.id, SeshSize.HOTBOX, t0) != Result.OK) return@repeat
+            val got = f.buffs[Buff.HIGH_PRICE]!! - was
+            assertTrue(got <= last); last = got
+        }
+        assertTrue(f.buffs[Buff.HIGH_PRICE]!! - t0 <= Sesh.MAX_MINUTES * 60_000L)
+        f.stash[s.id] = 1
+        assertEquals(Result.NO_BUD, Sesh.smoke(f, s.id, SeshSize.JOINT, t0))
+        // Hybrids give one buff per trait.
+        Strains.all.firstOrNull { it.traits.size > 1 }?.let { h -> assertEquals(h.traits.size, Sesh.buffs(h).toSet().size) }
+    }
+
+    @Test fun wholesaleShipsOneAtATimeAndPaysOnArrival() {
+        val f = farm()
+        val s = Strains.ladder[2]
+        f.stash[s.id] = 900
+        val d = f.demand[s.id]
+        assertEquals(Result.NO_BUD, Sesh.ship(f, s.id, Sesh.SHIP_MIN - 1, t0))
+        assertEquals(Result.OK, Sesh.ship(f, s.id, 600, t0))
+        assertEquals(300, f.stash[s.id])
+        assertEquals(d, f.demand[s.id])
+        assertEquals(Result.BUSY, Sesh.ship(f, s.id, 250, t0))
+        val pay = f.shipment!!.pay
+        assertTrue(pay > 0 && pay < (s.price * f.priceMult() * 600).toLong())
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals(pay, g.shipment!!.pay)
+        val cash = f.cash
+        f.tick(t0 + 3_600_000L)
+        assertEquals(cash, f.cash)
+        f.tick(t0 + Sesh.SHIP_HOURS * 3_600_000L + 1)
+        assertNull(f.shipment)
+        assertTrue(f.cash >= cash + pay) // the XP can level you up, which pays a bonus too
+        assertEquals(600L, f.stat(Stat.SHIPPED))
+    }
+
+    @Test fun clinicTradesBudForRep() {
+        val f = farm()
+        val s = Strains.ladder[3]
+        f.stash[s.id] = 500
+        val town = Sesh.clinicTown(f)
+        val rep = Contracts.rep(f, town); val bucks = f.potBucks
+        assertNull(Sesh.donate(f, s.id, Sesh.DONATE_MIN - 1))
+        val gift = Sesh.donate(f, s.id, 500)!!
+        assertNull(f.stash[s.id])
+        assertEquals(rep + gift.rep, Contracts.rep(f, town))
+        assertTrue(f.potBucks >= bucks + gift.bucks)
+        assertTrue(gift.rep > 0 && gift.bucks > 0)
     }
 }

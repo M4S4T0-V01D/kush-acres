@@ -143,6 +143,7 @@ object Save {
             }
         })
         o.put("potBucks", f.potBucks)
+        f.shipment?.let { o.put("shipment", JSONObject().put("s", it.strain).put("g", it.grams).put("p", it.pay).put("x", it.xp).put("at", it.at)) }
         o.put("gems", f.gems); o.put("mineAt", f.mineAt)
         o.put("tokens", JSONObject().apply { f.tokens.forEach { (k, v) -> put(k, v) } })
         o.put("holidayStrains", JSONArray(f.unlockedStrains.toList())); o.put("pets", JSONArray(f.pets.toList())); o.put("hats", JSONArray(f.hats.toList()))
@@ -198,6 +199,9 @@ object Save {
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
         strings("hats", f.hats) { it in Farmer.HOLIDAY_HATS }
         f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
+        f.shipment = o.optJSONObject("shipment")?.let { s ->
+            Shipment(s.optString("s"), s.optInt("g"), s.optLong("p").coerceAtLeast(0), s.optLong("x").coerceAtLeast(0), s.optLong("at")).takeIf { Strains[it.strain] != null }
+        }
         f.gems = o.optLong("gems").coerceAtLeast(0); f.mineAt = o.optLong("mineAt")
         f.tokens.clear()
         o.optJSONObject("tokens")?.let { t -> t.keys().forEach { k -> if (Holiday[k] != null) f.tokens[k] = t.optLong(k).coerceAtLeast(0) } }

@@ -293,6 +293,7 @@ fun App() {
         Dialogs()
         Mover(ui)
         Creator(ui)
+        StonedOverlay()
     }
 }
 

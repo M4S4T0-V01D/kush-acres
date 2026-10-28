@@ -638,6 +638,7 @@ private fun ShackPanel(ui: UiState) {
                 if (r == Result.OK) Store.toast("Welcome to your ${next.title}!")
             }
         }
+        item { SeshSection(ui) }
         item { Store.rev; T("Roof", 12.sp, Dim); Swatches(ROOF_COLORS, f.roof) { f.paint(it, f.wall); Store.changed() } }
         item { Store.rev; T("Walls", 12.sp, Dim); Swatches(WALL_COLORS, f.wall) { f.paint(f.roof, it); Store.changed() } }
         item {

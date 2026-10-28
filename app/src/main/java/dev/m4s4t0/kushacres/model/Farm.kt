@@ -293,6 +293,8 @@ class Farm(var rng: Random = Random.Default) {
     val events = ArrayList<FarmEvent>()
     /** Pot Bucks: the rare currency from level-ups, dailies, challenges, events and lucky harvests. */
     var potBucks = 0L
+    /** The wholesale crate on the road, if any (see [Sesh.ship]). */
+    var shipment: Shipment? = null
     /** Kush gems: the hardest currency to get, spent on special buildings. */
     var gems = 0L
     /** When the gem mine next turns up a gem (0 until one is built). */
@@ -378,7 +380,7 @@ class Farm(var rng: Random = Random.Default) {
     fun stashUsed(): Int = stash.values.sum()
     fun season(): Season = Season.at(lastTick)
     fun waterMillis(): Long = (20 + 10L * up(Upgrade.MULCH)) * 60_000L * (if (season() == Season.SUMMER) 2 else 1) / (if (on(Buff.HEATWAVE)) 2 else 1)
-    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * Legacy.mult(this, LegacyPerk.BIG_BUDS, 0.1) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0)
+    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * Legacy.mult(this, LegacyPerk.BIG_BUDS, 0.1) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0) * (if (on(Buff.HIGH_YIELD)) 1.2 else 1.0)
     fun priceMult(): Double {
         val have = placedDecor()
         var deco = perkWide(Perk.SELL, have) + Chains.bonus(this, Perk.SELL)
@@ -388,7 +390,7 @@ class Farm(var rng: Random = Random.Default) {
         if (Decor.STATUE in have) deco += 0.08
         return (1 + 0.05 * up(Upgrade.CRED)) * (1 + deco) * (if (on(Buff.RUSH)) 1.5 else 1.0) * (if (on(Buff.TIP)) 1.25 else 1.0) *
             (if (on(Buff.FESTIVAL)) 1.5 else 1.0) * (1 + 0.25 * legacy) * Legacy.mult(this, LegacyPerk.SILVER_TONGUE, 0.15) * (if (season() == Season.WINTER) 1.25 else 1.0) *
-            (if (built(Special.DISPENSARY)) 1.15 else 1.0) * (if (built(Special.MONUMENT)) 1.25 else 1.0)
+            (if (built(Special.DISPENSARY)) 1.15 else 1.0) * (if (built(Special.MONUMENT)) 1.25 else 1.0) * (if (on(Buff.HIGH_PRICE)) 1.15 else 1.0)
     }
     fun xpMult(): Double {
         val have = placedDecor()
@@ -399,7 +401,7 @@ class Farm(var rng: Random = Random.Default) {
         if (Decor.DISCO in have) deco += 0.10
         val rvs = sites.count { s -> s.tiles.any { it.kind == Kind.VEHICLE && it.item == Vehicle.RV.name } }
         return (1 + 0.05 * shack) * (1 + deco + 0.05 * rvs) * (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.QUICK_STUDY, 0.15) * (if (on(Buff.FOCUS)) 1.5 else 1.0) *
-            (if (built(Special.ACADEMY)) 1.25 else 1.0) * (if (built(Special.MONUMENT)) 1.1 else 1.0)
+            (if (built(Special.ACADEMY)) 1.25 else 1.0) * (if (built(Special.MONUMENT)) 1.1 else 1.0) * (if (on(Buff.HIGH_XP)) 1.3 else 1.0)
     }
     /** Farm-wide holiday decor bonus of kind [p]: each kind of decor counts once, from any farm. */
     private fun perkWide(p: Perk, on: Set<Decor>) = Decor.perks[p]?.sumOf { if (it in on) it.amt else 0.0 } ?: 0.0
@@ -606,7 +608,7 @@ class Farm(var rng: Random = Random.Default) {
     } > 0
 
     fun goldenChance(x: Int, y: Int): Double = GOLDEN_CHANCE + 0.03 * decorAround(x, y, Decor.BEEHIVE) +
-        0.06 * decorAround(x, y, Decor.ALIEN) + 0.08 * decorAround(x, y, Decor.TOTEM) + perkNear(x, y, Perk.GOLD) + (if (on(Buff.LUCKY)) 0.21 else 0.0) + (if (on(Buff.DUST)) 0.15 else 0.0) +
+        0.06 * decorAround(x, y, Decor.ALIEN) + 0.08 * decorAround(x, y, Decor.TOTEM) + perkNear(x, y, Perk.GOLD) + (if (on(Buff.LUCKY)) 0.21 else 0.0) + (if (on(Buff.DUST)) 0.15 else 0.0) + (if (on(Buff.HIGH_GOLD)) 0.10 else 0.0) +
         (if (here(Special.DOME)) 0.08 else 0.0) + (if (Legacy.has(this, LegacyPerk.GOLDEN_TOUCH)) 0.05 else 0.0)
 
     /** The share of t0..t1 that a buff covers. */
@@ -615,8 +617,8 @@ class Farm(var rng: Random = Random.Default) {
         if (u <= t0 || t1 <= t0) return 0.0
         return (min(u, t1) - t0).toDouble() / (t1 - t0)
     }
-    private fun boost(t0: Long, t1: Long) = 1 + 1.0 * cover(Buff.VIBES, t0, t1) + 0.5 * cover(Buff.JUICE, t0, t1)
-    fun boostNow(): Double = 1 + (if (on(Buff.VIBES)) 1.0 else 0.0) + (if (on(Buff.JUICE)) 0.5 else 0.0)
+    private fun boost(t0: Long, t1: Long) = 1 + 1.0 * cover(Buff.VIBES, t0, t1) + 0.5 * cover(Buff.JUICE, t0, t1) + 0.25 * cover(Buff.HIGH_GROW, t0, t1)
+    fun boostNow(): Double = 1 + (if (on(Buff.VIBES)) 1.0 else 0.0) + (if (on(Buff.JUICE)) 0.5 else 0.0) + (if (on(Buff.HIGH_GROW)) 0.25 else 0.0)
 
     fun wet(x: Int, y: Int, now: Long) = sprinkled(x, y) || tile(x, y).wetUntil > now
 
@@ -660,6 +662,7 @@ class Farm(var rng: Random = Random.Default) {
         if (total > 60_000L && helping) away.millis += total
         lastTick = now
         buffs.entries.removeAll { it.value <= now }
+        Sesh.arrive(this, now)
         if (mineAt > 0 && built(Special.MINE)) {
             var n = 0L
             while (now >= mineAt) { n++; mineAt += Special.MINE_MILLIS }

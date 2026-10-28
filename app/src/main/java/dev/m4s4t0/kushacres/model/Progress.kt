@@ -31,6 +31,9 @@ enum class Stat(val title: String) {
     CHAPTERS("Story chapters finished"),
     PEAKS("Picked at their peak"),
     CLEAN_TRIMS("Clean trims"),
+    SMOKED("Grams smoked"),
+    SHIPPED("Grams shipped wholesale"),
+    DONATED("Grams donated"),
 }
 
 /** The real-world seasons of the farm, a week each, the same for everyone. */

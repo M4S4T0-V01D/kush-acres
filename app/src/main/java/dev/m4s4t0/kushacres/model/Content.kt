@@ -237,6 +237,12 @@ enum class Buff(val title: String) {
     TOURISTS("Tourist bus: orders pay ×1.5"),
     HEATWAVE("Heatwave: water dries ×2 faster"),
     SCANNER("Police scanner: no raids"),
+    /** From smoking your own stash, one per strain trait (see [Sesh]). */
+    HIGH_GROW("Green thumb high: growth ×1.25"),
+    HIGH_YIELD("Munchies: yield ×1.2"),
+    HIGH_GOLD("Cosmic high: +10% golden"),
+    HIGH_XP("Big thoughts: XP ×1.3"),
+    HIGH_PRICE("Silver tongue: prices ×1.15"),
 }
 
 enum class EventKind {

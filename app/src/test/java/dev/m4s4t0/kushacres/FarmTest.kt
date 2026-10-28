@@ -20,6 +20,9 @@ import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
+import dev.m4s4t0.kushacres.model.Furn
+import dev.m4s4t0.kushacres.model.Interiors
+import dev.m4s4t0.kushacres.model.RoomKind
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.SaveCode
 import dev.m4s4t0.kushacres.model.SiteDef
@@ -160,6 +163,65 @@ class FarmTest {
         // Two starter ditch plants, replanted all night: dozens of harvests.
         assertTrue(f.away.harvests > 50)
         assertTrue(f.away.replants > 50)
+    }
+
+    @Test fun greenFarmhandLeavesRipePlantsAWhile() {
+        val f = farm()
+        f.cash = 10_000_000; f.level = Farm.MANAGER_LEVEL
+        assertEquals(Result.OK, f.hireFarmhand())
+        assertEquals(1, f.rank(Helper.FARMHAND))
+        assertEquals(Result.OK, f.plant(2, 3, "ditch", t0))
+        var t = t0
+        while (t < t0 + 9 * 60_000L) { t += 30_000L; f.tick(t) }
+        // Ripe at five minutes, and still there for you four minutes on.
+        assertTrue(f.tile(2, 3).ready())
+        while (t < t0 + 20 * 60_000L) { t += 30_000L; f.tick(t) }
+        assertTrue(f.tile(2, 3).strain == null)
+    }
+
+    @Test fun helpersTrainUpRanks() {
+        val f = farm()
+        f.cash = 1_000_000_000; f.level = Farm.MANAGER_LEVEL
+        assertEquals(Result.BLOCKED, f.train(Helper.FARMHAND))
+        f.hireFarmhand()
+        val slow = f.farmhandMillis()
+        f.level = Helper.FARMHAND.rankLevel(2) - 1
+        assertEquals(Result.LOCKED, f.train(Helper.FARMHAND))
+        f.level = 99
+        repeat(Helper.RANKS - 1) { assertEquals(Result.OK, f.train(Helper.FARMHAND)) }
+        assertEquals(Result.BLOCKED, f.train(Helper.FARMHAND))
+        assertTrue(f.farmhandMillis() < slow)
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(Helper.RANKS, g.rank(Helper.FARMHAND))
+    }
+
+    @Test fun furnishingTheHouse() {
+        val f = farm()
+        f.cash = 10_000; f.level = 5
+        val home = RoomKind.HOME
+        val (w, h) = Interiors.size(f, home)
+        assertEquals(Result.BLOCKED, Interiors.buy(f, home, Furn.COUNTER, 0, 0)) // store-only
+        assertEquals(Result.LOCKED, Interiors.buy(f, home, Furn.BED, 0, 0))
+        assertEquals(Result.OK, Interiors.buy(f, home, Furn.COUCH, 0, 0))
+        assertEquals(10_000 - Furn.COUCH.price, f.cash)
+        assertEquals(Result.BLOCKED, Interiors.buy(f, home, Furn.BEANBAG, 2, 0)) // under the couch
+        assertEquals(Result.BLOCKED, Interiors.buy(f, home, Furn.COUCH, w - 2, 0)) // off the edge
+        assertEquals(Result.OK, Interiors.buy(f, home, Furn.POSTER_LEAF, 1, 0)) // walls don't clash with floors
+        val couch = Interiors.room(f, home).items.first()
+        assertEquals(Result.OK, Interiors.move(f, home, couch, 0, h - 1))
+        assertEquals(Result.OK, Interiors.buy(f, home, Furn.BEANBAG, 2, 0))
+        assertEquals(Furn.COUCH.score + Furn.POSTER_LEAF.score + Furn.BEANBAG.score, Interiors.score(f, home))
+        val cash = f.cash
+        assertEquals(Result.OK, Interiors.sell(f, home, couch))
+        assertEquals(cash + Furn.COUCH.price / 2, f.cash)
+        assertEquals(Result.OK, Interiors.paint(f, home, true, 3))
+        f.shack = 3
+        assertTrue(Interiors.size(f, home).first > w && Interiors.size(f, home).second > h)
+        assertFalse(Interiors.canEnter(f, RoomKind.STORE))
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(3, Interiors.room(g, home).wall)
+        assertEquals(listOf(Furn.POSTER_LEAF, Furn.BEANBAG), Interiors.room(g, home).items.map { it.furn })
+        assertEquals(Save.write(f), Save.write(g))
     }
 
     @Test fun expansionAndPlotCostsClimb() {

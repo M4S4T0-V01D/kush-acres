@@ -77,7 +77,7 @@ object Storefronts {
                 val have = f.stash[s.id] ?: 0
                 val k = min(have, n)
                 if (mult == 0.0) mult = f.priceMult()
-                val got = Math.round(k * s.price * mult * premium(t.lvl))
+                val got = Math.round(k * s.price * mult * (premium(t.lvl) + Interiors.storeBonus(f)))
                 if (have - k == 0) f.stash.remove(s.id) else f.stash[s.id] = have - k
                 f.earnCash(got)
                 f.bump(Stat.SOLD, k.toLong()); f.bump(Stat.STORE_GRAMS, k.toLong())

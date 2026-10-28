@@ -18,6 +18,7 @@ import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Storefronts
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.WorkHouse
+import dev.m4s4t0.kushacres.model.Furn as M
 import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.ui.Px
 import dev.m4s4t0.kushacres.model.Trip
@@ -191,6 +192,21 @@ internal fun dumpPanels(dir: String) {
         val ui = UiState().apply { peek = dev.m4s4t0.kushacres.model.Sites.all[3] }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { FarmArrows(ui) }
     }
+    run {
+        val I = dev.m4s4t0.kushacres.model.Interiors
+        val H = dev.m4s4t0.kushacres.model.RoomKind.HOME; val S = dev.m4s4t0.kushacres.model.RoomKind.STORE
+        f.shack = 4
+        I.buy(f, H, M.RUG, 1, 1); I.buy(f, H, M.COUCH, 1, 3); I.buy(f, H, M.COFFEE_TABLE, 1, 2); I.buy(f, H, M.TV, 1, 0)
+        I.buy(f, H, M.LAMP, 0, 0); I.buy(f, H, M.PLANT, 4, 3); I.buy(f, H, M.BED, 6, 0); I.buy(f, H, M.ARCADE, 8, 2)
+        I.buy(f, H, M.FISH_TANK, 5, 4); I.buy(f, H, M.BEANBAG, 0, 4)
+        I.buy(f, H, M.POSTER_LEAF, 0, 0); I.buy(f, H, M.WINDOW, 2, 0); I.buy(f, H, M.PAINTING, 4, 0); I.buy(f, H, M.CLOCK, 7, 0); I.buy(f, H, M.NEON_LEAF, 8, 0)
+        I.paint(f, H, true, 2)
+        I.buy(f, S, M.COUNTER, 1, 1); I.buy(f, S, M.REGISTER, 2, 0); I.buy(f, S, M.JARS, 0, 0); I.buy(f, S, M.SHELVES, 5, 0)
+        I.buy(f, S, M.CASE, 7, 0); I.buy(f, S, M.BENCH, 6, 3); I.buy(f, S, M.ATM, 9, 2); I.buy(f, S, M.PLANT, 4, 3)
+        I.buy(f, S, M.NEON_OPEN, 0, 0); I.buy(f, S, M.MENU_BOARD, 3, 0); I.buy(f, S, M.POSTER_BAND, 6, 0); I.paint(f, S, false, 1)
+    }
+    shot("home", 0, 900) { dev.m4s4t0.kushacres.ui.Interior(UiState().apply { room = dev.m4s4t0.kushacres.model.RoomKind.HOME }) }
+    shot("store", 0, 900) { dev.m4s4t0.kushacres.ui.Interior(UiState().apply { room = dev.m4s4t0.kushacres.model.RoomKind.STORE }) }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

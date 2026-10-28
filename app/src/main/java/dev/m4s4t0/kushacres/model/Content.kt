@@ -134,12 +134,46 @@ enum class Decor(
 enum class Perk { GROW, YIELD, GOLD, XP, SELL }
 
 enum class Helper(val title: String, val job: String, val level: Int, val cost: Long, val shack: Int) {
-    RUNNER("Runner", "Sells spare bud and goods in town every 6 minutes, even while you're away", 8, 2_500, 1),
-    FETCHER("Fetcher", "Keeps facility supplies stocked from Violet's (10% tip)", 10, 5_000, 1),
-    FARMHAND("Farmhand", "Picks everything ready, shoos pests and scrapes mould, even while you're away", 12, 6_000, 0),
+    RUNNER("Runner", "Sells spare bud and goods in town every so often, even while you're away", 8, 2_500, 1),
+    FETCHER("Fetcher", "Keeps facility supplies stocked from Violet's, for a tip", 10, 5_000, 1),
+    FARMHAND("Farmhand", "Comes round to pick what's ready, shoo pests and scrape mould, even while you're away. Train them to go faster", 12, 6_000, 0),
     COOK("Cook", "Collects facility batches and starts the same again", 16, 40_000, 2),
-    LOOKOUT("Lookout", "Spots raids early so they never cost you a thing", 20, 120_000, 3),
-    MANAGER("Grow Manager", "Replants the same strain the moment it's picked", 22, 150_000, 0),
+    LOOKOUT("Lookout", "Spots raids early so they don't cost you a thing", 20, 120_000, 3),
+    MANAGER("Grow Manager", "Replants the same strain the moment it's picked", 22, 150_000, 0);
+
+    /** What rank [r] (1 to [RANKS]) does, in a few words for the hire card. */
+    fun rankDesc(r: Int): String {
+        val i = r.coerceIn(1, RANKS) - 1
+        return when (this) {
+            RUNNER -> "A trip every ${RUNNER_MIN[i]} min"
+            FETCHER -> "Stocks up to ${FETCH_STOCK[i]}, ${FETCH_TIP[i]}% tip"
+            FARMHAND -> "Every ${FARMHAND_SECS[i]}s, picks ${FARMHAND_PICKS[i]}" + if (FARMHAND_WAIT[i] > 0) ". Leaves ripe plants ${FARMHAND_WAIT[i]} min for you" else ""
+            COOK -> "Every ${COOK_SECS[i]}s, tends " + if (COOK_TENDS[i] >= 99) "every kitchen" else "${COOK_TENDS[i]} kitchen${if (COOK_TENDS[i] == 1) "" else "s"}"
+            LOOKOUT -> "Spots ${LOOKOUT_SPOTS[i]}% of raids"
+            MANAGER -> if (MANAGER_OFF[i] == 0) "Replants at full seed price" else "Replants ${MANAGER_OFF[i]}% off the seed price"
+        }
+    }
+
+    /** Training from rank [r] to the next: dearer each time. */
+    fun rankCost(r: Int): Long = (cost * 3.0.pow(r)).toLong()
+    /** The level a helper needs to reach rank [r]. */
+    fun rankLevel(r: Int) = level + 4 * (r - 1)
+
+    companion object {
+        const val RANKS = 5
+        val RANK_NAMES = listOf("Green", "Steady", "Seasoned", "Pro", "Legend")
+        // Everything a helper does by rank, worst first: a new hire is slow, so you still get to work the farm yourself.
+        val RUNNER_MIN = intArrayOf(12, 9, 7, 6, 5)
+        val FETCH_STOCK = intArrayOf(8, 10, 12, 14, 15)
+        val FETCH_TIP = intArrayOf(25, 20, 15, 10, 5)
+        val FARMHAND_SECS = intArrayOf(120, 75, 45, 25, 12)
+        val FARMHAND_PICKS = intArrayOf(1, 2, 3, 5, 8)
+        val FARMHAND_WAIT = intArrayOf(5, 3, 2, 1, 0)
+        val COOK_SECS = intArrayOf(180, 120, 90, 60, 30)
+        val COOK_TENDS = intArrayOf(1, 2, 3, 5, 99)
+        val LOOKOUT_SPOTS = intArrayOf(40, 55, 70, 85, 100)
+        val MANAGER_OFF = intArrayOf(0, 5, 10, 15, 20)
+    }
 }
 
 /**

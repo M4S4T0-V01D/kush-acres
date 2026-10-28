@@ -32,6 +32,7 @@ import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
+import dev.m4s4t0.kushacres.model.RoomKind
 import dev.m4s4t0.kushacres.model.Special
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Storefronts
@@ -148,6 +149,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.WATER -> T("That stays where nature put it.", 12.sp, Dim)
                 Kind.SHACK, Kind.PART -> {
                     item("Open", Gold) { ui.panel = Panel.SHACK; close() }
+                    item("Go inside", Gold) { ui.room = RoomKind.HOME; close() }
                     item("Move") { moveIt() }
                 }
                 Kind.FACILITY -> {
@@ -160,6 +162,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 }
                 Kind.HOUSE, Kind.WING, Kind.POWER, Kind.SPECIAL -> {
                     item("Details", Gold) { ui.selected = x to y; close() }
+                    if (Storefronts.isStore(tile)) item("Go inside", Gold) { ui.room = RoomKind.STORE; close() }
                     item("Move") { moveIt() }
                 }
                 Kind.DECOR, Kind.PATH -> {

@@ -92,6 +92,9 @@ object Save {
         o.put("v", VERSION)
         o.put("stride", Farm.MAX); o.put("cash", f.cash); o.put("level", f.level); o.put("xp", f.xp)
         o.put("helpers", JSONObject().apply { Helper.entries.forEach { if (f.has(it)) put(it.name, true) } })
+        o.put("ranks", JSONObject().apply { Helper.entries.forEach { if (f.has(it)) put(it.name, f.rank(it)) } })
+        o.put("handAt", f.handAt); o.put("cookAt", f.cookAt)
+        o.put("rooms", Interiors.write(f))
         o.put("runnerOn", f.runnerOn); o.put("runnerAt", f.runnerAt)
         o.put("lastTick", f.lastTick)
         o.put("harvests", f.totalHarvests); o.put("earned", f.totalEarned)
@@ -158,6 +161,10 @@ object Save {
         f.cash = o.optLong("cash", 30); f.level = o.optInt("level", 1); f.xp = o.optLong("xp")
         f.helpers.fill(false)
         o.optJSONObject("helpers")?.let { h -> Helper.entries.forEach { f.helpers[it.ordinal] = h.optBoolean(it.name) } }
+        f.ranks.fill(0)
+        o.optJSONObject("ranks")?.let { r -> Helper.entries.forEach { f.ranks[it.ordinal] = r.optInt(it.name).coerceIn(0, Helper.RANKS) } }
+        f.handAt = o.optLong("handAt"); f.cookAt = o.optLong("cookAt")
+        Interiors.read(o.optJSONArray("rooms"), f)
         if (o.optBoolean("farmhand")) f.farmhand = true
         if (o.optBoolean("manager")) f.manager = true
         f.runnerOn = o.optBoolean("runnerOn", true); f.runnerAt = o.optLong("runnerAt")

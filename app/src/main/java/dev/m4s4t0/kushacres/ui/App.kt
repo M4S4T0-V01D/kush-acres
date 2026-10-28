@@ -121,6 +121,8 @@ class UiState {
     var rot by mutableIntStateOf(-1)
     /** The square whose right-click / long-hold menu is open, and where on screen (px) it was opened. */
     var menu by mutableStateOf<Pair<Int, Int>?>(null)
+    /** The room you have walked into, if any. */
+    var room by mutableStateOf<dev.m4s4t0.kushacres.model.RoomKind?>(null)
     /** The farmer creator open to restyle, and the farm-moving map open. */
     var creator by mutableStateOf(false)
     var buildTab by mutableIntStateOf(0)
@@ -274,6 +276,7 @@ fun App() {
             BottomBar(ui)
         }
         ui.menu?.let { TileMenu(ui, it) }
+        Interior(ui)
         Toast()
         if (ui.panel != Panel.NONE) PanelHost(ui)
         Dialogs()

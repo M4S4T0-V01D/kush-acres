@@ -188,6 +188,13 @@ class Farm(var rng: Random = Random.Default) {
     /** Violet's upgrades and the shack tier belong to the farm on screen. */
     val upgrades get() = site.upgrades
     val helpers = BooleanArray(Helper.entries.size)
+    /** Each hired helper's rank, 1 to [Helper.RANKS] (0 reads as 1). */
+    val ranks = IntArray(Helper.entries.size)
+    /** Inside your house and your storefront, by [RoomKind]. */
+    val rooms = RoomKind.entries.map { Room(it) }
+    /** When the farmhand and the cook next come round. */
+    var handAt = 0L
+    var cookAt = 0L
     var farmhand: Boolean
         get() = helpers[Helper.FARMHAND.ordinal]
         set(v) { helpers[Helper.FARMHAND.ordinal] = v }
@@ -345,6 +352,9 @@ class Farm(var rng: Random = Random.Default) {
 
     fun up(u: Upgrade) = upgrades[u.ordinal]
     fun has(h: Helper) = helpers[h.ordinal]
+    fun rank(h: Helper) = if (has(h)) max(1, ranks[h.ordinal]) else 0
+    /** Rank [r]'s entry in one of [Helper]'s tables. */
+    private fun IntArray.at(h: Helper) = this[rank(h).coerceIn(1, Helper.RANKS) - 1]
     fun on(b: Buff) = (buffs[b] ?: 0L) > lastTick
     /** The stash is shared, so every farm's storage adds up: its Stash upgrade and its shack. */
     fun stashCap(): Int = sites.sumOf { siteStash(it) }
@@ -620,6 +630,8 @@ class Farm(var rng: Random = Random.Default) {
         // through the gap so offline harvests, replants and sales land roughly when they would have.
         layoutRev++
         val helping = anyHelper()
+        if (farmhand && handAt == 0L) handAt = lastTick
+        if (has(Helper.COOK) && cookAt == 0L) cookAt = lastTick
         val step = if (helping) max(30_000L, total / max(200, 2000 / sites.size)) else total
         var t = lastTick
         while (t < now) {
@@ -686,12 +698,20 @@ class Farm(var rng: Random = Random.Default) {
         val active = site; val down = floor
         // Pops for the other farms (and floors) would show up in the wrong place.
         fun quiet(from: Int) { for (i in events.size - 1 downTo from) if (events[i] is FarmEvent.Harvest) events.removeAt(i) }
+        // The farmhand and the cook come round every so often and only get through so much each time (see Helper).
+        fun visits(at: Long, every: Long): Int { var n = 0; var t = at; while (now >= t && n < 40) { n++; t += every }; return n }
+        val handVisits = if (farmhand) visits(handAt, farmhandMillis()) else 0
+        if (handVisits > 0) handAt = max(handAt + handVisits * farmhandMillis(), now - farmhandMillis())
+        val cookVisits = if (has(Helper.COOK)) visits(cookAt, Helper.COOK_SECS.at(Helper.COOK) * 1000L) else 0
+        if (cookVisits > 0) cookAt = max(cookAt + cookVisits * Helper.COOK_SECS.at(Helper.COOK) * 1000L, now - Helper.COOK_SECS.at(Helper.COOK) * 1000L)
         eachSite { s ->
             val before = events.size
-            if (farmhand) pick(now)
-            if (has(Helper.COOK)) { cook(now); eachFloor { cook(now) } }
+            val hands = intArrayOf(handVisits * Helper.FARMHAND_PICKS.at(Helper.FARMHAND))
+            val pans = intArrayOf((cookVisits * Helper.COOK_TENDS.at(Helper.COOK)).coerceAtMost(9999))
+            if (hands[0] > 0) pick(now, hands)
+            if (pans[0] > 0) { cook(now, pans); eachFloor { cook(now, pans) } }
             if (s !== active || down != 0) quiet(before)
-            if (farmhand) eachFloor { n -> val b = events.size; pick(now); if (s !== active || n != down) quiet(b) }
+            if (hands[0] > 0) eachFloor { n -> val b = events.size; pick(now, hands); if (s !== active || n != down) quiet(b) }
         }
         eachSite { s -> if (s.workers > 0) waterIdle(now) }
         eachSite { s ->
@@ -707,25 +727,37 @@ class Farm(var rng: Random = Random.Default) {
         }
     }
 
-    /** The farmhand picks everything ready and clears pests; with the Grow Manager the same strain goes back in. */
-    private fun pick(now: Long) {
+    fun farmhandMillis() = Helper.FARMHAND_SECS.at(Helper.FARMHAND) * 1000L
+
+    /**
+     * The farmhand picks what's ready and clears pests, [left] jobs' worth, leaving fresh ripe plants a while for you;
+     * with the Grow Manager the same strain goes back in.
+     */
+    private fun pick(now: Long, left: IntArray) {
+        val wait = Helper.FARMHAND_WAIT.at(Helper.FARMHAND) * 60_000L
         eachLand { x, y, t ->
-            if (t.kind != Kind.PLOT) return@eachLand
-            if (t.pest || t.mould) { t.pest = false; t.mould = false; bump(Stat.PESTS); return@eachLand }
-            if (!t.ready()) return@eachLand
+            if (t.kind != Kind.PLOT || left[0] <= 0) return@eachLand
+            if (t.pest || t.mould) { t.pest = false; t.mould = false; bump(Stat.PESTS); left[0]--; return@eachLand }
+            if (!t.ready() || (t.ripeAt > 0 && now - t.ripeAt < wait)) return@eachLand
+            left[0]--
             val before = events.size
             if (harvest(x, y, now, byHand = false) != Result.OK) return
             val h = events.getOrNull(before) as? FarmEvent.Harvest
             away.harvests++
             if (h != null) { away.grams += h.grams; away.xp += h.xp }
             val last = t.last
-            if (manager && last != null && plant(x, y, last, now) == Result.OK) away.replants++
+            if (manager && last != null && plant(x, y, last, now) == Result.OK) {
+                away.replants++
+                Strains[last]?.let { cash += seedCost(it) * Helper.MANAGER_OFF.at(Helper.MANAGER) / 100 }
+            }
         }
     }
 
-    private fun cook(now: Long) {
+    private fun cook(now: Long, left: IntArray) {
         eachLand { x, y, t ->
-            if (t.kind != Kind.FACILITY) return@eachLand
+            if (t.kind != Kind.FACILITY || left[0] <= 0) return@eachLand
+            val ready = t.strain != null && now >= t.doneAt
+            if (ready || (t.strain == null && t.last != null)) left[0]--
             if (t.strain != null && now >= t.doneAt && collect(x, y, now) == Result.OK) away.batches++
             val last = t.last
             if (t.strain == null && last != null) startBatch(x, y, last, now)
@@ -736,9 +768,10 @@ class Farm(var rng: Random = Random.Default) {
         for (f in Facility.entries) {
             if (count(f) == 0) continue
             val s = f.supply
-            if (supplies[s.ordinal] >= 5) continue
-            val unit = nice(s.price * 1.1)
-            val n = min(15 - supplies[s.ordinal], (cash / unit).toInt())
+            val stock = Helper.FETCH_STOCK.at(Helper.FETCHER)
+            if (supplies[s.ordinal] >= min(5, stock - 3)) continue
+            val unit = nice(s.price * (1 + Helper.FETCH_TIP.at(Helper.FETCHER) / 100.0))
+            val n = min(stock - supplies[s.ordinal], (cash / unit).toInt())
             if (n <= 0) continue
             spend(unit * n)
             supplies[s.ordinal] += n
@@ -887,7 +920,7 @@ class Farm(var rng: Random = Random.Default) {
         if (h.kind == EventKind.RAID) bump(Stat.RAIDS)
         return when (h.kind) {
             EventKind.RAID -> when {
-                has(Helper.LOOKOUT) -> "Your lookout saw them coming. Nothing found."
+                has(Helper.LOOKOUT) && rng.nextInt(100) < Helper.LOOKOUT_SPOTS.at(Helper.LOOKOUT) -> "Your lookout saw them coming. Nothing found."
                 accept && envelopes > 0 -> { envelopes--; "The envelope did the talking. They left smiling." }
                 accept && cash >= h.amount -> { spend(h.amount); "Paid ${h.amount}. \"Nice farm you got here.\"" }
                 else -> {
@@ -1142,7 +1175,7 @@ class Farm(var rng: Random = Random.Default) {
     fun toggleHunt(id: String) { if (id !in mothers) return; if (!hunting.remove(id)) hunting += id }
 
     fun addXp(n: Long) {
-        xp += n
+        xp += n + n * Interiors.xpBonus(this) / 100
         while (level < MAX_LEVEL && xp >= xpNeed(level)) {
             xp -= xpNeed(level)
             level++
@@ -1527,7 +1560,7 @@ class Farm(var rng: Random = Random.Default) {
         restartLook = farmer
         sites.clear(); sites += Site(Sites.HOME); site = sites[0]; floor = 0
         land = 6; cash = 30; level = 1; xp = 0
-        upgrades.fill(0); helpers.fill(false); supplies.fill(0)
+        upgrades.fill(0); helpers.fill(false); ranks.fill(0); handAt = 0; cookAt = 0; supplies.fill(0)
         stash.clear(); goods.clear(); seeds.clear(); decorInv.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear(); bmRot = -1L
@@ -1635,8 +1668,22 @@ class Farm(var rng: Random = Random.Default) {
         if (bestShack() < h.shack) return Result.SHACK
         if (cash < h.cost) return Result.NO_CASH
         spend(h.cost)
-        helpers[h.ordinal] = true
+        helpers[h.ordinal] = true; ranks[h.ordinal] = 1
+        if (h == Helper.FARMHAND) handAt = lastTick
+        if (h == Helper.COOK) cookAt = lastTick
         if (h == Helper.RUNNER) runnerAt = lastTick + runnerMillis()
+        return Result.OK
+    }
+
+    /** Trains a hired helper up a rank. */
+    fun train(h: Helper): Result {
+        val r = rank(h)
+        if (r == 0 || r >= Helper.RANKS) return Result.BLOCKED
+        if (level < h.rankLevel(r + 1)) return Result.LOCKED
+        val c = h.rankCost(r)
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        ranks[h.ordinal] = r + 1
         return Result.OK
     }
 
@@ -1935,7 +1982,8 @@ class Farm(var rng: Random = Random.Default) {
     fun runnerMillis(): Long {
         var best = 0
         eachSite { for (s in houses()) if (s.house == WorkHouse.TOOLS) best = max(best, s.house.power(s.staffed)) }
-        return when (best) { 2 -> 3 * 60_000L; 1 -> 4 * 60_000L; else -> RUNNER_MILLIS }
+        val trip = Helper.RUNNER_MIN.at(Helper.RUNNER) * 60_000L
+        return when (best) { 2 -> trip / 2; 1 -> trip * 2 / 3; else -> trip }
     }
 
     /** Workers with no building to staff go round with a watering can: a few dry plots each per step. */
@@ -2340,7 +2388,7 @@ class Farm(var rng: Random = Random.Default) {
         site.floors.clear()
         tiles.forEach { it.clear() }
         land = 6; cash = 30; level = 1; xp = 0
-        upgrades.fill(0); helpers.fill(false); supplies.fill(0)
+        upgrades.fill(0); helpers.fill(false); ranks.fill(0); handAt = 0; cookAt = 0; supplies.fill(0)
         stash.clear(); goods.clear(); buffs.clear(); demand.clear()
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); mineAt = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmStaple.clear()

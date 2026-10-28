@@ -345,14 +345,26 @@ private fun GusShop() {
         items(Helper.entries) { h ->
             Store.rev
             val hired = f.has(h)
+            if (hired) {
+                // Hired: train them up a rank at a time.
+                val r = f.rank(h)
+                val top = r >= Helper.RANKS
+                val next = if (top) "Can't get any better" else "Next, ${Helper.RANK_NAMES[r]}: ${h.rankDesc(r + 1)}"
+                Card(People.helper(h, 0), "${h.title} · ${Helper.RANK_NAMES[r - 1]}", h.rankDesc(r), next,
+                    if (top) "LEGEND" else "Train ${money(h.rankCost(r))}", !top && f.cash >= h.rankCost(r),
+                    if (!top && f.level < h.rankLevel(r + 1)) h.rankLevel(r + 1) else null) {
+                    val res = f.train(h); report(res)
+                    if (res == dev.m4s4t0.kushacres.model.Result.OK) Store.toast("${h.title} is now ${Helper.RANK_NAMES[r]}.")
+                }
+                return@items
+            }
             val sub = when {
-                hired -> "On the payroll"
                 f.bestShack() < h.shack -> "Needs a ${dev.m4s4t0.kushacres.model.SHACKS[h.shack].title}"
                 h == Helper.MANAGER && !f.farmhand -> "Needs the Farmhand"
-                else -> null
+                else -> "Starts out ${Helper.RANK_NAMES[0]}: ${h.rankDesc(1)}"
             }
-            Card(People.helper(h, 0), h.title, h.job, sub, if (hired) "HIRED" else money(h.cost),
-                !hired && f.cash >= h.cost && f.bestShack() >= h.shack, if (f.level < h.level) h.level else null) { report(f.hire(h)) }
+            Card(People.helper(h, 0), h.title, h.job, sub, money(h.cost),
+                f.cash >= h.cost && f.bestShack() >= h.shack, if (f.level < h.level) h.level else null) { report(f.hire(h)) }
         }
         if (f.has(Helper.RUNNER)) item {
             Store.rev

@@ -18,7 +18,7 @@ kotlin {
     jvmToolchain(17)
     sourceSets.main {
         kotlin.srcDir(shared)
-        kotlin.exclude("MainActivity.kt", "KushApp.kt", "Updater.kt", "SavePic.kt", "audio/Audio.kt")
+        kotlin.exclude("MainActivity.kt", "KushApp.kt", "Updater.kt", "SavePic.kt", "SaveFile.kt", "audio/Audio.kt")
     }
 }
 

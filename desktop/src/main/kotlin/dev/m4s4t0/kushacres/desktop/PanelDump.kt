@@ -172,6 +172,7 @@ internal fun dumpPanels(dir: String) {
             for (h in row) Px(dev.m4s4t0.kushacres.art.People.farmer(dev.m4s4t0.kushacres.model.Farmer(hat = dev.m4s4t0.kushacres.model.Farmer.HATS.indexOf(h)), 0), 48.dp)
         }
     }
+    shot("move", 0, 260) { dev.m4s4t0.kushacres.ui.MoveFarm(UiState()) }
     shot("peek", 0, 560) {
         val ui = UiState().apply { peek = dev.m4s4t0.kushacres.model.Sites.all[3] }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { FarmArrows(ui) }

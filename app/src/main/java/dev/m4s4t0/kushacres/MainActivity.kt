@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Sky
@@ -13,6 +14,8 @@ import dev.m4s4t0.kushacres.model.Weather
 import dev.m4s4t0.kushacres.ui.App
 
 class MainActivity : ComponentActivity() {
+    private val openSave = registerForActivityResult(ActivityResultContracts.OpenDocument()) { SaveFile.picked(it) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -23,6 +26,7 @@ class MainActivity : ComponentActivity() {
             // Sets the shack tier, for previews. This is saved, so launch again with the old tier to undo it.
             intent.getStringExtra("shack")?.toIntOrNull()?.let { Store.farm.shack = it }
         }
+        SaveFile.open = { openSave.launch(arrayOf("text/plain", "application/octet-stream", "*/*")) }
         setContent { App() }
         if (intent?.action == Updater.ACTION_INSTALLED) Updater.onStatus(this, intent) else Updater.check(this)
     }

@@ -15,6 +15,7 @@ import dev.m4s4t0.kushacres.model.EventKind
 import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.FarmEvent
 import dev.m4s4t0.kushacres.model.Save
+import dev.m4s4t0.kushacres.model.SaveCode
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Sky
 import dev.m4s4t0.kushacres.model.Weather
@@ -127,6 +128,19 @@ object Store {
             val lv = p[0].toIntOrNull() ?: continue
             levelUps += FarmEvent.LevelUp(lv, p[1].toLongOrNull() ?: 0, p[2].split("\t").filter { it.isNotEmpty() })
         }
+    }
+
+    /** The farm as one line of text, for the other device (see SaveCode). */
+    fun exportCode(): String { save(); return SaveCode.pack(Save.write(farm)) }
+
+    /** Swaps this farm for the one in [json]. Changes nothing and returns false if it won't load. */
+    fun importSave(json: String): Boolean {
+        if (SaveCode.peek(json) == null) return false
+        farm.restart(now()); Save.read(json, farm); farm.restartLook = null
+        farm.checkTrophies(silent = true)
+        levelUps.clear(); awayReport = null; pending.clear()
+        save(); resume(); changed()
+        return true
     }
 
     fun save() {

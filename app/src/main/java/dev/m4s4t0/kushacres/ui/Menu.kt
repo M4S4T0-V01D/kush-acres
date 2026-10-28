@@ -22,14 +22,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
+import dev.m4s4t0.kushacres.SaveFile
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.SaveCode
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.Updater
 import androidx.compose.ui.platform.LocalContext
@@ -515,6 +519,8 @@ internal fun Settings(ui: UiState) {
         if (u is Updater.State.Available) Btn("Update", color = Gold) { (ctx as? android.app.Activity)?.let { Updater.install(it) } }
         else Btn("Check", enabled = u !is Updater.State.Checking && u !is Updater.State.Downloading) { Updater.check(ctx, manual = true) }
     }
+    Spacer(Modifier.height(12.dp))
+    MoveFarm(ui)
     Spacer(Modifier.height(20.dp))
     // Two taps, so a stray one can't wipe a farm.
     var sure by remember { mutableStateOf(false) }
@@ -526,6 +532,57 @@ internal fun Settings(ui: UiState) {
         Btn(if (sure) "Wipe it" else "Restart", color = Bad) {
             if (!sure) sure = true
             else { f.restart(Store.now()); Store.changed(); ui.panel = Panel.NONE; ui.selected = null; ui.mode = Mode.Farm; ui.recenter++ }
+        }
+    }
+}
+
+/** Carries the farm to the other device as a file or a code, and loads one from there (after a yes). */
+@Composable
+internal fun MoveFarm(ui: UiState) {
+    val f = Store.farm
+    val clip = LocalClipboardManager.current
+    var incoming by remember { mutableStateOf<Pair<String, Farm>?>(null) }
+    fun take(text: String) {
+        val json = SaveCode.unpack(text)
+        val farm = json?.let { SaveCode.peek(it) }
+        if (json == null || farm == null) Store.toast("That isn't a Kush Acres save")
+        else incoming = json to farm
+    }
+    T("Move your farm", 14.sp, Cream)
+    T("Take this save to the phone or the desktop game: send yourself the file or the code, then open it there.", 11.sp, Dim, bold = false)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Btn("Save file", Modifier.weight(1f), color = Gold) {
+            val name = "kushacres-save-" + java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date()) + ".txt"
+            Store.toast(SaveFile.export(Store.exportCode(), name)?.let { "Saved to $it" } ?: "Couldn't write the save file")
+        }
+        Btn("Copy code", Modifier.weight(1f), color = Gold) {
+            clip.setText(AnnotatedString(Store.exportCode())); Store.toast("Save code copied")
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Btn("Open file", Modifier.weight(1f)) { SaveFile.pick(::take) }
+        Btn("Paste code", Modifier.weight(1f)) { take(clip.getText()?.text.orEmpty()) }
+    }
+    incoming?.let { (json, them) ->
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().frame(Color(0xFF3A1A14), Bad).padding(8.dp)) {
+            T("Load ${them.farmer?.name ?: "this"}'s farm?", 13.sp, Cream)
+            T("Lv ${them.level} · ${money(them.cash)} · ${them.sites.size} farm${if (them.sites.size == 1) "" else "s"}", 11.sp, Gold, bold = false)
+            T("It replaces the farm here (Lv ${f.level} · ${money(f.cash)}) for good. Save a file of this one first if you want it back.", 11.sp, Bad, bold = false)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Btn("Cancel", Modifier.weight(1f), color = WoodEdge) { incoming = null }
+                Btn("Load it", Modifier.weight(1f), color = Bad) {
+                    incoming = null
+                    if (Store.importSave(json)) {
+                        ui.panel = Panel.NONE; ui.selected = null; ui.mode = Mode.Farm; ui.peek = null; ui.recenter++
+                        Theme.site = f.site.def
+                        Store.toast("Welcome back, ${f.farmer?.name ?: "farmer"}!")
+                    } else Store.toast("That save wouldn't load")
+                }
+            }
         }
     }
 }

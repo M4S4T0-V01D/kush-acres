@@ -20,6 +20,7 @@ import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Holiday
+import dev.m4s4t0.kushacres.model.SaveCode
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.Trait
 import dev.m4s4t0.kushacres.model.BucksItem
@@ -1479,5 +1480,28 @@ class FarmTest {
             assertEquals(f.seedCost(s), before - f.cash)
             f.tile(2, 3).strain = null
         }
+    }
+
+    @Test fun saveCodeCarriesAFarmOverAnother() {
+        val f = farm()
+        f.cash = 5_000_000; f.level = 30
+        assertEquals(Result.OK, f.buySite(Sites.all[1]))
+        f.plant(2, 3, "ditch", t0); f.stash["mids"] = 40; f.tick(t0 + 60_000L)
+        val json = Save.write(f)
+        val code = SaveCode.pack(json)
+        assertTrue(code.length < json.length)
+        assertEquals(json, SaveCode.unpack("  here's my farm:\n" + code.chunked(60).joinToString("\n") + "\n"))
+        assertNull(SaveCode.unpack("hello"))
+        assertNull(SaveCode.unpack("KUSH1:notreallyasave"))
+
+        val keep = Strains.scaleLevel
+        assertEquals(30, SaveCode.peek(json)!!.level)
+        assertEquals(keep, Strains.scaleLevel)
+
+        // Loading over a farm with its own progress leaves nothing of it behind.
+        val g = farm(); g.cash = 9_000_000; g.level = 50
+        assertEquals(Result.OK, g.buySite(Sites.all[2])); g.stash["ditch"] = 7
+        g.restart(t0); Save.read(json, g)
+        assertEquals(json, Save.write(g))
     }
 }

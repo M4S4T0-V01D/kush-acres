@@ -171,7 +171,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Custom plot soil: wet plots are a darker shade of the chosen colour
 
 ## Phase 16 — Save transfer
-- [ ] Export/import the save as a file or code, to move between phone and desktop
+- [x] Export/import the save as a file or code, to move between phone and desktop (Settings → Move your farm: Download/KushAcres file or a KUSH1: code; loading asks first)
 
 ## Phase 17 — Photo mode
 - [ ] Hide the HUD, pick the view and time of day, save a picture (builds on the share card)

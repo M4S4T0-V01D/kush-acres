@@ -1,6 +1,7 @@
 package dev.m4s4t0.kushacres.art
 
 import android.graphics.Bitmap
+import dev.m4s4t0.kushacres.model.Pheno
 import dev.m4s4t0.kushacres.model.Strain
 import kotlin.math.PI
 import kotlin.math.max
@@ -33,8 +34,10 @@ object TrimArt {
     /** Where a leaf at [pos] (0..1 along the bud) roots, on [side] (-1 left, 1 right). */
     fun leafRoot(pos: Float, side: Int): Pair<Float, Float> = (CX + side * (half(pos) - 2.5f)) to (TOP + pos * LEN)
 
-    fun bud(s: Strain): Bitmap = cache.getOrPut("bud.${s.id}") {
+    /** The cola for [s], its buds tinted like the farm sprite's when the plant has a colour phenotype ([Pheno.colour]). */
+    fun bud(s: Strain, colour: Int = 0): Bitmap = cache.getOrPut("bud.${s.id}.$colour") {
         val px = Px(W, H)
+        val bud = if (colour > 0) mix(s.bud, Pheno.TINTS[colour], 0.6f) else s.bud
         val r = Random(s.id.hashCode())
         val f = px.s.toFloat()
         // The stem and a couple of fan-leaf stubs under the bud.
@@ -52,9 +55,9 @@ object TrimArt {
             for (k in 0..n) {
                 val cx = CX - hw + 2.4f + (hw * 2 - 4.8f) * k / n + (r.nextFloat() - 0.5f) * 1.4f + if (row % 2 == 0) 0f else 1.2f
                 val rad = 2.6f + r.nextFloat() * 1.2f + (if (kotlin.math.abs(cx - CX) < hw * 0.5f) 0.6f else 0f)
-                val c = if ((k + row) % 2 == 0) s.bud else shade(s.bud, 0.84f)
+                val c = if ((k + row) % 2 == 0) bud else shade(bud, 0.84f)
                 Sprites.fdisc(px, cx * f, y * f, rad * f, c)
-                px.dot(((cx - rad * 0.4f) * f).toInt(), ((y - rad * 0.4f) * f).toInt(), shade(s.bud, 1.25f))
+                px.dot(((cx - rad * 0.4f) * f).toInt(), ((y - rad * 0.4f) * f).toInt(), shade(bud, 1.25f))
             }
             y += 3.2f; row++
         }

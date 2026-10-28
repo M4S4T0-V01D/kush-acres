@@ -46,6 +46,7 @@ import dev.m4s4t0.kushacres.art.TrimArt
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.model.Farm
+import dev.m4s4t0.kushacres.model.Pheno
 import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
 import dev.m4s4t0.kushacres.model.Trim
@@ -66,6 +67,7 @@ fun TrimOverlay(ui: UiState) {
     val at = ui.trim ?: return
     val f = Store.farm
     val strain = f.tile(at.first, at.second).strain?.let { Strains[it] } ?: run { ui.trim = null; return }
+    val colour = Pheno.colour(f.tile(at.first, at.second).pheno)
     val game = remember(at) { Trim(Random) }
     var sweeps by remember(at) { mutableFloatStateOf(0f) }
     var clock by remember(at) { mutableFloatStateOf(0f) }
@@ -125,7 +127,7 @@ fun TrimOverlay(ui: UiState) {
             Canvas(
                 Modifier.weight(1f).fillMaxWidth().background(Color(0xFF15110D))
                     .clickable(remember { MutableInteractionSource() }, null) { snip() },
-            ) { drawScene(strain, game, Trim.shears(sweeps), clock, cutAt, snipAt, missed) }
+            ) { drawScene(strain, colour, game, Trim.shears(sweeps), clock, cutAt, snipAt, missed) }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -157,7 +159,7 @@ fun TrimOverlay(ui: UiState) {
     }
 }
 
-private fun DrawScope.drawScene(s: dev.m4s4t0.kushacres.model.Strain, game: Trim, pos: Float, now: Float, cutAt: FloatArray, snipAt: Float, missed: Int) {
+private fun DrawScope.drawScene(s: dev.m4s4t0.kushacres.model.Strain, colour: Int, game: Trim, pos: Float, now: Float, cutAt: FloatArray, snipAt: Float, missed: Int) {
     val sc = min(size.width / TrimArt.W, size.height / TrimArt.H)
     val ox = (size.width - TrimArt.W * sc) / 2; val oy = (size.height - TrimArt.H * sc) / 2
     fun art(b: Bitmap, x: Float, y: Float, alpha: Float = 1f) = drawImage(
@@ -180,7 +182,7 @@ private fun DrawScope.drawScene(s: dev.m4s4t0.kushacres.model.Strain, game: Trim
         val hot = abs(game.leaves[i] - pos) <= Trim.HALF && !game.done
         art(TrimArt.leaf(s, if (i % 2 == 0) 1 else -1, hot), x, y)
     }
-    art(TrimArt.bud(s), 0f, 0f)
+    art(TrimArt.bud(s, colour), 0f, 0f)
     // Snipped leaves tumble off and fade.
     for (i in game.leaves.indices) if (cutAt[i] >= 0) {
         val t = now - cutAt[i]

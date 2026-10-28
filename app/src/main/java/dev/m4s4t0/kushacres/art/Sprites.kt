@@ -254,9 +254,9 @@ object Sprites {
 
     /**
      * The plant at growth [stage] (0 sprout, 1 seedling, 2 young, 3 leafy, 4 flowering, 5 ready), its top leaning
-     * [sway] fine pixels for the breeze. A rare pheno [colour] tints the buds.
+     * [sway] fine pixels for the breeze. A rare pheno [colour] tints the buds. [dirt] is the farm's own soil colour, if it has one.
      */
-    fun plant(s: Strain, stage: Int, sway: Int, colour: Int = 0): Bitmap = plantCache.getOrPut("${s.id}/$stage/$sway/$colour") {
+    fun plant(s: Strain, stage: Int, sway: Int, colour: Int = 0, dirt: Int? = null): Bitmap = plantCache.getOrPut("${s.id}/$stage/$sway/$colour/$dirt") {
         val budTint = if (colour > 0) mix(s.bud, Pheno.TINTS[colour], 0.6f) else s.bud
         val px = Px(PLANT_W, PLANT_H)
         val f = px.s.toFloat()
@@ -267,7 +267,7 @@ object Sprites {
         val light = shade(leaf, 1.28f)
         val stem = shade(leaf, 0.62f)
         // The little mound of soil it grows from.
-        px.poly(0xFF4A2E1A.toInt(), PLANT_AX - 3, PLANT_AY, PLANT_AX - 2, PLANT_AY - 1, PLANT_AX + 3, PLANT_AY - 1, PLANT_AX + 4, PLANT_AY)
+        px.poly(dirt?.let { shade(it, 0.48f) } ?: 0xFF4A2E1A.toInt(), PLANT_AX - 3, PLANT_AY, PLANT_AX - 2, PLANT_AY - 1, PLANT_AX + 3, PLANT_AY - 1, PLANT_AX + 4, PLANT_AY)
         if (stage == 0) {
             // A sprout: a curl of stem and two seed leaves.
             for (k in 0 until 5) px.dot((bx * f).toInt(), (by * f).toInt() - 1 - k, stem)

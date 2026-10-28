@@ -95,6 +95,7 @@ internal fun dumpPanels(dir: String) {
         f.site.dirt = 0xFFC07040.toInt()
         val soil = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT && f.tile(a, b).strain == null }.take(4)
         for ((i, xy) in soil.withIndex()) if (i % 2 == 0) f.tile(xy.first, xy.second).wetUntil = now + 3_600_000L
+        f.plant(soil[0].first, soil[0].second, Strains.ladder[0].id, now)
         w.view(w.centerX(soil[0].first, soil[0].second) - 80, w.centerY(soil[0].first, soil[0].second) - 50, w.centerX(soil[0].first, soil[0].second) + 80, w.centerY(soil[0].first, soil[0].second) + 50, 4)
         w.render(f, now, 1.3f, dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f), null, false)
         val soilImg = w.bitmap.asImageBitmap()

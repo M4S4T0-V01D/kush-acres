@@ -509,7 +509,7 @@ class World {
                     val stage = when { frac >= 1 -> 5; frac >= 0.7 -> 4; frac >= 0.45 -> 3; frac >= 0.22 -> 2; frac >= 0.07 -> 1; else -> 0 }
                     // A gentle breeze: the top leans up to two fine pixels either way, gusts rolling across the field.
                     val sway = if (stage < 2) 0 else Math.round(sin(t * 1.6f + (x + y) * 0.6f + (hash(x, y) % 10) * 0.1f) * 2f)
-                    stand(x, y, Sprites.plant(st, stage, sway, if (stage >= 4) Pheno.colour(tile.pheno) else 0), cx - Sprites.PLANT_AX, cy - Sprites.PLANT_AY + 2)
+                    stand(x, y, Sprites.plant(st, stage, sway, if (stage >= 4) Pheno.colour(tile.pheno) else 0, f.site.dirt), cx - Sprites.PLANT_AX, cy - Sprites.PLANT_AY + 2)
                     if (stage == 5) light(cx.toFloat(), cy - 24f, 10f, 0xC8FF9A, 0.3f + 0.1f * sin(t * 2 + hash(x, y)))
                     if (stage == 5) {
                         // Twinkles over a ripe plant.

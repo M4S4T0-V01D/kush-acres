@@ -186,7 +186,7 @@ private fun LabResearch() {
         } else T("The Lab is free. One cross at a time.", 11.sp, Cream, bold = false)
         val n = Storefronts.stores(f); val lv = Storefronts.levels(f); val c = Storefronts.chemists(f)
         T("Research speed ×${"%.1f".format(Storefronts.researchSpeed(f))}: $n storefront${if (n == 1) "" else "s"} ($lv level${if (lv == 1) "" else "s"}, +10% each), " +
-            "$c chemist${if (c == 1) "" else "s"} (+50% each)", 10.sp, Sky, bold = false)
+            "$c chemist${if (c == 1) "" else "s"} (+50% each), up to ×${Storefronts.MAX_SPEED.toInt()}", 10.sp, Sky, bold = false)
         if (n == 0) T("Build a Lab Storefront (Build › Work buildings) to sell your hybrids and research faster.", 10.sp, Gold, bold = false)
     }
 }
@@ -227,6 +227,7 @@ private fun Lab() {
                 T("${a.name} × ${b.name}", 10.sp, Dim, bold = false)
                 if (have || open) T("Genes: " + s.traits.joinToString(", ") { it.label }, 9.sp, Color(0xFF9FD86A), bold = false)
                 if (!have && open) T("${g}g each (have ${ha}g, ${hb}g)  ${money(f.breedFee(s))}", 10.sp, if (ha >= g && hb >= g) Leaf else Bad, bold = false)
+                if (!have && open && s.id != f.research) T("Research: ${dur(Storefronts.researchMillis(f, s) / 1000)}", 9.sp, Color(0xFF5CD0E0), bold = false)
                 if (have) T("${dur(s.minutes * 60L)}  ·  ${money(s.price)}/g", 10.sp, Sky, bold = false)
             }
             if (have) T("✓", 16.sp, Leaf)

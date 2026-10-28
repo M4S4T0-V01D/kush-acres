@@ -44,9 +44,15 @@ object Storefronts {
     fun levels(f: Farm) = f.sites.sumOf { s -> s.tiles.sumOf { if (isStore(it)) it.lvl else 0 } }
     fun stores(f: Farm) = f.sites.sumOf { s -> s.tiles.count { isStore(it) } }
     fun chemists(f: Farm) = f.sites.sumOf { it.crew[Crew.CHEMIST.ordinal] }
-    /** How much faster than plain the Lab researches: +10% per store level anywhere, +50% per Lab Chemist. */
-    fun researchSpeed(f: Farm) = (1 + 0.1 * levels(f) + 0.5 * chemists(f)) * Legacy.mult(f, LegacyPerk.LAB_NOTES, 0.5)
-    fun researchMillis(f: Farm, s: Strain) = ((20 + 3L * s.level) * 60_000L / researchSpeed(f)).toLong()
+    /**
+     * How much faster than plain the Lab researches: +10% per store level anywhere, +50% per Lab Chemist, at most
+     * [MAX_SPEED] times so a cross always takes a while.
+     */
+    fun researchSpeed(f: Farm) = minOf(MAX_SPEED, (1 + 0.1 * levels(f) + 0.5 * chemists(f)) * Legacy.mult(f, LegacyPerk.LAB_NOTES, 0.5))
+    const val MAX_SPEED = 4.0
+    /** Plain research time: about an hour for the first crosses, up to seven for the last. */
+    fun researchMinutes(s: Strain) = 30L + 5L * s.level
+    fun researchMillis(f: Farm, s: Strain) = (researchMinutes(s) * 60_000L / researchSpeed(f)).toLong()
 
     /** The lab bud a store sells next: the dearest hybrid in the stash. */
     fun next(f: Farm): Strain? = f.stash.keys.mapNotNull { Strains[it] }.filter { it.hybrid }.maxByOrNull { it.price }

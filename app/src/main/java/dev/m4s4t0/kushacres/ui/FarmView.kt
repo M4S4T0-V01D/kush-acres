@@ -138,6 +138,9 @@ class World {
     /** Lights found while drawing, five floats each: x, y, radius, colour, strength. */
     private var lights = FloatArray(160)
     private var nLights = 0
+    /** Mites drawn this frame (x, y, pulse), drawn again over the night tint so they keep glowing in the dark. */
+    private var mites = FloatArray(96)
+    private var nMites = 0
     private fun light(x: Float, y: Float, radius: Float, color: Int, strength: Float) {
         if (nLights * 5 + 5 > lights.size) lights = lights.copyOf(lights.size * 2)
         val i = nLights++ * 5
@@ -329,7 +332,7 @@ class World {
 
     private fun draw(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>?) {
         hits.clear()
-        nLights = 0
+        nLights = 0; nMites = 0
         val dt = if (lastT < 0) 0f else (t - lastT).coerceIn(0f, 0.1f)
         lastT = t
         val land = f.land
@@ -585,6 +588,7 @@ class World {
                 canvas.drawRect(floor(fxp * 2) / 2, floor(fyp * 2) / 2, floor(fxp * 2) / 2 + 0.5f, floor(fyp * 2) / 2 + 0.5f, fill)
             }
         }
+        if (light.tint != -1) for (i in 0 until nMites) miteArt(mites[i * 3], mites[i * 3 + 1], mites[i * 3 + 2])
     }
 
     private fun drawFacility(f: Farm, tile: Tile, x: Int, y: Int, cx: Int, cy: Int, now: Long, t: Float) {
@@ -616,30 +620,48 @@ class World {
     }
 
     private fun drawPests(cx: Int, cy: Int, t: Float, seed: Int) {
-        fill.color = 0xFF2A2A20.toInt()
-        for (k in 0 until 3) {
-            val a = t * (2.5f + k * 0.7f) + k * 2.1f + seed % 7
-            val bx = cx + cos(a) * 6; val by = cy - 12 + sin(a * 1.3f) * 5
-            canvas.drawRect(bx, by, bx + 2, by + 1, fill)
+        // Red mites crawling over the plant, glowing so they stand out by day and at night.
+        val pulse = 0.5f + 0.5f * sin(t * 4f + seed % 7)
+        light(cx.toFloat(), cy - 14f, 14f, 0xFF3A2A, 0.35f + 0.25f * pulse)
+        for (k in 0 until 6) {
+            val a = t * (1.6f + k * 0.45f) + k * 1.7f + seed % 7
+            val bx = cx + cos(a) * (4 + k % 3 * 2); val by = cy - 14 + sin(a * 1.3f) * 6
+            mite(bx, by, pulse)
         }
         val blink = (t * 3).toInt() % 2 == 0
         fill.color = 0xFF1C1A14.toInt(); canvas.drawRect(cx - 2f, cy - 33f, cx + 2f, cy - 24f, fill)
-        fill.color = if (blink) 0xFFE8664A.toInt() else 0xFFFF9A7A.toInt()
+        fill.color = if (blink) 0xFFFF3A2A.toInt() else 0xFFFF9A7A.toInt()
         canvas.drawRect(cx - 1f, cy - 32f, cx + 1f, cy - 28f, fill)
         canvas.drawRect(cx - 1f, cy - 27f, cx + 1f, cy - 25f, fill)
     }
 
-    /** Grey-white fuzz clumped over the plant, with a slow pulsing spore or two. */
+    /** One mite: a bright red body with a darker rim and a hot core that pulses. */
+    private fun mite(x: Float, y: Float, pulse: Float) {
+        if (nMites * 3 + 3 > mites.size) mites = mites.copyOf(mites.size * 2)
+        mites[nMites * 3] = x; mites[nMites * 3 + 1] = y; mites[nMites * 3 + 2] = pulse; nMites++
+        miteArt(x, y, pulse)
+    }
+
+    private fun miteArt(x: Float, y: Float, pulse: Float) {
+        fill.color = 0xFF7A0E0A.toInt(); canvas.drawRect(x - 1, y - 1, x + 2, y + 2, fill)
+        fill.color = 0xFFFF2A1E.toInt(); canvas.drawRect(x, y - 1, x + 1, y + 2, fill); canvas.drawRect(x - 1, y, x + 2, y + 1, fill)
+        fill.color = if (pulse > 0.5f) 0xFFFFC0A0.toInt() else 0xFFFF6A4A.toInt(); canvas.drawRect(x, y, x + 1, y + 1, fill)
+    }
+
+    /** Mould is a nest of mites: red clumps webbed over the plant, glowing and slowly pulsing. */
     private fun drawMould(cx: Int, cy: Int, t: Float, seed: Int) {
+        val pulse = 0.5f + 0.5f * sin(t * 2.5f + seed % 5)
+        light(cx.toFloat(), cy - 12f, 15f, 0xFF2A4A, 0.3f + 0.25f * pulse)
         val r = Random(seed)
-        for (k in 0 until 9) {
-            val bx = cx - 7 + r.nextInt(14); val by = cy - 18 + r.nextInt(14)
-            fill.color = if (k % 3 == 0) 0xFFB8BFAE.toInt() else 0xFFD9DED0.toInt()
-            canvas.drawRect(bx.toFloat(), by.toFloat(), bx + 2f, by + 1f, fill)
+        fill.color = 0x66FFB0B0
+        for (k in 0 until 4) {
+            val wx = cx - 7 + r.nextInt(14); val wy = cy - 18 + r.nextInt(12)
+            canvas.drawRect(wx.toFloat(), wy.toFloat(), wx + 5f, wy + 1f, fill)
         }
-        fill.color = 0xFF7E8A70.toInt()
-        val sx = cx - 3 + (seed % 7); val sy = cy - 22 - ((t * 4 + seed % 5) % 8)
-        canvas.drawRect(sx.toFloat(), sy, sx + 1f, sy + 1, fill)
+        for (k in 0 until 8) {
+            val bx = cx - 7 + r.nextInt(14); val by = cy - 18 + r.nextInt(14)
+            mite(bx + sin(t * 1.5f + k) * 0.8f, by.toFloat(), if (k % 2 == 0) pulse else 1 - pulse)
+        }
     }
 }
 

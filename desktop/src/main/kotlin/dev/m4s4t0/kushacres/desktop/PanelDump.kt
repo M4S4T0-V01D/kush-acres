@@ -24,6 +24,7 @@ import dev.m4s4t0.kushacres.ui.ContractsTab
 import dev.m4s4t0.kushacres.ui.MenuPanel
 import dev.m4s4t0.kushacres.ui.UiState
 import dev.m4s4t0.kushacres.ui.Wood
+import androidx.compose.ui.graphics.asImageBitmap
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
 
@@ -63,6 +64,25 @@ internal fun dumpPanels(dir: String) {
         shot("plants", 0, 160) {
             androidx.compose.foundation.layout.Row { for (c in 0..3) Px(dev.m4s4t0.kushacres.art.Sprites.plant(Strains.ladder[8], 5, 0, c), 80.dp) }
         }
+    }
+    run {
+        // Pests and mould on two grown plots, by day and at night.
+        val plots = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT }.take(2)
+        for ((i, xy) in plots.withIndex()) {
+            val t = f.tile(xy.first, xy.second)
+            f.plant(xy.first, xy.second, Strains.ladder[0].id, now - 86_400_000L)
+            if (i == 0) t.pest = true else t.mould = true
+        }
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val cx = plots.sumOf { w.centerX(it.first, it.second) } / plots.size
+        val cy = plots.sumOf { w.centerY(it.first, it.second) } / plots.size
+        for ((name, light) in listOf("pests-day" to dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f), "pests-night" to dev.m4s4t0.kushacres.ui.Light(1f, 0xFF4C5CAD.toInt(), 0f, 0f, 0f))) {
+            w.view(cx - 60, cy - 60, cx + 60, cy + 20, 4)
+            w.render(f, now, 1.3f, light, null, false)
+            val img = w.bitmap.asImageBitmap()
+            shot(name, 0, 340) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+        }
+        for (xy in plots) f.tile(xy.first, xy.second).let { it.pest = false; it.mould = false }
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
     shot("stats", 7, 1600)

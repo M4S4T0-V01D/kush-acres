@@ -96,6 +96,8 @@ sealed class Mode {
     data class PlacePower(val g: Generator) : Mode()
     data class PlaceSpecial(val s: Special) : Mode()
     data class PlaceVehicle(val v: Vehicle) : Mode()
+    /** Dig the bunker: its 2×1 stairwell, turned [dir] (0 along x, 1 along y). */
+    data class PlaceStairs(val dir: Int = 0) : Mode()
     /** Pick something up, then tap where it goes. */
     data class Move(val from: Pair<Int, Int>? = null) : Mode()
     data object Demolish : Mode()
@@ -484,22 +486,55 @@ private fun BottomBar(ui: UiState) {
                     val n = f.decorInv[m.d.name] ?: 0
                     "Placing ${m.d.title}: " + if (n > 0) "$n in shed" else money(m.d.cost)
                 }
+                is Mode.PlaceStairs -> "Tap where the bunker stairs go (2×1 grass): ${money(f.bunkerCost())}"
                 is Mode.Move -> if (m.from == null) "Tap something to pick it up" else "Tap an empty spot to put it down"
                 Mode.Demolish -> "Tap something empty to remove it"
                 Mode.Farm -> ""
             }
             T(what, 13.sp, Cream, Modifier.weight(1f))
+            if (m is Mode.PlaceStairs) Btn("Turn", Modifier.padding(end = 6.dp)) { ui.mode = Mode.PlaceStairs(1 - m.dir) }
             Btn("Done") { ui.mode = Mode.Farm }
         }
         return
     }
     val seed = Strains[ui.seed]!!
     val ready = f.orders.withIndex().count { (i, o) -> i < f.orderSlots() && o != null && f.canFill(o) }
+    if (f.floor > 0) BunkerBar(ui)
     Row(Modifier.fillMaxWidth().frame(Wood, WoodEdge, 3.dp).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), seed.name, if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(f.seedCost(seed))) { ui.panel = Panel.SEEDS }
         BarButton(Modifier.weight(1f), Sprites.bag, "Orders", if (ready > 0) "$ready ready" else null, badge = ready > 0) { ui.panel = Panel.ORDERS }
         BarButton(Modifier.weight(1f), Sprites.stall, "Town", null) { ui.shop = null; ui.panel = Panel.TOWN }
-        BarButton(Modifier.weight(1f), Sprites.hammer, "Build", null) { ui.panel = Panel.BUILD }
+        if (f.floor > 0) BarButton(Modifier.weight(1f), Sprites.stairs(1, 0), "Surface", null) { f.goDown(0); ui.recenter++; Store.changed() }
+        else {
+            if (f.hasBunker()) BarButton(Modifier.weight(1f), Sprites.stairs(0, 1), "Bunker", null) { f.goDown(1); ui.selected = null; ui.recenter++; Store.changed() }
+            BarButton(Modifier.weight(1f), Sprites.hammer, "Build", null) { ui.panel = Panel.BUILD }
+        }
+    }
+}
+
+/** Underground: which floor is on screen, and buying more room or another floor down. */
+@Composable
+private fun BunkerBar(ui: UiState) {
+    val f = Store.farm
+    val size = f.site.floors.getOrNull(f.floor - 1)?.size ?: return
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).woodBox().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            T("Bunker B${f.floor} · $size×$size" + if (f.powered()) "" else " · no power!", 13.sp, if (f.powered()) Cream else Bad, Modifier.weight(1f))
+            for (n in 1..f.site.floors.size) Btn("B$n", color = if (n == f.floor) Gold else Leaf) { f.goDown(n); ui.selected = null; ui.recenter++; Store.changed() }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val wc = f.widenCost()
+            Btn(if (wc == null) "Full size" else "Widen ${money(wc)}", Modifier.weight(1f), enabled = wc != null && f.cash >= wc) {
+                val r = f.widen()
+                if (r == Result.OK) { Audio.play(Sfx.BUILD); Store.toast("B${f.floor} is now ${size + 1}×${size + 1}"); ui.recenter++; Store.changed() } else report(r)
+            }
+            val next = f.nextFloor()
+            Btn(when { next == null -> "Deepest"; f.level < next.second -> "B${next.first}: Lv ${next.second}"; else -> "Dig B${next.first} ${money(next.third)}" },
+                Modifier.weight(1f), enabled = next != null && f.level >= next.second && f.cash >= next.third) {
+                val r = f.dig()
+                if (r == Result.OK) { Audio.play(Sfx.BUILD); Store.toast("Dug down to B${f.floor}!"); ui.selected = null; ui.recenter++; Store.changed() } else report(r)
+            }
+        }
     }
 }
 

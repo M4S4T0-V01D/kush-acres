@@ -73,6 +73,7 @@ import dev.m4s4t0.kushacres.model.Result
 import dev.m4s4t0.kushacres.model.Strains
 import kotlin.math.PI
 import kotlin.math.abs
+import dev.m4s4t0.kushacres.art.shade
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import kotlin.math.cos
@@ -331,7 +332,7 @@ class World {
         try { draw(f, now, t, light, selected, placing, moveFrom) } finally { canvas.restore() }
     }
 
-    private fun draw(f: Farm, now: Long, t: Float, light: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>?) {
+    private fun draw(f: Farm, now: Long, t: Float, sky: Light, selected: Pair<Int, Int>?, placing: Boolean, moveFrom: Pair<Int, Int>?) {
         hits.clear()
         nLights = 0; nMites = 0
         val dt = if (lastT < 0) 0f else (t - lastT).coerceIn(0f, 0.1f)
@@ -343,6 +344,10 @@ class World {
         val dark = !f.powered()
         val buildMode = placing
         val wave = (t * 2.5f).toInt()
+        // Down in the bunker it's always night under the grow lights, and black past the walls.
+        val under = f.floor > 0
+        val light = if (!under) sky else Light(1f, if (dark) 0xFF2A2634.toInt() else 0xFF8478A0.toInt(), 0f, 0f, 0f)
+        if (under) canvas.drawColor(0xFF0B0A0E.toInt())
         // Ground, back to front.
         for (s in 0..(Farm.MAX - 1) * 2) for (u in 0..s) {
             if (u >= Farm.MAX || s - u >= Farm.MAX) continue
@@ -351,6 +356,8 @@ class World {
             val tile = f.tile(x, y)
             val inside = f.inLand(x, y)
             val bmp = when {
+                under && !inside -> continue
+                tile.kind == Kind.STAIRS -> stairSprite(x, y, tile)
                 tile.kind == Kind.PLOT -> Sprites.plot(f.wet(x, y, now), f.site.dirt)
                 tile.kind == Kind.PATH -> Decor.of(tile.item)?.let { DecorArt.sprite(it) } ?: Sprites.grass(0, false, ground)
                 tile.kind == Kind.WATER -> {
@@ -368,7 +375,8 @@ class World {
             }
         }
         // A fence along the edge of what you own.
-        if (land < Farm.MAX) {
+        if (under) bunkerWalls(ox, oy, land)
+        else if (land < Farm.MAX) {
             fill.color = 0xFF8B6A44.toInt()
             fun post(a: Int, b: Int) {
                 val px = cornerX(a, b); val py = cornerY(a, b)
@@ -395,6 +403,7 @@ class World {
                     listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1)
                 }
                 Kind.HOUSE, Kind.WING -> f.anchorOf(mx, my).let { (ax, ay) -> f.houseCells(ax, ay) }
+                Kind.STAIRS -> f.stairsAt()?.let { (ax, ay, d) -> f.stairCells(ax, ay, d) } ?: emptyList()
                 else -> listOf(mx to my)
             }
             val c = if ((t * 3).toInt() % 2 == 0) 0xFF7BD34B.toInt() else 0xFFB6F27A.toInt()
@@ -480,6 +489,7 @@ class World {
             if (!seen(cx, cy)) continue
             val tile = f.tile(x, y)
             if (!f.inLand(x, y)) {
+                if (under) continue
                 if (tile.kind == Kind.ROCK) { put(Sprites.rock(hash(y, x) % 6), cx, cx - 10, cy - 13); continue }
                 if (tile.kind != Kind.GRASS) continue
                 val h = hash(x, y) % 7
@@ -489,6 +499,7 @@ class World {
                 else if (h == def.trees && def.trees > 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 continue
             }
+            if (under && tile.kind == Kind.PLOT) growLight(cx, cy, t, dark, hash(x, y))
             when (tile.kind) {
                 Kind.PLOT -> {
                     val st = tile.strain?.let { Strains[it] } ?: continue
@@ -572,7 +583,7 @@ class World {
             if (tile.pest && tile.kind == Kind.PLOT) drawPests(cx, cy, t, hash(x, y))
             if (tile.mould && tile.kind == Kind.PLOT) drawMould(cx, cy, t, hash(x, y))
           }
-          walkers[s]?.forEach { drawWalker(it, t) }
+          if (!under) walkers[s]?.forEach { drawWalker(it, t) }
         }
 
         // Rain splashing on the farm.
@@ -598,7 +609,7 @@ class World {
             }
             // Fireflies drift over the land on clear nights.
             val ff = minOf(1f, glow) * (1f - light.rain) * (1f - light.fog * 0.5f)
-            if (ff > 0.05f) for (i in 0 until 6 + land) {
+            if (ff > 0.05f && !under) for (i in 0 until 6 + land) {
                 val bx = ox + hash(i, 11) % land; val by = oy + hash(i, 23) % land
                 val fxp = centerX(bx, by) + sin(t * 0.37f + i * 1.9f) * 18f + sin(t * 1.1f + i) * 3f
                 val fyp = centerY(bx, by) - 10f + sin(t * 0.29f + i * 2.7f) * 9f + sin(t * 1.7f + i * 0.5f) * 2f
@@ -610,6 +621,64 @@ class World {
             }
         }
         if (light.tint != -1) for (i in 0 until nMites) miteArt(mites[i * 3], mites[i * 3 + 1], mites[i * 3 + 2])
+    }
+
+    /** The half of the bunker stairwell at x,y, its steps turned to go down the way the stairs run on screen. */
+    private fun stairSprite(x: Int, y: Int, tile: Tile): Bitmap {
+        val ax = tile.anchor % Farm.MAX; val ay = tile.anchor / Farm.MAX
+        val bx = if (tile.lvl == 1) ax + 1 else ax; val by = if (tile.lvl == 1) ay else ay + 1
+        val du = viewU(bx, by) - viewU(ax, ay); val dv = viewV(bx, by) - viewV(ax, ay)
+        val way = if (du > 0) 0 else if (du < 0) 1 else if (dv > 0) 2 else 3
+        return Sprites.stairs(way, if (x == ax && y == ay) 0 else 1)
+    }
+
+    /** Brick walls along the two back edges of a bunker floor [n] squares across from ox,oy. */
+    private fun bunkerWalls(ox: Int, oy: Int, n: Int) {
+        val cs = listOf(ox to oy, ox + n to oy, ox + n to oy + n, ox to oy + n)
+        // The corner furthest back on screen, and the two edges running from it.
+        val back = cs.minBy { (a, b) -> cornerY(a, b) }
+        val i = cs.indexOf(back)
+        val h = 44
+        for (j in listOf(cs[(i + 3) % 4], cs[(i + 1) % 4])) {
+            val x0 = cornerX(back.first, back.second); val y0 = cornerY(back.first, back.second)
+            val x1 = cornerX(j.first, j.second); val y1 = cornerY(j.first, j.second)
+            val lit = x1 < x0
+            val base = if (lit) 0xFF5A4E48.toInt() else 0xFF443A36.toInt()
+            val dx = if (x1 > x0) 1 else -1
+            var x = x0
+            while (x != x1) {
+                val y = y0 + (x - x0) * (y1 - y0).toFloat() / (x1 - x0)
+                val k = abs(x - x0)
+                for (row in 0 until h / 4) {
+                    val brick = (k + if (row % 2 == 0) 0 else 4) % 8
+                    fill.color = if (brick == 0) shade(base, 0.7f) else shade(base, 1f - row * 0.008f)
+                    canvas.drawRect(x.toFloat(), y - (row + 1) * 4f, x + 1f, y - row * 4f - 1f, fill)
+                    fill.color = shade(base, 0.62f)
+                    canvas.drawRect(x.toFloat(), y - row * 4f - 1f, x + 1f, y - row * 4f, fill)
+                }
+                fill.color = 0xFF2E2826.toInt()
+                canvas.drawRect(x.toFloat(), y - h - 3f, x + 1f, y - h.toFloat(), fill)
+                x += dx
+            }
+        }
+    }
+
+    /** A grow light hanging over an underground plot; it blinks red when the farm is short on power. */
+    private fun growLight(cx: Int, cy: Int, t: Float, dark: Boolean, h: Int) {
+        val top = cy - 44
+        fill.color = 0xFF3A3A40.toInt()
+        canvas.drawRect(cx - 0.5f, top - 14f, cx + 0.5f, top.toFloat(), fill)
+        fill.color = 0xFF26262C.toInt()
+        canvas.drawRect(cx - 8f, top.toFloat(), cx + 8f, top + 2f, fill)
+        if (dark) {
+            if (((t * 1.5f).toInt() + h) % 2 == 0) light(cx.toFloat(), top + 2f, 4f, 0xFF4030, 0.8f)
+            return
+        }
+        fill.color = if (h % 2 == 0) 0xFFF4B8FF.toInt() else 0xFFFFF0E0.toInt()
+        canvas.drawRect(cx - 7f, top + 2f, cx + 7f, top + 3f, fill)
+        val c = if (h % 2 == 0) 0xFF70E0 else 0xFFE8C8
+        light(cx.toFloat(), top + 3f, 7f, c, 0.55f)
+        light(cx.toFloat(), cy.toFloat(), TW * 0.8f, c, 0.3f)
     }
 
     private fun drawFacility(f: Farm, tile: Tile, x: Int, y: Int, cx: Int, cy: Int, now: Long, t: Float) {
@@ -825,7 +894,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             if (!f.inLand(x, y)) return null
             return when (ui.mode) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
-                is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial, is Mode.PlaceVehicle -> null
+                is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial, is Mode.PlaceVehicle, is Mode.PlaceStairs -> null
                 is Mode.Move -> null
                 Mode.Demolish -> null
                 Mode.Farm -> when {
@@ -922,6 +991,14 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     else if (r == Result.LIMIT) Store.toast("This farm already has one of those")
                     else complain(r)
                 }
+                is Mode.PlaceStairs -> {
+                    val r = f.buyBunker(x, y, m.dir)
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f)
+                        Store.toast("Bunker dug! Tap the stairs to go down. It runs on the farm's power"); ui.mode = Mode.Farm; Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast(if (f.hasBunker()) "This farm already has a bunker" else "It needs 2 free grass squares in a row: tap Turn to rotate")
+                    else complain(r)
+                }
                 is Mode.PlaceFacility -> {
                     val r = f.buildFacility(x, y, m.f)
                     if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
@@ -971,6 +1048,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         else Store.toast(when (f.tile(from.first, from.second).kind) {
                             Kind.SHACK, Kind.PART -> "The shack needs a free 2×2 spot with its back corner here"
                             Kind.VEHICLE, Kind.CAB -> "It needs a free 2×2 spot with its back corner here"
+                            Kind.STAIRS -> "The stairs need 2 free grass squares in a row from here"
                             Kind.HOUSE -> if (f.houseCells(from.first, from.second).size > 1) "It needs a free 2×2 spot with its back corner here" else "Pick an empty grass square"
                             else -> "Pick an empty grass square"
                         })

@@ -128,6 +128,34 @@ internal fun dumpPanels(dir: String) {
         val img = w.bitmap.asImageBitmap()
         shot("farm-big", 0, 500) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
     }
+    run {
+        // The bunker: its stairs up top, then its first floor lit and planted, by day.
+        f.level = 40
+        val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }
+        f.buyBunker(sx, sy, 1)
+        (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.last { (a, b) -> f.tile(a, b).kind == Kind.GRASS }.let { (a, b) -> f.buildPower(a, b, dev.m4s4t0.kushacres.model.Generator.DIESEL) }
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val day = dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f)
+        for (r in 0..1) {
+            w.rot = r
+            w.view(w.centerX(sx, sy) - 60, w.centerY(sx, sy) - 50, w.centerX(sx, sy) + 60, w.centerY(sx, sy) + 30, 4)
+            w.render(f, now, 1.3f, day, null, false)
+            val img = w.bitmap.asImageBitmap()
+            shot("stairs$r", 0, 340) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+        }
+        w.rot = 0
+        f.goDown(1); f.widen(); f.widen()
+        for (yy in f.oy until f.oy + f.land) for (xx in f.ox until f.ox + f.land) if ((xx + yy) % 3 != 0) {
+            f.plant(xx, yy, Strains.ladder[(xx + yy) % 6].id, now - 86_400_000L)
+            f.tile(xx, yy).progress = Strains.ladder[(xx + yy) % 6].seconds * (0.3 + 0.15 * ((xx * 7 + yy) % 5))
+        }
+        val cx = w.centerX(f.ox + f.land / 2, f.oy + f.land / 2); val cy = w.centerY(f.ox + f.land / 2, f.oy + f.land / 2)
+        w.view(cx - 110, cy - 90, cx + 110, cy + 50, 4)
+        w.render(f, now, 1.3f, day, null, false)
+        val img = w.bitmap.asImageBitmap()
+        shot("bunker", 0, 500) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+        f.goDown(0)
+    }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

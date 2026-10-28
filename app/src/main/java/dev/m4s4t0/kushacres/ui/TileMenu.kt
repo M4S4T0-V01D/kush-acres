@@ -74,6 +74,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.SPECIAL -> Special.of(tile.item)?.title ?: "Special"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: "Decor"
                 Kind.GRASS -> "Grass"
+                Kind.STAIRS -> "Bunker stairs"
             }
             T(title, 14.sp, Gold)
             Spacer(Modifier.height(6.dp))
@@ -116,13 +117,13 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     if (strain != null && !tile.ready() && !f.wet(x, y, Store.now())) item("Water", Sky) {
                         report(f.water(x, y, Store.now())); Audio.vary(Sfx.WATER); Store.changed(); close()
                     }
-                    item(if (stunt > 0) "Move (stunts it)" else "Move") {
+                    if (f.floor == 0) item(if (stunt > 0) "Move (stunts it)" else "Move") {
                         if (stunt > 0) confirm = "Moving a growing ${strain?.name ?: "plant"} stunts it: it'll take ${dur(stunt.toLong())} longer to grow."
                         else moveIt()
                     }
                     if (strain != null) item("Destroy plant", Bad) {
                         confirm = "Pull up the ${strain.name}? It's gone for good; the plot stays."
-                    } else item("Remove plot", Bad) {
+                    } else if (f.floor == 0) item("Remove plot", Bad) {
                         val r = f.demolish(x, y)
                         if (r == Result.OK) { Audio.play(Sfx.DEMOLISH); Store.changed() }
                         else if (r == Result.BLOCKED) Store.toast("You need at least one plot") else report(r)
@@ -162,6 +163,11 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     item("Remove", Bad) {
                         val r = f.demolish(x, y); if (r == Result.OK) { Audio.play(Sfx.DEMOLISH); Store.changed() } else report(r); close()
                     }
+                }
+                Kind.STAIRS -> {
+                    item("Go down", Gold) { f.goDown(1); Store.changed(); close() }
+                    item("Turn it") { report(f.rotateStairs()); Store.changed(); close() }
+                    item("Move") { moveIt() }
                 }
                 Kind.GRASS -> {}
             }

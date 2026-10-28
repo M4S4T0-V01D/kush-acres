@@ -77,6 +77,12 @@ object Save {
         // Work buildings anchor themselves; a wing without its building goes.
         for ((i, t) in tiles.withIndex()) if (t.kind == Kind.HOUSE) t.anchor = i
         tiles.forEach { t -> if (t.kind == Kind.WING && tiles.getOrNull(t.anchor)?.kind != Kind.HOUSE) t.clear() }
+        // A stairwell needs both its squares, the top one pointing at itself.
+        for ((i, t) in tiles.withIndex()) {
+            if (t.kind != Kind.STAIRS || t.anchor != i) continue
+            if (tiles.count { it.kind == Kind.STAIRS && it.anchor == i } != 2) tiles.forEach { if (it.kind == Kind.STAIRS && it.anchor == i) it.clear() }
+        }
+        tiles.forEach { t -> if (t.kind == Kind.STAIRS && tiles.getOrNull(t.anchor)?.let { it.kind == Kind.STAIRS && it.anchor == t.anchor } != true) t.clear() }
     }
 
     fun write(f: Farm): String {
@@ -98,6 +104,7 @@ object Save {
             f.sites.forEach { st ->
                 put(JSONObject().put("id", st.def.id).put("land", st.land).put("roof", st.roof).put("wall", st.wall)
                     .put("workers", st.workers).put("crew", JSONArray(st.crew.toList())).put("hv", st.harvests).put("goals", JSONArray(st.goals.toList())).put("shack", st.shack).put("up", ups(st.upgrades)).put("tiles", writeTiles(st.tiles))
+                    .apply { if (st.floors.isNotEmpty()) put("floors", JSONArray().apply { st.floors.forEach { fl -> put(JSONObject().put("n", fl.size).put("tiles", writeTiles(fl.tiles))) } }) }
                     .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) }; st.grass?.let { put("grass", it) }; st.dirt?.let { put("dirt", it) } })
             }
         })
@@ -245,12 +252,24 @@ object Save {
             if (so.has("dirt")) st.dirt = so.optInt("dirt")
             if (so.has("cx") && so.has("cy")) { st.cx = so.optInt("cx").coerceIn(0, Farm.MAX - 1); st.cy = so.optInt("cy").coerceIn(0, Farm.MAX - 1) }
             readTiles(so.optJSONArray("tiles"), st.tiles, stride)
+            so.optJSONArray("floors")?.let { a ->
+                for (k in 0 until minOf(a.length(), Bunker.FLOORS)) {
+                    val fo = a.optJSONObject(k) ?: continue
+                    val fl = Floor()
+                    fl.resize(fo.optInt("n", Bunker.START).coerceIn(Bunker.START, Bunker.SIZE_MAX))
+                    readTiles(fo.optJSONArray("tiles"), fl.tiles, stride)
+                    // Every square down there is a plot, whatever the save says.
+                    for (y in fl.o until fl.o + fl.size) for (x in fl.o until fl.o + fl.size) fl.tiles[y * Farm.MAX + x].let { if (it.kind != Kind.PLOT) { it.clear(); it.kind = Kind.PLOT } }
+                    st.floors += fl
+                }
+            }
             f.sites += st
         }
         if (!f.owns(Sites.HOME.id)) f.sites.add(0, home)
         // Home always comes first; it's the one kept when the farm is sold.
         f.sites.sortBy { if (it.def === Sites.HOME) 0 else 1 }
         f.site = f.sites.firstOrNull { it.def.id == o.optString("site") } ?: f.sites[0]
+        f.floor = 0
         f.eachSite {
             f.paint(it.roof, it.wall)
             // Version 1 had no shack: put one down wherever it fits.

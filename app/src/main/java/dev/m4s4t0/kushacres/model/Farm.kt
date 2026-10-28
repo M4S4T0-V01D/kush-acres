@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /** ROCK can be cleared for cash; WATER stays and keeps the plots beside it wet. */
-enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB, WING }
+enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB, WING, STAIRS }
 
 /**
  * One square of land. Plots grow things; sprinklers, lamps and decor help the squares around them. The shack covers
@@ -167,13 +167,16 @@ class Farm(var rng: Random = Random.Default) {
     /** Every farm you own; [site] is the one on screen. The tile/land/paint fields below are the active site's. */
     val sites = arrayListOf(Site(Sites.HOME))
     var site = sites[0]
-    val tiles: Array<Tile> get() = site.tiles
+    /** 0 for the farm up top; n when floor n of its bunker is on screen, and then the fields below are that floor's. */
+    var floor = 0
+    val under: Floor? get() = if (floor > 0) site.floors.getOrNull(floor - 1) else null
+    val tiles: Array<Tile> get() = under?.tiles ?: site.tiles
     var land: Int
-        get() = site.land
+        get() = under?.size ?: site.land
         set(v) { site.land = v }
     /** Top-left corner of the owned square on the active site's map. */
-    val ox get() = site.ox
-    val oy get() = site.oy
+    val ox get() = under?.o ?: site.ox
+    val oy get() = under?.o ?: site.oy
     var cash = 30L
     var level = 1
         set(v) { field = v; Strains.scaleLevel = v }
@@ -304,8 +307,18 @@ class Farm(var rng: Random = Random.Default) {
     }
     /** Runs [f] with each owned site made active in turn, then puts the one on screen back. */
     inline fun eachSite(f: (Site) -> Unit) {
-        val keep = site
-        try { for (s in sites) { site = s; f(s) } } finally { site = keep }
+        val keep = site; val down = floor
+        try { floor = 0; for (s in sites) { site = s; f(s) } } finally { site = keep; floor = down }
+    }
+    /** Runs [f] on each floor of the active farm's bunker in turn, then goes back to where it was. */
+    inline fun eachFloor(f: (Int) -> Unit) {
+        val down = floor
+        try { for (i in site.floors.indices) { floor = i + 1; f(floor) } } finally { floor = down }
+    }
+    /** Runs [f] up top, for the things that only happen there. */
+    inline fun <T> surface(f: () -> T): T {
+        val down = floor
+        try { floor = 0; return f() } finally { floor = down }
     }
     fun owns(id: String) = sites.any { it.def.id == id }
 
@@ -431,6 +444,7 @@ class Farm(var rng: Random = Random.Default) {
             Kind.SPECIAL -> t.item?.let { sp += it }
             else -> {}
         }
+        used += s.floors.sumOf { it.size * it.size } * Bunker.WATTS
         if (Special.SUBSTATION.name in sp) made += 150
         s.made = made; s.used = used; s.specials = sp; s.scanned = layoutRev
         return s
@@ -479,7 +493,7 @@ class Farm(var rng: Random = Random.Default) {
         if (dirt) site.dirt = color else site.grass = color
         return Result.OK
     }
-    fun nextLand(): Triple<Int, Int, Long>? = LAND.firstOrNull { it.first > land }
+    fun nextLand(): Triple<Int, Int, Long>? = if (floor > 0) null else LAND.firstOrNull { it.first > land }
     fun nextShack(): ShackLevel? = SHACKS.getOrNull(shack + 1)
 
     fun price(strain: String): Double {
@@ -535,9 +549,9 @@ class Farm(var rng: Random = Random.Default) {
                 tile(nx, ny).let { it.kind == Kind.WATER || it.kind == Kind.DECOR && it.item == Decor.BARREL.name }
         }
 
-    fun sprinkled(x: Int, y: Int) = around(x, y, Kind.SPRINKLER) > 0 || barrelBeside(x, y) || houseNear(x, y, WorkHouse.TOWER) > 0 || here(Special.WELL)
+    fun sprinkled(x: Int, y: Int) = floor > 0 || around(x, y, Kind.SPRINKLER) > 0 || barrelBeside(x, y) || houseNear(x, y, WorkHouse.TOWER) > 0 || here(Special.WELL)
     /** Grow lamps lighting x,y; none when the farm is short of power. */
-    fun lamps(x: Int, y: Int) = if (powered()) min(2, around(x, y, Kind.LAMP)) else 0
+    fun lamps(x: Int, y: Int) = if (!powered()) 0 else if (floor > 0) 2 else min(2, around(x, y, Kind.LAMP))
     fun protected(x: Int, y: Int) = decorAround(x, y, Decor.SCARECROW) > 0
 
     /** Growth speed multiplier before water and buffs. */
@@ -545,7 +559,7 @@ class Farm(var rng: Random = Random.Default) {
         (1 + 0.05 * decorAround(x, y, Decor.GNOME) + 0.10 * decorAround(x, y, Decor.TIKI) + 0.15 * decorAround(x, y, Decor.LAVA) +
             0.20 * decorAround(x, y, Decor.WINDMILL) + 0.25 * decorAround(x, y, Decor.UFO) + perkNear(x, y, Perk.GROW)) *
         (1 + 0.2 * houseNear(x, y, WorkHouse.GROW)) * (1 + 0.1 * crew(Crew.BOTANIST)) *
-        (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.GREEN_THUMB, 0.15) * when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 } *
+        (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.GREEN_THUMB, 0.15) * (if (floor > 0) (if (powered()) 1.0 else Bunker.DARK) else when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 }) *
         (if (here(Special.VAULT)) 1.3 else 1.0) * (if (built(Special.TEMPLE)) 1.1 else 1.0) * (if (shaded(x, y)) SHADE else 1.0)
 
     /** Whether something big (the shack, a vehicle, a 2×2 work building) stands beside x,y, shading it. */
@@ -600,7 +614,7 @@ class Farm(var rng: Random = Random.Default) {
         var t = lastTick
         while (t < now) {
             val t1 = min(now, t + step)
-            eachSite { grow(t, t1); Storefronts.sell(this, t, t1) }
+            eachSite { grow(t, t1); Storefronts.sell(this, t, t1); eachFloor { grow(t, t1) } }
             recoverDemand(t1 - t)
             refillOrders(t1)
             lastTick = t1
@@ -659,13 +673,15 @@ class Farm(var rng: Random = Random.Default) {
 
     /** Everything the hired help does each step. */
     private fun work(now: Long) {
-        val active = site
+        val active = site; val down = floor
+        // Pops for the other farms (and floors) would show up in the wrong place.
+        fun quiet(from: Int) { for (i in events.size - 1 downTo from) if (events[i] is FarmEvent.Harvest) events.removeAt(i) }
         eachSite { s ->
             val before = events.size
             if (farmhand) pick(now)
             if (has(Helper.COOK)) cook(now)
-            // Pops for the other farms would show up in the wrong place.
-            if (s !== active) for (i in events.size - 1 downTo before) if (events[i] is FarmEvent.Harvest) events.removeAt(i)
+            if (s !== active || down != 0) quiet(before)
+            if (farmhand) eachFloor { n -> val b = events.size; pick(now); if (s !== active || n != down) quiet(b) }
         }
         eachSite { s -> if (s.workers > 0) waterIdle(now) }
         eachSite { s ->
@@ -734,7 +750,8 @@ class Farm(var rng: Random = Random.Default) {
     // ---- Random events (only while playing) ----
 
     /** Call while the game is open. Returns true when a new [happening] needs showing. */
-    fun rollEvent(now: Long): Boolean {
+    fun rollEvent(now: Long): Boolean = surface { rollUp(now) }
+    private fun rollUp(now: Long): Boolean {
         if (level < EVENT_LEVEL || happening != null) return false
         if (nextEventAt == 0L) { delayEvents(now); return false }
         if (now < nextEventAt) return false
@@ -853,7 +870,8 @@ class Farm(var rng: Random = Random.Default) {
     }
 
     /** Answers the current event. [accept] means bribe / buy / sell; returns what happened, for a toast. */
-    fun resolve(accept: Boolean, now: Long): String {
+    fun resolve(accept: Boolean, now: Long): String = surface { resolveUp(accept, now) }
+    private fun resolveUp(accept: Boolean, now: Long): String {
         val h = happening ?: return ""
         happening = null
         if (h.kind == EventKind.RAID) bump(Stat.RAIDS)
@@ -1174,9 +1192,10 @@ class Farm(var rng: Random = Random.Default) {
 
     /** Clears a square back to grass. Plots must be empty; decor goes back in your inventory; buildings can only be moved. */
     fun demolish(x: Int, y: Int): Result {
+        if (floor > 0) return Result.BLOCKED
         val t = tile(x, y)
         when (t.kind) {
-            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB, Kind.WING -> return Result.BLOCKED
+            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB, Kind.WING, Kind.STAIRS -> return Result.BLOCKED
             Kind.PLOT -> if (t.strain != null || count(Kind.PLOT) <= 1) return Result.BLOCKED
             Kind.DECOR, Kind.PATH -> { val d = t.item ?: ""; decorInv[d] = (decorInv[d] ?: 0) + 1 }
             else -> {}
@@ -1216,6 +1235,7 @@ class Farm(var rng: Random = Random.Default) {
 
     /** Moves whatever is at (fx,fy) to (tx,ty). The shack moves as a whole, with its top-left going to (tx,ty). */
     fun move(fx: Int, fy: Int, tx: Int, ty: Int): Result {
+        if (floor > 0) return Result.BLOCKED
         val from = tile(fx, fy)
         if (from.kind == Kind.SHACK || from.kind == Kind.PART) {
             val (ax, ay) = shackAt() ?: return Result.BLOCKED
@@ -1234,6 +1254,14 @@ class Farm(var rng: Random = Random.Default) {
             clearVehicle(ax, ay)
             if (placeVehicle(tx, ty, v, due)) { layoutRev++; return Result.OK }
             placeVehicle(ax, ay, v, due)
+            return Result.BLOCKED
+        }
+        if (from.kind == Kind.STAIRS) {
+            val a = from.anchor; val ax = a % MAX; val ay = a / MAX; val dir = from.lvl - 1
+            if (tx == ax && ty == ay) return Result.BLOCKED
+            stairCells(ax, ay, dir).forEach { (cx, cy) -> tile(cx, cy).clear() }
+            if (placeStairs(tx, ty, dir)) { layoutRev++; return Result.OK }
+            placeStairs(ax, ay, dir)
             return Result.BLOCKED
         }
         if (from.kind == Kind.HOUSE || from.kind == Kind.WING) {
@@ -1408,6 +1436,7 @@ class Farm(var rng: Random = Random.Default) {
      * moves across as it is. [free] is for a brand-new game picking its spot.
      */
     fun relocate(cx: Int, cy: Int, free: Boolean = false): Result {
+        if (floor > 0) return Result.BLOCKED
         val s = site
         val n = land
         val nx = (cx - n / 2).coerceIn(0, MAX - n); val ny = (cy - n / 2).coerceIn(0, MAX - n)
@@ -1432,7 +1461,7 @@ class Farm(var rng: Random = Random.Default) {
     /** Wipes everything and starts a brand-new game; only the farmer's look is kept, for the creator to start from. */
     fun restart(now: Long) {
         restartLook = farmer
-        sites.clear(); sites += Site(Sites.HOME); site = sites[0]
+        sites.clear(); sites += Site(Sites.HOME); site = sites[0]; floor = 0
         land = 6; cash = 30; level = 1; xp = 0
         upgrades.fill(0); helpers.fill(false); supplies.fill(0)
         stash.clear(); goods.clear(); seeds.clear(); decorInv.clear(); buffs.clear(); demand.clear()
@@ -1520,7 +1549,7 @@ class Farm(var rng: Random = Random.Default) {
 
     fun switchTo(id: String): Boolean {
         val s = sites.firstOrNull { it.def.id == id } ?: return false
-        site = s
+        site = s; floor = 0
         return true
     }
 
@@ -1550,10 +1579,94 @@ class Farm(var rng: Random = Random.Default) {
     fun hireFarmhand() = hire(Helper.FARMHAND)
     fun hireManager() = hire(Helper.MANAGER)
 
+    // ---- Bunkers ----
+
+    fun hasBunker(s: Site = site) = s.floors.isNotEmpty()
+    /** Each farm gets one; every bunker already dug makes the next one dearer. */
+    fun bunkerCost(): Long = Bunker.COST shl sites.count { it.floors.isNotEmpty() }
+    /** The squares a stairwell going down from x,y covers: along x for [dir] 0, along y for 1 (its tiles keep dir + 1 as their level). */
+    fun stairCells(x: Int, y: Int, dir: Int) = listOf(x to y, if (dir == 0) x + 1 to y else x to y + 1)
+    fun canStairs(x: Int, y: Int, dir: Int) = floor == 0 && stairCells(x, y, dir).all { (cx, cy) -> inLand(cx, cy) && tile(cx, cy).kind == Kind.GRASS }
+    /** The active farm's stairwell: its top square and which way it runs, or null. */
+    fun stairsAt(): Triple<Int, Int, Int>? {
+        val ts = site.tiles
+        val i = ts.indices.firstOrNull { ts[it].kind == Kind.STAIRS && ts[it].anchor == it } ?: return null
+        return Triple(i % MAX, i / MAX, ts[i].lvl - 1)
+    }
+
+    private fun placeStairs(x: Int, y: Int, dir: Int): Boolean {
+        if (!canStairs(x, y, dir)) return false
+        val a = y * MAX + x
+        for ((cx, cy) in stairCells(x, y, dir)) tile(cx, cy).apply { clear(); kind = Kind.STAIRS; anchor = a; lvl = dir + 1 }
+        return true
+    }
+
+    /** Digs this farm's bunker: a stairwell at x,y running [dir], and a first floor [Bunker.START] across. */
+    fun buyBunker(x: Int, y: Int, dir: Int): Result {
+        if (floor > 0 || hasBunker()) return Result.BLOCKED
+        if (level < Bunker.LEVEL) return Result.LOCKED
+        if (!canStairs(x, y, dir)) return Result.BLOCKED
+        val c = bunkerCost()
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        placeStairs(x, y, dir)
+        site.floors += Floor().also { it.resize(Bunker.START) }
+        layoutRev++
+        return Result.OK
+    }
+
+    /** Turns the stairwell the other way about its top square, if there's room. */
+    fun rotateStairs(): Result {
+        val (x, y, dir) = stairsAt() ?: return Result.BLOCKED
+        stairCells(x, y, dir).forEach { (cx, cy) -> site.tiles[cy * MAX + cx].clear() }
+        if (surface { placeStairs(x, y, 1 - dir) }) return Result.OK
+        surface { placeStairs(x, y, dir) }
+        return Result.BLOCKED
+    }
+
+    /** What widening floor [n] by one square each way costs, or null when it's as big as it gets. */
+    fun widenCost(n: Int = floor): Long? {
+        val fl = site.floors.getOrNull(n - 1) ?: return null
+        return if (fl.size >= Bunker.SIZE_MAX) null else Bunker.sizeCost(n, fl.size)
+    }
+    fun widen(n: Int = floor): Result {
+        val fl = site.floors.getOrNull(n - 1) ?: return Result.BLOCKED
+        val c = widenCost(n) ?: return Result.LIMIT
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        fl.resize(fl.size + 1)
+        layoutRev++
+        return Result.OK
+    }
+
+    /** The next floor down: its number, the level it needs and its cost, or null when the bunker is as deep as it goes. */
+    fun nextFloor(): Triple<Int, Int, Long>? {
+        val n = site.floors.size + 1
+        return if (!hasBunker() || n > Bunker.FLOORS) null else Triple(n, Bunker.floorLevel(n), Bunker.floorCost(n))
+    }
+    fun dig(): Result {
+        val (n, lvl, c) = nextFloor() ?: return Result.LIMIT
+        if (level < lvl) return Result.LOCKED
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        site.floors += Floor().also { it.resize(Bunker.START) }
+        layoutRev++
+        floor = n
+        return Result.OK
+    }
+
+    /** Puts floor [n] of this farm's bunker on screen (0 is up top). */
+    fun goDown(n: Int): Boolean {
+        if (n !in 0..site.floors.size) return false
+        floor = n
+        return true
+    }
+
     // ---- Work buildings and workers ----
 
     /** The active farm's work buildings; the first [Site.workers] of them (bunkhouses aside) are staffed. */
     fun houses(): List<HouseSpot> {
+        if (floor > 0) return emptyList()
         site.spots?.let { return it }
         val out = ArrayList<HouseSpot>()
         var free = site.workers
@@ -2158,8 +2271,9 @@ class Farm(var rng: Random = Random.Default) {
         val kept = keep.filter { it in ok }.distinct().take(Legacy.slots(this))
         for (s in sites) for (t in s.tiles) if (t.kind == Kind.DECOR || t.kind == Kind.PATH) t.item?.let { decorInv[it] = (decorInv[it] ?: 0) + 1 }
         // Back to the home farm only; its paint stays.
-        site = sites[0]
+        site = sites[0]; floor = 0
         sites.retainAll { it === site }
+        site.floors.clear()
         tiles.forEach { it.clear() }
         land = 6; cash = 30; level = 1; xp = 0
         upgrades.fill(0); helpers.fill(false); supplies.fill(0)

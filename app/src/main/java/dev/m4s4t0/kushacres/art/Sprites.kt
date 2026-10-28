@@ -204,6 +204,42 @@ object Sprites {
         px.bitmap()
     }
 
+    private val stairCache = HashMap<Int, Bitmap>()
+    /**
+     * Half of a bunker stairwell sunk into the ground: [part] 0 is the top square, 1 the bottom one with the door.
+     * [way] is the view direction the steps go down: 0 toward +u, 1 toward -u, 2 toward +v, 3 toward -v.
+     */
+    fun stairs(way: Int, part: Int): Bitmap = stairCache.getOrPut(way * 2 + part) {
+        val px = Px(TW, TH + DEPTH)
+        val s = px.s
+        val rim = 0xFF9C978C.toInt(); val step = 0xFF86817A.toInt()
+        for (x in 0 until TW) for (d in 1..DEPTH) {
+            val b = bottom(x)
+            px.set(x, b + d, if (d == 1) shade(rim, 0.8f) else if (x < 16) 0xFF8A8478.toInt() else 0xFF6A645A.toInt())
+        }
+        for (fy in 0 until (TH + 1) * s) for (fx in 0 until px.fw) {
+            if (!onTop(fx / s, fy / s)) continue
+            val x = (fx + 0.5f) / s; val y = (fy + 0.5f) / s
+            // Where on the square this is: a runs along view u, b along view v.
+            val a = (((x - 16) / 16 + y / 8) / 2).coerceIn(0f, 1f); val b = ((y / 8 - (x - 16) / 16) / 2).coerceIn(0f, 1f)
+            val along = when (way) { 0 -> a; 1 -> 1 - a; 2 -> b; else -> 1 - b }
+            val cross = if (way < 2) b else a
+            val deep = (part + along) / 2
+            val c = when {
+                part == 0 && along < 0.14f -> if (((cross * 8).toInt()) % 2 == 0) 0xFFF2C440.toInt() else 0xFF2A2620.toInt()
+                cross < 0.13f || cross > 0.87f -> if (cross < 0.06f || cross > 0.94f) shade(rim, 1.12f) else rim
+                cross < 0.2f -> shade(step, 0.45f - deep * 0.2f)
+                deep > 0.84f -> if (cross < 0.26f || cross > 0.8f || deep < 0.88f) 0xFF4A4038.toInt() else if (deep > 0.97f) 0xFFFFD27A.toInt() else 0xFF15110E.toInt()
+                else -> {
+                    val k = deep / 0.84f * 7
+                    shade(step, (1f - deep * 0.6f) * if (k % 1f < 0.22f) 1.25f else 1f)
+                }
+            }
+            px.dot(fx, fy, c)
+        }
+        px.bitmap()
+    }
+
     /** A diamond outline used to show which square a tap will hit. */
     private val cursorCache = HashMap<Int, Bitmap>()
     fun cursor(c: Int): Bitmap = cursorCache.getOrPut(c) {

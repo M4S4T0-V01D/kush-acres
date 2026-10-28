@@ -68,6 +68,7 @@ import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.EventArt
 import dev.m4s4t0.kushacres.art.Sprites
+import dev.m4s4t0.kushacres.model.Bunker
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.EventKind
@@ -485,6 +486,15 @@ internal fun WorkList(ui: UiState) {
             val here = f.vehicleAt(v) != null
             Card(Buildings.vehicle(v), v.title, v.desc + ". Covers 2×2 squares; one per farm.", if (here) "Parked on this farm" else null,
                 if (here) "Owned" else money(v.cost), f.cash >= v.cost && !here, if (f.level < v.level) v.level else null) { startPlacing(ui, Mode.PlaceVehicle(v)) }
+        }
+        item {
+            Store.rev
+            val here = f.hasBunker()
+            val c = f.bunkerCost()
+            Card(Sprites.stairs(2, 0), "Bunker", "Grow underground under lights that never go off, whatever the season. Starts ${Bunker.START}×${Bunker.START}, " +
+                "widens to ${Bunker.SIZE_MAX}×${Bunker.SIZE_MAX} and digs down ${Bunker.FLOORS} floors. Each square draws ${Bunker.WATTS} ⚡ from the farm. Its stairs take 2×1 grass; one per farm.",
+                if (here) "Dug on this farm: ${f.site.floors.size} floor" + (if (f.site.floors.size > 1) "s" else "") else null,
+                if (here) "Owned" else money(c), f.cash >= c && !here, if (f.level < Bunker.LEVEL) Bunker.LEVEL else null) { startPlacing(ui, Mode.PlaceStairs()) }
         }
     }
 }

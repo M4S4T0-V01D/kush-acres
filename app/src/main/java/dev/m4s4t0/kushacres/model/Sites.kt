@@ -2,6 +2,7 @@ package dev.m4s4t0.kushacres.model
 
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -188,6 +189,44 @@ object Sites {
 /** A work building on a farm, and whether a worker staffs it. */
 class HouseSpot(val x: Int, val y: Int, val house: WorkHouse, val staffed: Boolean, val size: Int = 1)
 
+/**
+ * One floor of a farm's bunker: a square of grow plots under the farm, [size] across, in the middle of its own grid.
+ * Drip lines keep every plot wet and grow lights hang over each one, run on the farm's power ([Bunker.WATTS] a square).
+ */
+class Floor {
+    val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
+    var size = 0
+        private set
+    val o get() = (Farm.MAX - size) / 2
+
+    /** Grows the floor to [n] across, keeping what's planted and making the new squares plots. */
+    fun resize(n: Int) {
+        val old = (0 until size * size).map { tiles[(o + it / size) * Farm.MAX + o + it % size] }.map { t -> Tile().also { it.copyFrom(t) } }
+        val m = size
+        tiles.forEach { it.clear() }
+        size = n
+        for (i in 0 until n * n) tiles[(o + i / n) * Farm.MAX + o + i % n].kind = Kind.PLOT
+        for ((i, t) in old.withIndex()) tiles[(o + i / m) * Farm.MAX + o + i % m].copyFrom(t)
+    }
+}
+
+object Bunker {
+    const val LEVEL = 15
+    const val COST = 250_000L
+    const val START = 3
+    const val SIZE_MAX = 10
+    const val FLOORS = 5
+    /** Power each bunker square's grow light draws from the farm above. */
+    const val WATTS = 1
+    /** Growth in a bunker with its lights out. */
+    const val DARK = 0.25
+    /** The level each floor after the first needs, and what digging it costs. */
+    fun floorLevel(n: Int) = 15 + 10 * (n - 1)
+    fun floorCost(n: Int): Long = (2_500_000.0 * 10.0.pow(n - 2)).toLong()
+    /** Widening floor [n] from [size] across: dearer than land up top, and dearer still further down. */
+    fun sizeCost(n: Int, size: Int): Long = (300_000.0 * 3.0.pow(size - START) * 2.0.pow(n - 1)).toLong()
+}
+
 /** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
 class Site(val def: SiteDef) {
     val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
@@ -206,6 +245,8 @@ class Site(val def: SiteDef) {
     val upgrades = IntArray(Upgrade.entries.size)
     /** The work buildings on this farm, worked out again whenever one is built, moved or staffed (see Farm.houses). */
     var spots: List<HouseSpot>? = null
+    /** The bunker's floors, from the top down; none until one is bought. */
+    val floors = ArrayList<Floor>()
     /** Where the player put the middle of the square, or null for the site's own spot ([SiteDef.ax], [SiteDef.ay]). */
     var cx: Int? = null
     var cy: Int? = null

@@ -45,6 +45,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import dev.m4s4t0.kushacres.model.Bunker
 import org.junit.Assert.assertTrue
 import org.json.JSONObject
 import dev.m4s4t0.kushacres.model.Legacy
@@ -768,6 +769,66 @@ class FarmTest {
         // It survives a save.
         val g = farm(); Save.read(Save.write(f), g)
         assertEquals(4, g.houseCells(mx, my).size)
+    }
+
+    @Test fun bunkerGrowsUnderTheFarm() {
+        val f = rich().apply { level = 30 }
+        val free = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }
+        val (x, y) = free.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }
+        f.level = Bunker.LEVEL - 1
+        assertEquals(Result.LOCKED, f.buyBunker(x, y, 1))
+        f.level = 30
+        val cash = f.cash
+        assertEquals(Result.OK, f.buyBunker(x, y, 1))
+        assertEquals(cash - Bunker.COST, f.cash)
+        assertEquals(Result.BLOCKED, f.buyBunker(x, y, 1))
+        assertEquals(Triple(x, y, 1), f.stairsAt())
+        assertEquals(Kind.STAIRS, f.tile(x, y + 1).kind)
+        assertEquals(Result.BLOCKED, f.demolish(x, y + 1))
+        // The lights draw on the farm's power.
+        f.layoutRev++
+        assertEquals(Bunker.START * Bunker.START * Bunker.WATTS, f.powerUsed())
+        assertEquals(false, f.powered())
+        val (gx, gy) = free.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS && (a to b) != (x + 1 to y) }
+        assertEquals(Result.OK, f.buildPower(gx, gy, dev.m4s4t0.kushacres.model.Generator.GAS))
+        // Down there: a 3×3 of plots, always wet, lit while the farm has power.
+        assertTrue(f.goDown(1))
+        // No expanding or moving the farm from down here.
+        assertNull(f.nextLand()); assertEquals(Result.BLOCKED, f.relocate(5, 5))
+        assertEquals(Bunker.START, f.land)
+        val (px, py) = f.ox to f.oy
+        assertEquals(Kind.PLOT, f.tile(px, py).kind)
+        assertTrue(f.sprinkled(px, py))
+        assertEquals(2, f.lamps(px, py))
+        val s = Strains.ladder.first()
+        assertEquals(Result.OK, f.plant(px, py, s.id, t0))
+        f.goDown(0)
+        f.tick(t0 + s.seconds * 1000L)
+        f.goDown(1)
+        assertTrue(f.tile(px, py).ready())
+        // Widening keeps what's planted; digging deeper costs far more.
+        val w = f.widenCost()!!
+        assertTrue(w > Bunker.COST)
+        assertEquals(Result.OK, f.widen())
+        assertEquals(Bunker.START + 1, f.land)
+        assertTrue(f.tiles.count { it.strain == s.id } == 1)
+        assertEquals(Result.OK, f.dig())
+        assertEquals(2, f.floor)
+        assertEquals(2, f.site.floors.size)
+        // A second farm's bunker costs double.
+        assertEquals(Bunker.COST * 2, f.bunkerCost())
+        // The stairwell turns and moves, but never goes.
+        f.goDown(0)
+        assertEquals(Result.OK, f.rotateStairs())
+        assertEquals(Kind.STAIRS, f.tile(x + 1, y).kind)
+        assertEquals(Kind.GRASS, f.tile(x, y + 1).kind)
+        // All of it survives a save.
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(Triple(x, y, 0), g.stairsAt())
+        assertEquals(listOf(Bunker.START + 1, Bunker.START), g.site.floors.map { it.size })
+        g.goDown(1)
+        assertTrue(g.tiles.count { it.strain == s.id } == 1)
+        assertEquals(Save.write(f), Save.write(g))
     }
 
     @Test fun oldSmallBuildingsSpreadOut() {

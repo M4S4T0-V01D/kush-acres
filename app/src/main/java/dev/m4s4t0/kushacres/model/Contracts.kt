@@ -138,7 +138,7 @@ object Contracts {
             Deal.SPECIAL -> {
                 val classes = classes(f).ifEmpty { return bulk() }
                 val c = classes[r.nextInt(classes.size)]
-                val best = fitting(f, c).maxBy { it.level }
+                val best = fitting(f, c).maxBy { it.price }
                 listOf(Need("class:${c.name}", round10(perHour(f, best) * work * size)))
             }
             Deal.KITCHEN -> {
@@ -193,8 +193,8 @@ object Contracts {
 
     private fun cupClass(id: String) = CupClass.entries.firstOrNull { it.name == id }
 
-    /** Strains of class [c] you can grow somewhere. */
-    fun fitting(f: Farm, c: CupClass) = Strains.all.filter { it.holiday == null && f.owned(it) && c.fits(it) }
+    /** Strains of class [c] you can grow somewhere. Exotics don't count: at their prices a class order would pay a fortune. */
+    fun fitting(f: Farm, c: CupClass) = Strains.all.filter { it.holiday == null && !it.exotic && f.owned(it) && c.fits(it) }
 
     /** What a need is called on screen. */
     fun label(n: Need): String = when {
@@ -258,7 +258,7 @@ object Contracts {
     private fun sources(f: Farm, n: Need): List<Pair<String, Int>> = when {
         n.what.startsWith("class:") -> {
             val c = cupClass(n.what.removePrefix("class:")) ?: return emptyList()
-            f.stash.entries.filter { e -> e.value > 0 && Strains[e.key]?.let { it.holiday == null && c.fits(it) } == true }
+            f.stash.entries.filter { e -> e.value > 0 && Strains[e.key]?.let { it.holiday == null && !it.exotic && c.fits(it) } == true }
                 .sortedByDescending { Strains[it.key]!!.price }.map { it.key to it.value }
         }
         n.what.startsWith("goods:") -> {

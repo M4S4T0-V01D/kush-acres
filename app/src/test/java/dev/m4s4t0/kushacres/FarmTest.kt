@@ -3,6 +3,7 @@ package dev.m4s4t0.kushacres
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Contracts
+import dev.m4s4t0.kushacres.model.Need
 import dev.m4s4t0.kushacres.model.Chains
 import dev.m4s4t0.kushacres.model.Contract
 import dev.m4s4t0.kushacres.model.CupClass
@@ -1146,6 +1147,21 @@ class FarmTest {
         assertEquals(Cup.ENTRIES, Cup.left(g, t0 + 7 * 86_400_000L))
         assertEquals(Result.OK, Cup.enter(g, s.id, t0 + 7 * 86_400_000L))
         assertEquals(1, g.cupScores.size)
+    }
+
+    @Test fun classContractsIgnoreExotics() {
+        val f = farm()
+        f.level = 12
+        // Exotic seeds are always for sale, so pricing a class order by them made a level 12 order worth ~100M.
+        for (c in CupClass.entries) assertTrue(Contracts.fitting(f, c).none { it.exotic })
+        for (day in 0 until 30) {
+            f.offerDay.clear(); f.offers.clear()
+            for (c in Contracts.offers(f, "home", t0 + day * 86_400_000L)) if (c.needs[0].what.startsWith("class:"))
+                assertTrue("${c.needs} pays ${Contracts.estimate(f, c)}", Contracts.estimate(f, c) < 2_000_000)
+        }
+        f.stash["kosmic"] = 1000
+        val c = Contract(Deal.SPECIAL, "x", "home", listOf(Need("class:FAST", 10)), 1.0, "")
+        assertFalse(Contracts.canShip(f, c))
     }
 
     @Test fun contractsOfferTakeShipAndPay() {

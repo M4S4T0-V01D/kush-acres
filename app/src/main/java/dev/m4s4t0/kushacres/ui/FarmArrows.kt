@@ -69,11 +69,11 @@ fun BoxScope.FarmArrows(ui: UiState) {
 private fun Arrow(text: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     Box(
-        modifier.size(width = 22.dp, height = 72.dp).pressable(src)
+        modifier.size(width = 32.dp, height = 84.dp).pressable(src)
             .frame(if (enabled) WoodIn.copy(alpha = 0.85f) else Color(0x99231B14), if (enabled) WoodEdge else Color(0x994A3E30))
             .clickable(src, null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { T(text, 18.sp, if (enabled) Cream else Dim.copy(alpha = 0.4f)) }
+    ) { T(text, 22.sp, if (enabled) Cream else Dim.copy(alpha = 0.4f)) }
 }
 
 /** A farm you don't own, from above, with what it takes to get it. */

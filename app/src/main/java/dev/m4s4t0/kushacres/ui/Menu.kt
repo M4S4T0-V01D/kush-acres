@@ -375,13 +375,15 @@ private fun StrainBook() {
     Store.rev
     val f = Store.farm
     val all = Strains.all
-    val known = all.count { f.unlocked(it) || it.id in f.bred }
+    // Exotics show once you've had some; the rest once you could grow them on any of your farms.
+    fun seen(s: dev.m4s4t0.kushacres.model.Strain) = s.id in f.grown || if (s.exotic) (f.seeds[s.id] ?: 0) > 0 || f.stash.containsKey(s.id) else f.owned(s) || f.unlocked(s)
+    val known = all.count { seen(it) }
     T("$known of ${all.size} strains discovered · ${f.grown.size} grown", 12.sp, Sky)
     T("Mothers ${f.mothers.size}/${f.motherSlots()} · every seed rolls its own yield and potency. Keep your best find " +
         "as a mother and planting that strain gives clones of her.", 9.sp, Dim, bold = false)
     Spacer(Modifier.height(6.dp))
     for (s in all) {
-        val seen = (if (s.exotic) (f.seeds[s.id] ?: 0) > 0 || f.stash.containsKey(s.id) else f.unlocked(s))
+        val seen = seen(s)
         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).background(WoodIn).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(if (seen) Sprites.strainIcon(s) else Sprites.lock, 22.dp)
             Spacer(Modifier.width(8.dp))

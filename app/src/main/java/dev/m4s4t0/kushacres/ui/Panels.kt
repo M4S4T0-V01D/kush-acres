@@ -391,6 +391,12 @@ internal fun startPlacing(ui: UiState, m: Mode) { ui.mode = m; ui.panel = Panel.
 
 @Composable
 private fun BuildPanel(ui: UiState) {
+    if (Store.farm.floor > 0) {
+        // Underground only machines go in, onto empty plots; the rest is built up top.
+        T("Hash presses, kitchens and the like fit on any empty plot down here.", 12.sp, Cream)
+        FacilityList(ui)
+        return
+    }
     val tab = ui.buildTab
     Tabs(listOf("Farm", "Work", "Make", "Decor", "Power", "Special", "Tools"), tab) { ui.buildTab = it }
     when (tab) {

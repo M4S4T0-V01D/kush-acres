@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.compose.material3.Text
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.audio.Audio
@@ -498,7 +499,7 @@ private fun BottomBar(ui: UiState) {
         return
     }
     val seed = Strains[ui.seed]!!
-    val ready = f.orders.withIndex().count { (i, o) -> i < f.orderSlots() && o != null && f.canFill(o) }
+    val ready = f.orders.withIndex().count { (i, o) -> i < f.orderSlots() && o != null && !f.delivering(i) && f.canFill(o) }
     if (f.floor > 0) BunkerBar(ui)
     Row(Modifier.fillMaxWidth().frame(Wood, WoodEdge, 3.dp).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), seed.name, if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(f.seedCost(seed))) { ui.panel = Panel.SEEDS }
@@ -519,7 +520,7 @@ private fun BunkerBar(ui: UiState) {
     val size = f.site.floors.getOrNull(f.floor - 1)?.size ?: return
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).woodBox().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            T("Bunker B${f.floor} · $size×$size" + if (f.powered()) "" else " · no power!", 13.sp, if (f.powered()) Cream else Bad, Modifier.weight(1f))
+            T("Bunker B${f.floor} · $size×$size · stash +${(f.bunkerStash() * 100).roundToInt()}%" + if (f.powered()) "" else " · no power!", 13.sp, if (f.powered()) Cream else Bad, Modifier.weight(1f))
             for (n in 1..f.site.floors.size) Btn("B$n", color = if (n == f.floor) Gold else Leaf) { f.goDown(n); ui.selected = null; ui.recenter++; Store.changed() }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -528,6 +529,7 @@ private fun BunkerBar(ui: UiState) {
                 val r = f.widen()
                 if (r == Result.OK) { Audio.play(Sfx.BUILD); Store.toast("B${f.floor} is now ${size + 1}×${size + 1}"); ui.recenter++; Store.changed() } else report(r)
             }
+            Btn("Machines", Modifier.weight(1f), color = Gold) { ui.panel = Panel.BUILD }
             val next = f.nextFloor()
             Btn(when { next == null -> "Deepest"; f.level < next.second -> "B${next.first}: Lv ${next.second}"; else -> "Dig B${next.first} ${money(next.third)}" },
                 Modifier.weight(1f), enabled = next != null && f.level >= next.second && f.cash >= next.third) {

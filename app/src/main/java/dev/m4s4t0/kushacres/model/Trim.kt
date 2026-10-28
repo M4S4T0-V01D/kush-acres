@@ -3,8 +3,8 @@ package dev.m4s4t0.kushacres.model
 import kotlin.random.Random
 
 /**
- * The trimming game at harvest, always optional: shears sweep along the bud, and each snip while they're over a sugar
- * leaf takes it off cleanly. A clean leaf is a little more bud from the plant (see [Farm.harvest]); a snip over bare
+ * The trimming game while a plant grows, always optional: shears sweep along the bud, and each snip while they're over a sugar
+ * leaf takes it off cleanly. A clean leaf is a little more bud from the plant banked until harvest (see [Farm.trim]); a snip over bare
  * bud is a miss, and [MISSES] of them end it early.
  */
 class Trim(rng: Random) {

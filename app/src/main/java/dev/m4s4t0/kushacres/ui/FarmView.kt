@@ -1002,7 +1002,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 is Mode.PlaceFacility -> {
                     val r = f.buildFacility(x, y, m.f)
                     if (r == Result.OK) { buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.toast("${m.f.title} built! Tap it to start a batch"); ui.mode = Mode.Farm; Store.changed() }
-                    else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square") else complain(r)
+                    else if (r == Result.BLOCKED) Store.toast(if (f.floor > 0) "Pick an empty plot" else "Pick an empty grass square") else complain(r)
                 }
                 is Mode.PlacePower -> {
                     val r = f.buildPower(x, y, m.g)
@@ -1204,7 +1204,10 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             val r = (offset.x + (world.vx + world.vw) * scale).roundToInt(); val b = (offset.y + (world.vy + world.vh) * scale).roundToInt()
             drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(world.vw * world.k, world.vh * world.k),
                 dstOffset = IntOffset(l, tp), dstSize = IntSize(r - l, b - tp), filterQuality = FilterQuality.None)
-            drawIntoCanvas { world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light) }
+            if (f.floor == 0) drawIntoCanvas {
+                world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light)
+                world.fx.drawHoliday(it.nativeCanvas, size.width, size.height, scale, t, light, f.holiday())
+            }
 
             textPaint.textSize = max(28f, scale * 6f)
             drawIntoCanvas { c ->

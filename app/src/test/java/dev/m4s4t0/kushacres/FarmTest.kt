@@ -831,6 +831,23 @@ class FarmTest {
         assertEquals(Save.write(f), Save.write(g))
     }
 
+    @Test fun bunkerHoldsStashAndMachines() {
+        val f = rich().apply { level = 30 }
+        val bare = f.siteStash()
+        val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }
+        assertEquals(Result.OK, f.buyBunker(x, y, 1))
+        assertEquals((bare * (1 + Bunker.STASH * Bunker.START)).toInt(), f.siteStash())
+        // Machines go on an empty plot down there, not on a planted one, and count with the ones up top.
+        f.goDown(1)
+        val fac = dev.m4s4t0.kushacres.model.Facility.ROLLER
+        assertEquals(Result.OK, f.plant(f.ox, f.oy, Strains.ladder.first().id, t0))
+        assertFalse(f.canFacility(f.ox, f.oy))
+        assertEquals(Result.OK, f.buildFacility(f.ox + 1, f.oy, fac))
+        assertEquals(Kind.FACILITY, f.tile(f.ox + 1, f.oy).kind)
+        f.goDown(0)
+        assertEquals(1, f.count(fac))
+    }
+
     @Test fun oldSmallBuildingsSpreadOut() {
         val f = rich().apply { level = 30 }
         val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
@@ -1400,13 +1417,24 @@ class FarmTest {
         assertTrue(miss.done)
         assertEquals(0.5f, dev.m4s4t0.kushacres.model.Trim.shears(1.5f), 1e-6f)
         assertEquals(0f, dev.m4s4t0.kushacres.model.Trim.shears(2f), 1e-6f)
-        // A clean trim on the starter plant gives more bud than none; a worker can't trim.
-        val a = farm(); val b = farm(); val c = farm()
-        a.harvest(2, 2, t0, trim = 5); b.harvest(2, 2, t0); c.harvest(2, 2, t0, byHand = false, trim = 5)
-        val ga = a.stash["ditch"]!!; val gb = b.stash["ditch"]!!
-        assertTrue(ga >= gb)
+        // Trimming happens while it grows, then waits a strain's gap; the bank pays out at harvest, by hand or not.
+        val a = farm(); val b = farm()
+        val s = dev.m4s4t0.kushacres.model.Strains["ditch"]!!
+        for (g in listOf(a, b)) g.tile(2, 2).progress = 0.0
+        assertFalse(a.canTrim(2, 2))
+        a.tile(2, 2).progress = s.seconds * 0.4
+        assertEquals(Result.OK, a.trim(2, 2, 5))
+        assertFalse(a.canTrim(2, 2))
+        assertEquals(Result.NOT_READY, a.trim(2, 2, 5))
+        assertTrue(a.trimWait(2, 2) > 0)
+        a.tile(2, 2).progress += a.trimGap(s)
+        assertTrue(a.canTrim(2, 2))
+        for (g in listOf(a, b)) g.tile(2, 2).progress = s.seconds.toDouble()
+        assertFalse(a.canTrim(2, 2))
+        a.harvest(2, 2, t0, byHand = false); b.harvest(2, 2, t0, byHand = false)
+        assertTrue(a.stash["ditch"]!! >= b.stash["ditch"]!!)
         assertEquals(5, a.events.filterIsInstance<FarmEvent.Harvest>().single().trim)
-        assertEquals(0, c.events.filterIsInstance<FarmEvent.Harvest>().single().trim)
+        assertEquals(0, a.tile(2, 2).trim)
         assertEquals(1L, a.stat(Stat.CLEAN_TRIMS))
     }
 }

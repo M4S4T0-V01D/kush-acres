@@ -28,6 +28,7 @@ import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.model.Decor
 import dev.m4s4t0.kushacres.model.Facility
+import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Generator
 import dev.m4s4t0.kushacres.model.Kind
 import dev.m4s4t0.kushacres.model.Result
@@ -79,7 +80,10 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
             T(title, 14.sp, Gold)
             Spacer(Modifier.height(6.dp))
             if (trimming) {
-                TrimGame { n -> report(f.harvest(x, y, Store.now(), trim = n)); Store.changed(); close() }
+                TrimGame { n ->
+                    if (f.trim(x, y, n) == Result.OK) Store.toast(if (n > 0) "Trimmed: +${Math.round(Farm.TRIM_STEP * 100 * tile.trim)}% bud at harvest" else "No clean leaves that time")
+                    Store.changed(); close()
+                }
                 return@Column
             }
             val c = confirm
@@ -110,7 +114,15 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                         val peak = f.peakLeft(x, y, Store.now())
                         if (peak > 0) T("At its peak: +15% bud for ${dur(peak / 1000)}", 10.sp, Gold, bold = false)
                         item("Harvest", Gold) { report(f.harvest(x, y, Store.now())); Store.changed(); close() }
-                        item("Trim and harvest ✂", Leaf) { trimming = true }
+                    }
+                    if (strain != null && !tile.ready()) {
+                        val bonus = Math.round(Farm.TRIM_STEP * 100 * tile.trim)
+                        if (f.canTrim(x, y)) item(if (bonus > 0) "Trim ✂ (+$bonus% so far)" else "Trim ✂", Leaf) { trimming = true }
+                        else if (tile.trim >= Farm.TRIM_BANK) T("Fully trimmed: +$bonus% bud", 10.sp, Leaf, bold = false)
+                        else if (!tile.pest && !tile.mould) {
+                            val at = ((tile.progress + f.trimWait(x, y)) / strain.seconds * 100).toInt().coerceAtMost(99)
+                            T("Trim again at $at% grown" + (if (bonus > 0) " · +$bonus% so far" else ""), 10.sp, Dim, bold = false)
+                        }
                     }
                     if (tile.pest) item("Shoo the bugs", Gold) { f.clearPest(x, y); Store.changed(); close() }
                     if (tile.mould) item("Scrape off the mould", Gold) { f.clearPest(x, y); Store.changed(); close() }

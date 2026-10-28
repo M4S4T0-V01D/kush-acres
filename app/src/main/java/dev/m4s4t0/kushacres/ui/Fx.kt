@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
+import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Sky
 import dev.m4s4t0.kushacres.model.Weather
@@ -52,6 +53,17 @@ class Light(val night: Float, val tint: Int, val rain: Float, val fog: Float, va
         }
     }
 }
+
+private val BAT_UP = arrayOf("#.....#", "##.#.##", ".##o##.", "...#...")
+private val BAT_DOWN = arrayOf("...#...", ".##o##.", "##...##", "#.....#")
+private val HEART = arrayOf(".#.#.", "#####", ".###.", "..#..")
+private val CLOVER = arrayOf(".#.", "#o#", ".#.", "..o")
+private val SPARK = arrayOf(".#.", "###", ".#.")
+private val FLY_UP = arrayOf("#.o.#", "##o##", "#.o.#")
+private val FLY_DOWN = arrayOf("..o..", ".#o#.", "..o..")
+private val GOOSE_UP = arrayOf("#...", ".#oo", "..##")
+private val GOOSE_DOWN = arrayOf("..oo", "####", "#...")
+private val LEAF = arrayOf(".#.", "###", ".#.", "#..")
 
 /** What kind of puff to throw. */
 enum class Burst { WATER, DIRT, HARVEST, GOLDEN, DUST, COINS, SPLASH }
@@ -148,6 +160,119 @@ class Fx {
         return ((h xor (h ushr 16)) and 0xFFFF) / 65536f
     }
 
+    /** A little pixel picture: '#' in [a], 'o' in [b], at [s] screen pixels per dot, centred on x,y. */
+    private fun dots(c: Canvas, x: Float, y: Float, s: Float, rows: Array<String>, a: Int, b: Int = a, alpha: Int = 255) {
+        val x0 = x - rows[0].length * s / 2; val y0 = y - rows.size * s / 2
+        for ((j, row) in rows.withIndex()) for ((i, ch) in row.withIndex()) {
+            if (ch == '.' || ch == ' ') continue
+            fill.color = if (ch == '#') a else b; fill.alpha = alpha
+            c.drawRect(x0 + i * s, y0 + j * s, x0 + (i + 1) * s, y0 + (j + 1) * s, fill)
+        }
+        fill.alpha = 255
+    }
+
+    /** Something in the air for each holiday, in screen pixels: bats at Halloween, hearts at Valentine's, and so on. */
+    fun drawHoliday(c: Canvas, w: Float, h: Float, scale: Float, t: Float, light: Light, holiday: Holiday?) {
+        holiday ?: return
+        val s = maxOf(2f, scale * 0.5f)
+        val wet = 1f - light.rain * 0.6f
+        when (holiday) {
+            Holiday.HALLOWEEN -> {
+                // Bats loop about the screen, more of them after dark, wings beating.
+                val n = 5 + (light.night * 7).toInt()
+                for (i in 0 until n) {
+                    val sp = 0.05f + hf(i, 31) * 0.05f
+                    val x = (0.5f + 0.45f * sin(t * sp * 2.1f + i * 2.3f) + 0.08f * sin(t * 0.9f + i)) * w
+                    val y = (0.35f + 0.3f * sin(t * sp * 3.3f + i * 1.3f) + 0.05f * sin(t * 2.3f + i * 0.7f)) * h
+                    val up = sin(t * (14f + hf(i, 32) * 6f) + i) > 0
+                    dots(c, x, y, s, if (up) BAT_UP else BAT_DOWN, 0xFF1E1826.toInt(), 0xFFFF5A3A.toInt())
+                }
+            }
+            Holiday.VALENTINE -> for (i in 0 until 9) {
+                // Hearts float up and fade.
+                val ph = t * (0.04f + hf(i, 41) * 0.03f) + hf(i, 42); val k = floor(ph).toInt(); val fr = ph - k
+                val x = hf(i, k + 43) * w + sin(t * 1.3f + i) * s * 4
+                dots(c, x, h * (1.05f - fr * 1.1f), s, HEART, if (i % 2 == 0) 0xFFFF4A7A.toInt() else 0xFFFF9ABA.toInt(), alpha = (255 * (1f - fr) * wet).toInt())
+            }
+            Holiday.STPATRICK -> for (i in 0 until 10) {
+                // Clovers tumble down, and a gold glint here and there.
+                val ph = t * (0.05f + hf(i, 51) * 0.04f) + hf(i, 52); val k = floor(ph).toInt(); val fr = ph - k
+                val x = hf(i, k + 53) * w + sin(t * 1.1f + i * 2f) * s * 6
+                if (i % 4 == 3) dots(c, x, fr * h, s, SPARK, 0xFFFFD23A.toInt(), alpha = (255 * sin(t * 6f + i).coerceAtLeast(0f)).toInt())
+                else dots(c, x, -s * 4 + fr * (h + s * 8), s, CLOVER, 0xFF3AC04A.toInt(), 0xFF1E7A2A.toInt())
+            }
+            Holiday.FOURTWENTY -> {
+                // Lazy smoke drifting up and across.
+                val b = glows.getOrPut(0xC8D8C0) { glowBitmap(0xC8D8C0) }
+                for (i in 0 until 8) {
+                    val ph = t * (0.025f + hf(i, 61) * 0.02f) + hf(i, 62); val k = floor(ph).toInt(); val fr = ph - k
+                    val r = s * (6f + fr * 18f)
+                    val x = hf(i, k + 63) * w + fr * w * 0.2f + sin(t * 0.7f + i) * s * 6
+                    val y = h * (1.1f - fr * 1.2f)
+                    soft.alpha = (90 * (1f - fr) * wet).toInt()
+                    rect.set(x - r, y - r * 0.7f, x + r, y + r * 0.7f)
+                    c.drawBitmap(b, null, rect, soft)
+                }
+                for (i in 0 until 6) {
+                    val x = (0.5f + 0.45f * sin(t * 0.07f + i * 2.1f)) * w; val y = (0.5f + 0.4f * sin(t * 0.11f + i * 1.7f)) * h
+                    dots(c, x, y, s, if (sin(t * 9f + i) > 0) FLY_UP else FLY_DOWN, 0xFF7AE03A.toInt(), 0xFF8A4AE0.toInt())
+                }
+            }
+            Holiday.EASTER -> for (i in 0 until 8) {
+                // Pastel butterflies flitting about.
+                val cols = intArrayOf(0xFFC0A0FF.toInt(), 0xFFFFE07A.toInt(), 0xFFA0E0FF.toInt(), 0xFFFFB0D0.toInt())
+                val x = (0.5f + 0.45f * sin(t * (0.06f + hf(i, 71) * 0.04f) + i * 2.4f) + 0.03f * sin(t * 3f + i)) * w
+                val y = (0.5f + 0.4f * sin(t * (0.08f + hf(i, 72) * 0.05f) + i * 1.1f) + 0.03f * sin(t * 4f + i)) * h
+                dots(c, x, y, s, if (sin(t * 11f + i * 3) > 0) FLY_UP else FLY_DOWN, cols[i % 4], 0xFF3A2A1E.toInt())
+            }
+            Holiday.JULY4 -> for (i in 0 until 3) {
+                // Fireworks: a burst every few seconds high up, brightest at night.
+                val period = 3.2f + i
+                val ph = (t + i * 1.3f) / period; val k = floor(ph).toInt(); val fr = ph - k
+                if (fr > 0.6f) continue
+                val cx = (0.15f + hf(i * 7 + 1, k) * 0.7f) * w; val cy = (0.1f + hf(i * 7 + 2, k) * 0.3f) * h
+                val col = intArrayOf(0xFFE03A3A.toInt(), 0xFFF4F4FF.toInt(), 0xFF3A6AE0.toInt(), 0xFFFFD23A.toInt())[(k + i) % 4]
+                val r = fr / 0.6f; val reach = s * 22 * kotlin.math.sqrt(r)
+                val a = ((1f - r) * 255 * (0.5f + light.night * 0.5f)).toInt()
+                for (j in 0 until 14) {
+                    val ang = j / 14f * 6.283f
+                    dots(c, cx + kotlin.math.cos(ang) * reach, cy + sin(ang) * reach + r * r * s * 8, s, SPARK, col, alpha = a)
+                }
+            }
+            Holiday.THANKSGIVING -> {
+                // A skein of geese crosses now and then, under drifting leaves.
+                val ph = t / 40f; val k = floor(ph).toInt(); val fr = ph - k
+                val gy = (0.1f + hf(k, 81) * 0.3f) * h
+                for (g in 0 until 7) {
+                    val off = (g + 1) / 2 * (if (g % 2 == 0) 1 else -1)
+                    val x = -w * 0.2f + fr * w * 1.4f - kotlin.math.abs(off) * s * 7
+                    dots(c, x, gy + off * s * 5, s, if (sin(t * 8f + g) > 0) GOOSE_UP else GOOSE_DOWN, 0xFF4A3A2A.toInt(), 0xFFE8E0D0.toInt())
+                }
+                for (i in 0 until 8) {
+                    val p2 = t * (0.04f + hf(i, 82) * 0.03f) + hf(i, 83); val k2 = floor(p2).toInt(); val f2 = p2 - k2
+                    dots(c, hf(i, k2 + 84) * w + sin(t * 1.4f + i) * s * 6, -s * 4 + f2 * (h + s * 8), s, LEAF,
+                        if (i % 2 == 0) 0xFFE0903A.toInt() else 0xFFA04A20.toInt())
+                }
+            }
+            Holiday.CHRISTMAS -> for (i in 0 until 16) {
+                // Twinkling red, green and gold sparkles hanging in the air.
+                val a = sin(t * (1.5f + hf(i, 91)) + i * 2.2f)
+                if (a <= 0) continue
+                val col = intArrayOf(0xFFE03A3A.toInt(), 0xFF3AA04A.toInt(), 0xFFFFD23A.toInt())[i % 3]
+                dots(c, hf(i, 92 + floor(t / 9f + hf(i, 93)).toInt()) * w, hf(i, 94 + floor(t / 9f + hf(i, 93)).toInt()) * h, s, SPARK, col, alpha = (255 * a).toInt())
+            }
+            Holiday.NEWYEAR -> for (i in 0 until 24) {
+                // Confetti tumbling down.
+                val ph = t * (0.06f + hf(i, 101) * 0.05f) + hf(i, 102); val k = floor(ph).toInt(); val fr = ph - k
+                val x = hf(i, k + 103) * w + sin(t * 2f + i) * s * 5
+                val y = -s * 2 + fr * (h + s * 4)
+                fill.color = intArrayOf(0xFFFFD23A.toInt(), 0xFF3A3AA0.toInt(), 0xFFFF4A7A.toInt(), 0xFF3AC0E0.toInt())[i % 4]
+                val tw = kotlin.math.abs(sin(t * 5f + i)) * s * 1.5f + s * 0.3f
+                c.drawRect(x - tw / 2, y, x + tw / 2, y + s, fill)
+            }
+        }
+    }
+
     /** Rain and fog over the whole screen, in screen pixels. */
     fun drawSky(c: Canvas, w: Float, h: Float, scale: Float, t: Float, light: Light) {
         if (light.fog > 0.01f) {
@@ -180,9 +305,10 @@ class Fx {
         }
         // A few petals in spring and leaves in autumn, whatever the weather.
         if (light.season == Season.SPRING || light.season == Season.AUTUMN) {
-            val cols = if (light.season == Season.SPRING) intArrayOf(0xFFF8C8D8.toInt(), 0xFFFFE8F0.toInt(), 0xFFF0A8C0.toInt())
+            // Petals are plainly pink, and few, so they never pass for snow.
+            val cols = if (light.season == Season.SPRING) intArrayOf(0xFFF090B0.toInt(), 0xFFE878A0.toInt(), 0xFFF4A8C4.toInt())
                 else intArrayOf(0xFFE08A3A.toInt(), 0xFFC8582E.toInt(), 0xFFE8B840.toInt())
-            for (i in 0 until 14) {
+            for (i in 0 until if (light.season == Season.SPRING) 8 else 14) {
                 val sp = 0.05f + hf(i, 19) * 0.05f
                 val ph = t * sp + hf(i, 18)
                 val k = floor(ph).toInt(); val fr = ph - k

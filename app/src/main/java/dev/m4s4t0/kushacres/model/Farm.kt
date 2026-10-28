@@ -44,6 +44,9 @@ class Tile {
     var pheno = 0
     /** Wall-clock millis when the plant ripened (0 if not yet, or unknown): picked soon after, it's at its peak. */
     var ripeAt = 0L
+    /** Clean snips banked by trimming while it grew (up to [Farm.TRIM_BANK]), and the growth it can be trimmed again at. */
+    var trim = 0
+    var trimAt = 0.0
 
     fun ready(): Boolean {
         if (kind != Kind.PLOT) return false
@@ -53,12 +56,12 @@ class Tile {
 
     fun clear() {
         kind = Kind.GRASS; strain = null; progress = 0.0; wetUntil = 0; last = null
-        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1; pheno = 0; ripeAt = 0
+        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1; pheno = 0; ripeAt = 0; trim = 0; trimAt = 0.0
     }
 
     fun copyFrom(o: Tile) {
         kind = o.kind; strain = o.strain; progress = o.progress; wetUntil = o.wetUntil; last = o.last
-        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor; pheno = o.pheno; ripeAt = o.ripeAt
+        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor; pheno = o.pheno; ripeAt = o.ripeAt; trim = o.trim; trimAt = o.trimAt
     }
 }
 
@@ -117,7 +120,8 @@ class Farm(var rng: Random = Random.Default) {
         const val PEAK_YIELD = 1.15
         const val PEAK_XP = 1.1
         const val TRIM_MAX = 5
-        const val TRIM_STEP = 0.03
+        const val TRIM_STEP = 0.02
+        const val TRIM_BANK = 15
         const val MAX_LEVEL = 80
         const val MAX_ORDERS = 6
         /** Wet soil grows this much faster. */
@@ -342,7 +346,9 @@ class Farm(var rng: Random = Random.Default) {
     fun on(b: Buff) = (buffs[b] ?: 0L) > lastTick
     /** The stash is shared, so every farm's storage adds up: its Stash upgrade and its shack. */
     fun stashCap(): Int = sites.sumOf { siteStash(it) }
-    fun siteStash(s: Site = site): Int = (60 * 1.6.pow(s.upgrades[Upgrade.STASH.ordinal]) * (1 + 0.2 * s.shack)).toInt()
+    fun siteStash(s: Site = site): Int = (60 * 1.6.pow(s.upgrades[Upgrade.STASH.ordinal]) * (1 + 0.2 * s.shack) * (1 + bunkerStash(s))).toInt()
+    /** A bunker is storage too: [Bunker.STASH] more stash per square across of each floor. */
+    fun bunkerStash(s: Site = site) = Bunker.STASH * s.floors.sumOf { it.size }
     fun stashUsed(): Int = stash.values.sum()
     fun season(): Season = Season.at(lastTick)
     fun waterMillis(): Long = (20 + 10L * up(Upgrade.MULCH)) * 60_000L * (if (season() == Season.SUMMER) 2 else 1) / (if (on(Buff.HEATWAVE)) 2 else 1)
@@ -410,7 +416,8 @@ class Farm(var rng: Random = Random.Default) {
     /** Cash paid out for anything: counts towards lifetime spending. */
     fun spend(x: Long) { cash -= x; bump(Stat.SPENT, x) }
     fun count(kind: Kind) = tiles.count { it.kind == kind }
-    fun count(f: Facility) = tiles.count { it.kind == Kind.FACILITY && it.item == f.name }
+    /** This farm's [f]s, up top and in its bunker. */
+    fun count(f: Facility) = (sequenceOf(site.tiles) + site.floors.asSequence().map { it.tiles }).sumOf { ts -> ts.count { it.kind == Kind.FACILITY && it.item == f.name } }
     /** Decor bonuses to prices and XP count from any farm you own. */
     fun placed(d: Decor) = sites.any { s -> s.tiles.any { (it.kind == Kind.DECOR || it.kind == Kind.PATH) && it.item == d.name } }
     fun decorCount() = count(Kind.DECOR)
@@ -445,6 +452,7 @@ class Farm(var rng: Random = Random.Default) {
             else -> {}
         }
         used += s.floors.sumOf { it.size * it.size } * Bunker.WATTS
+        for (fl in s.floors) for (t in fl.tiles) if (t.kind == Kind.FACILITY) Facility.of(t.item)?.let { used += Generator.draw(it, t.lvl) }
         if (Special.SUBSTATION.name in sp) made += 150
         s.made = made; s.used = used; s.specials = sp; s.scanned = layoutRev
         return s
@@ -679,7 +687,7 @@ class Farm(var rng: Random = Random.Default) {
         eachSite { s ->
             val before = events.size
             if (farmhand) pick(now)
-            if (has(Helper.COOK)) cook(now)
+            if (has(Helper.COOK)) { cook(now); eachFloor { cook(now) } }
             if (s !== active || down != 0) quiet(before)
             if (farmhand) eachFloor { n -> val b = events.size; pick(now); if (s !== active || n != down) quiet(b) }
         }
@@ -963,7 +971,7 @@ class Farm(var rng: Random = Random.Default) {
             if (cash < seedCost(s)) return Result.NO_CASH
             spend(seedCost(s))
         }
-        t.strain = strain; t.progress = 0.0; t.last = strain; t.pest = false; t.mould = false
+        t.strain = strain; t.progress = 0.0; t.last = strain; t.pest = false; t.mould = false; t.trim = 0; t.trimAt = 0.0
         t.pheno = mothers[strain]?.takeIf { strain !in hunting }?.let { it or Pheno.CLONE } ?: Pheno.roll(rng, phenoLuck(s))
         bump(Stat.PLANTED)
         return Result.OK
@@ -1029,18 +1037,48 @@ class Farm(var rng: Random = Random.Default) {
         return (t.ripeAt + peakMillis(s) - now).coerceAtLeast(0)
     }
 
+    /** How much growth a strain needs between trims: a fifth to a third of its grow, fixed per strain. */
+    fun trimGap(s: Strain) = s.seconds * (0.2 + 0.045 * Math.floorMod(s.id.hashCode(), 4))
+
+    /** A growing plant can be trimmed once it's a little way in, again after each [trimGap], until it ripens. */
+    fun canTrim(x: Int, y: Int): Boolean {
+        val t = tile(x, y)
+        val s = t.strain?.let { Strains[it] } ?: return false
+        return t.kind == Kind.PLOT && !t.ready() && !t.pest && !t.mould && t.trim < TRIM_BANK &&
+            t.progress >= max(t.trimAt, s.seconds * 0.1)
+    }
+
+    /** Growth left before [canTrim], in base-speed seconds; 0 if it can be trimmed now. */
+    fun trimWait(x: Int, y: Int): Double {
+        val t = tile(x, y)
+        val s = t.strain?.let { Strains[it] } ?: return 0.0
+        return (max(t.trimAt, s.seconds * 0.1) - t.progress).coerceAtLeast(0.0)
+    }
+
+    /** Banks [snips] clean leaves (0 to [TRIM_MAX]) from one go at the trimming game: [TRIM_STEP] more bud each at harvest. */
+    fun trim(x: Int, y: Int, snips: Int): Result {
+        if (!canTrim(x, y)) return Result.NOT_READY
+        val t = tile(x, y)
+        val s = Strains[t.strain!!]!!
+        val n = snips.coerceIn(0, TRIM_MAX)
+        t.trim = (t.trim + n).coerceAtMost(TRIM_BANK)
+        t.trimAt = t.progress + trimGap(s)
+        if (n == TRIM_MAX) bump(Stat.CLEAN_TRIMS)
+        return Result.OK
+    }
+
     /**
-     * Picks a ripe plant. By hand at its peak it gives [PEAK_YIELD] more bud and [PEAK_XP] more XP; [trim] is how many
-     * clean snips the player made in the trimming game (0 to [TRIM_MAX]), [TRIM_STEP] more bud each.
+     * Picks a ripe plant. By hand at its peak it gives [PEAK_YIELD] more bud and [PEAK_XP] more XP; whatever was trimmed
+     * while it grew gives [TRIM_STEP] more per clean leaf, picked by hand or not.
      */
-    fun harvest(x: Int, y: Int, now: Long, byHand: Boolean = true, trim: Int = 0): Result {
+    fun harvest(x: Int, y: Int, now: Long, byHand: Boolean = true): Result {
         val t = tile(x, y)
         if (t.kind != Kind.PLOT) return Result.BLOCKED
         val s = t.strain?.let { Strains[it] } ?: return Result.BLOCKED
         if (!t.ready()) return Result.NOT_READY
         val pheno = t.pheno
         val peak = byHand && peakLeft(x, y, now) > 0
-        val snips = if (byHand) trim.coerceIn(0, TRIM_MAX) else 0
+        val snips = t.trim
         val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0) + Pheno.golden(pheno)
         val mult = yieldMult() * Pheno.yieldMult(pheno) * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (if (s.id in heirlooms) Legacy.HEIRLOOM_YIELD else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
             0.25 * decorAround(x, y, Decor.CRYSTAL) + perkNear(x, y, Perk.YIELD)) * (1 + 0.15 * houseNear(x, y, WorkHouse.TRIM)) *
@@ -1049,9 +1087,8 @@ class Farm(var rng: Random = Random.Default) {
         if (golden) grams *= 3
         if (stashUsed() + grams > stashCap()) return Result.STASH_FULL
         stash[s.id] = (stash[s.id] ?: 0) + grams
-        t.strain = null; t.progress = 0.0; t.pheno = 0; t.ripeAt = 0
+        t.strain = null; t.progress = 0.0; t.pheno = 0; t.ripeAt = 0; t.trim = 0; t.trimAt = 0.0
         if (peak) bump(Stat.PEAKS)
-        if (snips == TRIM_MAX) bump(Stat.CLEAN_TRIMS)
         if (Pheno.set(pheno) && !Pheno.clone(pheno)) find(s, if (golden) Pheno.shine(pheno) else pheno)
         totalHarvests++
         site.harvests++
@@ -1164,13 +1201,16 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
+    /** Facilities go on grass up top, or on an empty plot in the bunker. */
+    fun canFacility(x: Int, y: Int) = inLand(x, y) && tile(x, y).let { if (floor > 0) it.kind == Kind.PLOT && it.strain == null else it.kind == Kind.GRASS }
+
     fun buildFacility(x: Int, y: Int, f: Facility): Result {
-        if (!inLand(x, y) || tile(x, y).kind != Kind.GRASS) return Result.BLOCKED
+        if (!canFacility(x, y)) return Result.BLOCKED
         if (level < f.level) return Result.LOCKED
         val cost = facilityCost(f)
         if (cash < cost) return Result.NO_CASH
         spend(cost)
-        tile(x, y).apply { kind = Kind.FACILITY; item = f.name; lvl = 1 }
+        tile(x, y).apply { clear(); kind = Kind.FACILITY; item = f.name; lvl = 1 }
         layoutRev++
         return Result.OK
     }
@@ -1235,7 +1275,15 @@ class Farm(var rng: Random = Random.Default) {
 
     /** Moves whatever is at (fx,fy) to (tx,ty). The shack moves as a whole, with its top-left going to (tx,ty). */
     fun move(fx: Int, fy: Int, tx: Int, ty: Int): Result {
-        if (floor > 0) return Result.BLOCKED
+        // Down in the bunker, only a facility moves, swapping places with an empty plot.
+        if (floor > 0) {
+            val a = tile(fx, fy); val b = tile(tx, ty)
+            if (a.kind != Kind.FACILITY || !inLand(tx, ty) || b.kind != Kind.PLOT || b.strain != null) return Result.BLOCKED
+            val keep = Tile().also { it.copyFrom(a) }
+            a.copyFrom(b); b.copyFrom(keep)
+            layoutRev++
+            return Result.OK
+        }
         val from = tile(fx, fy)
         if (from.kind == Kind.SHACK || from.kind == Kind.PART) {
             val (ax, ay) = shackAt() ?: return Result.BLOCKED
@@ -1303,7 +1351,7 @@ class Farm(var rng: Random = Random.Default) {
     fun uproot(x: Int, y: Int): Result {
         val t = tile(x, y)
         if (!inLand(x, y) || t.kind != Kind.PLOT || t.strain == null) return Result.BLOCKED
-        t.strain = null; t.progress = 0.0; t.pest = false; t.mould = false
+        t.strain = null; t.progress = 0.0; t.pest = false; t.mould = false; t.trim = 0; t.trimAt = 0.0
         return Result.OK
     }
 

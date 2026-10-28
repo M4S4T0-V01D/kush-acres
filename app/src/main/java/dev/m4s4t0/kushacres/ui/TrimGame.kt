@@ -55,7 +55,7 @@ internal fun TrimGame(onDone: (Int) -> Unit) {
         snips++
     }
     T("Trim it: snip each leaf", 12.sp, Gold)
-    T("Tap while the shears are over a leaf. Every clean leaf is +${Math.round(Farm.TRIM_STEP * 100)}% bud.", 9.sp, Dim, bold = false)
+    T("Tap while the shears are over a leaf. Every clean leaf is +${Math.round(Farm.TRIM_STEP * 100)}% bud at harvest.", 9.sp, Dim, bold = false)
     Spacer(Modifier.height(6.dp))
     snips
     val pos = Trim.shears(sweeps)

@@ -220,6 +220,8 @@ object Bunker {
     const val WATTS = 1
     /** Growth in a bunker with its lights out. */
     const val DARK = 0.25
+    /** Extra stash per square across of each floor, as a share of the farm's own. */
+    const val STASH = 0.05
     /** The level each floor after the first needs, and what digging it costs. */
     fun floorLevel(n: Int) = 15 + 10 * (n - 1)
     fun floorCost(n: Int): Long = (2_500_000.0 * 10.0.pow(n - 2)).toLong()

@@ -29,6 +29,8 @@ enum class Stat(val title: String) {
     CONTRACTS("Contracts filled"),
     STORE_GRAMS("Lab bud sold in stores"),
     CHAPTERS("Story chapters finished"),
+    PEAKS("Picked at their peak"),
+    CLEAN_TRIMS("Clean trims"),
 }
 
 /** The real-world seasons of the farm, a week each, the same for everyone. */

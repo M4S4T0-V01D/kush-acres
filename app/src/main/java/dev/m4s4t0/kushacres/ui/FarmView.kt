@@ -485,6 +485,7 @@ class World {
                         val sx = cx + intArrayOf(-5, 4, 0)[k]; val sy = cy - 26 + intArrayOf(2, 6, -2)[k]
                         canvas.drawRect(sx.toFloat(), sy - 1f, sx + 1f, sy + 2f, fill)
                         canvas.drawRect(sx - 1f, sy.toFloat(), sx + 2f, sy + 1f, fill)
+                        if (f.peakLeft(x, y, now) > 0) drawPeak(cx, cy, t, hash(x, y))
                     } else if (!f.wet(x, y, now) && ((t * 2).toInt() + hash(x, y)) % 4 != 0) {
                         // A little drop asking for water.
                         fill.color = 0xFF6EC3FF.toInt()
@@ -616,6 +617,18 @@ class World {
             val r = 1 + life * 2
             val px = cx + 6 + sin(t * 3 + k * 2) * 2; val py = top - 3 - life * 10
             canvas.drawRect(px - r, py - r, px + r, py + r, fill)
+        }
+    }
+
+    /** A plant at its peak: a gold glow and gold sparks circling it, so it's worth picking now. */
+    private fun drawPeak(cx: Int, cy: Int, t: Float, seed: Int) {
+        val pulse = 0.5f + 0.5f * sin(t * 3f + seed % 9)
+        light(cx.toFloat(), cy - 20f, 16f, 0xFFD84A, 0.45f + 0.25f * pulse)
+        for (k in 0 until 3) {
+            val a = t * 1.8f + k * 2.094f + seed % 9
+            val sx = cx + cos(a) * 9f; val sy = cy - 20 + sin(a) * 4f - (if (sin(a) < 0) 4 else 0)
+            fill.color = 0xFFFFD84A.toInt(); canvas.drawRect(sx - 1, sy - 1, sx + 2, sy + 2, fill)
+            fill.color = 0xFFFFFBE0.toInt(); canvas.drawRect(sx, sy, sx + 1, sy + 1, fill)
         }
     }
 
@@ -1069,6 +1082,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 val wx = world.centerX(e.x, e.y).toFloat(); val wy = world.centerY(e.x, e.y) - 18f
                 world.fx.burst(if (e.golden) Burst.GOLDEN else Burst.HARVEST, wx, wy + 6)
                 if (e.golden) floaters += Floater(wx, wy - 8, "GOLDEN x3!", 0xFFFFD84A.toInt(), now, big = true)
+                if (e.perfect) floaters += Floater(wx, wy - 16, "PEAK +15%", 0xFFFFD84A.toInt(), now)
+                if (e.trim > 0) floaters += Floater(wx, wy - (if (e.perfect) 24 else 16), "Trim ${e.trim}/5", 0xFF7BD34B.toInt(), now + 60)
                 floaters += Floater(wx, wy, "+${e.grams}g", 0xFFB6F27A.toInt(), now)
                 floaters += Floater(wx, wy + 8, "+${e.xp}xp", 0xFF9AD4FF.toInt(), now + 120)
             }

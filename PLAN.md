@@ -158,8 +158,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Event strains (holiday, Pot Bucks and their lab crosses) scale with level: 1.3× / 1.45× the best ladder strain
 
 ## Phase 15 — Active mini-moments (always optional)
-- [ ] Trimming mini-game at harvest for a quality bonus
-- [ ] Perfect-timing window on ripe plants
+- [x] Trimming mini-game at harvest for a quality bonus (tile menu → Trim and harvest: +3% bud per clean leaf, up to 5)
+- [x] Perfect-timing window on ripe plants (gold sparks; by hand within a fifth of the grow time, 3–30 min: +15% bud, +10% XP)
 
 ## Phase 16 — Save transfer
 - [ ] Export/import the save as a file or code, to move between phone and desktop

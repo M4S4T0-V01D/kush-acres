@@ -42,6 +42,8 @@ class Tile {
     var anchor = -1
     /** The growing plant's phenotype (see [Pheno]). */
     var pheno = 0
+    /** Wall-clock millis when the plant ripened (0 if not yet, or unknown): picked soon after, it's at its peak. */
+    var ripeAt = 0L
 
     fun ready(): Boolean {
         if (kind != Kind.PLOT) return false
@@ -51,12 +53,12 @@ class Tile {
 
     fun clear() {
         kind = Kind.GRASS; strain = null; progress = 0.0; wetUntil = 0; last = null
-        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1; pheno = 0
+        item = null; doneAt = 0; amount = 0; lvl = 1; pest = false; mould = false; anchor = -1; pheno = 0; ripeAt = 0
     }
 
     fun copyFrom(o: Tile) {
         kind = o.kind; strain = o.strain; progress = o.progress; wetUntil = o.wetUntil; last = o.last
-        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor; pheno = o.pheno
+        item = o.item; doneAt = o.doneAt; amount = o.amount; lvl = o.lvl; pest = o.pest; mould = o.mould; anchor = o.anchor; pheno = o.pheno; ripeAt = o.ripeAt
     }
 }
 
@@ -80,7 +82,7 @@ sealed class FarmEvent {
     class Gems(val amount: Long) : FarmEvent()
     /** Pot Bucks or holiday tokens picked up; [token] is the holiday id, or null for Pot Bucks. */
     class Bucks(val amount: Long, val token: String? = null) : FarmEvent()
-    class Harvest(val x: Int, val y: Int, val grams: Int, val xp: Int, val golden: Boolean) : FarmEvent()
+    class Harvest(val x: Int, val y: Int, val grams: Int, val xp: Int, val golden: Boolean, val perfect: Boolean = false, val trim: Int = 0) : FarmEvent()
     class Cash(val amount: Long) : FarmEvent()
     class Award(val trophy: Trophy, val xp: Long) : FarmEvent()
     class Goal(val goal: FarmGoal, val site: String, val xp: Long) : FarmEvent()
@@ -110,6 +112,12 @@ class Away(var millis: Long = 0, var harvests: Int = 0, var grams: Int = 0, var 
 class Farm(var rng: Random = Random.Default) {
     companion object {
         const val MAX = 40
+        const val PEAK_MIN = 3 * 60_000L
+        const val PEAK_MAX = 30 * 60_000L
+        const val PEAK_YIELD = 1.15
+        const val PEAK_XP = 1.1
+        const val TRIM_MAX = 5
+        const val TRIM_STEP = 0.03
         const val MAX_LEVEL = 80
         const val MAX_ORDERS = 6
         /** Wet soil grows this much faster. */
@@ -604,7 +612,11 @@ class Farm(var rng: Random = Random.Default) {
             val s = t.strain?.let { Strains[it] } ?: return@eachLand
             if (t.progress >= s.seconds) return@eachLand
             val wet = if (sprinkled(x, y)) dt else ((min(t.wetUntil, t1) - t0) / 1000.0).coerceIn(0.0, dt)
-            t.progress = min(s.seconds.toDouble(), t.progress + (wet * WET_BOOST + (dt - wet)) * speed(x, y) * genes(s) * b)
+            val gain = (wet * WET_BOOST + (dt - wet)) * speed(x, y) * genes(s) * b
+            val need = s.seconds - t.progress
+            t.progress = min(s.seconds.toDouble(), t.progress + gain)
+            // When in this stretch it ripened, so a long time away doesn't count as just ripe.
+            if (t.progress >= s.seconds && gain > 0) t.ripeAt = t0 + ((t1 - t0) * (need / gain)).toLong()
         }
     }
 
@@ -972,21 +984,40 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
-    fun harvest(x: Int, y: Int, now: Long, byHand: Boolean = true): Result {
+    /** How long a ripe plant stays at its peak: a fifth of its growing time, 3 to 30 minutes. */
+    fun peakMillis(s: Strain) = (s.seconds * 200L).coerceIn(PEAK_MIN, PEAK_MAX)
+
+    /** Millis left in the plant's peak window, or 0 when it's past (or not ripe). */
+    fun peakLeft(x: Int, y: Int, now: Long): Long {
+        val t = tile(x, y)
+        if (!t.ready() || t.ripeAt <= 0) return 0
+        val s = Strains[t.strain!!] ?: return 0
+        return (t.ripeAt + peakMillis(s) - now).coerceAtLeast(0)
+    }
+
+    /**
+     * Picks a ripe plant. By hand at its peak it gives [PEAK_YIELD] more bud and [PEAK_XP] more XP; [trim] is how many
+     * clean snips the player made in the trimming game (0 to [TRIM_MAX]), [TRIM_STEP] more bud each.
+     */
+    fun harvest(x: Int, y: Int, now: Long, byHand: Boolean = true, trim: Int = 0): Result {
         val t = tile(x, y)
         if (t.kind != Kind.PLOT) return Result.BLOCKED
         val s = t.strain?.let { Strains[it] } ?: return Result.BLOCKED
         if (!t.ready()) return Result.NOT_READY
         val pheno = t.pheno
+        val peak = byHand && peakLeft(x, y, now) > 0
+        val snips = if (byHand) trim.coerceIn(0, TRIM_MAX) else 0
         val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0) + Pheno.golden(pheno)
         val mult = yieldMult() * Pheno.yieldMult(pheno) * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (if (s.id in heirlooms) Legacy.HEIRLOOM_YIELD else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
             0.25 * decorAround(x, y, Decor.CRYSTAL) + perkNear(x, y, Perk.YIELD)) * (1 + 0.15 * houseNear(x, y, WorkHouse.TRIM)) *
-            (if (here(Special.TERRACE)) 1.25 else 1.0)
+            (if (here(Special.TERRACE)) 1.25 else 1.0) * (if (peak) PEAK_YIELD else 1.0) * (1 + TRIM_STEP * snips)
         var grams = max(1, (s.yield * mult * (0.9 + rng.nextDouble() * 0.25)).roundToLong().toInt())
         if (golden) grams *= 3
         if (stashUsed() + grams > stashCap()) return Result.STASH_FULL
         stash[s.id] = (stash[s.id] ?: 0) + grams
-        t.strain = null; t.progress = 0.0; t.pheno = 0
+        t.strain = null; t.progress = 0.0; t.pheno = 0; t.ripeAt = 0
+        if (peak) bump(Stat.PEAKS)
+        if (snips == TRIM_MAX) bump(Stat.CLEAN_TRIMS)
         if (Pheno.set(pheno) && !Pheno.clone(pheno)) find(s, if (golden) Pheno.shine(pheno) else pheno)
         totalHarvests++
         site.harvests++
@@ -994,8 +1025,8 @@ class Farm(var rng: Random = Random.Default) {
         bump(Stat.HARVESTS); bump(Stat.GRAMS, grams.toLong())
         if (golden) bump(Stat.GOLDEN)
         if (s.exotic) bump(Stat.EXOTIC)
-        val xp = (s.xp * xpMult() * Pheno.xpMult(pheno)).roundToLong()
-        events += FarmEvent.Harvest(x, y, grams, xp.toInt(), golden)
+        val xp = (s.xp * xpMult() * Pheno.xpMult(pheno) * (if (peak) PEAK_XP else 1.0)).roundToLong()
+        events += FarmEvent.Harvest(x, y, grams, xp.toInt(), golden, peak, snips)
         if (rng.nextDouble() < (if (golden) 0.1 else 0.01)) { potBucks++; events += FarmEvent.Bucks(1) }
         if (golden && rng.nextDouble() < 0.03) { gems++; events += FarmEvent.Gems(1) }
         // Picking by hand during a holiday: a good chance of a few tokens.

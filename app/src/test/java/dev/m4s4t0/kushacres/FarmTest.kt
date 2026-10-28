@@ -1205,4 +1205,62 @@ class FarmTest {
         assertEquals(f.hunting, g.hunting)
         f.level = 1
     }
+
+    @Test fun pickingAtThePeakGivesMore() {
+        fun grown() = farm().apply { plant(2, 3, "ditch", t0); tick(t0 + 5 * 60_000L); events.clear() }
+        val now = t0 + 5 * 60_000L
+        val a = grown()
+        val ripe = a.tile(2, 3).ripeAt
+        assertTrue(ripe in t0 + 1..t0 + 300_000L)
+        assertEquals(Farm.PEAK_MIN, a.peakLeft(2, 3, ripe))
+        assertEquals(Result.OK, a.harvest(2, 3, now))
+        val ea = a.events.filterIsInstance<FarmEvent.Harvest>().single()
+        assertTrue(ea.perfect)
+        assertEquals(1L, a.stat(Stat.PEAKS))
+        assertEquals(0L, a.tile(2, 3).ripeAt)
+        // Too late, or picked by a worker: no peak.
+        val late = grown()
+        assertEquals(0L, late.peakLeft(2, 3, now + Farm.PEAK_MIN))
+        late.harvest(2, 3, now + Farm.PEAK_MIN)
+        val el = late.events.filterIsInstance<FarmEvent.Harvest>().single()
+        assertFalse(el.perfect)
+        assertTrue(ea.grams >= el.grams && ea.xp >= el.xp)
+        val crew = grown()
+        crew.harvest(2, 3, now, byHand = false)
+        assertFalse(crew.events.filterIsInstance<FarmEvent.Harvest>().single().perfect)
+        // Away for an hour: it ripened long ago, so coming back doesn't count as the peak.
+        val away = farm()
+        away.plant(2, 3, "ditch", t0); away.water(2, 3, t0)
+        away.tick(t0 + 3_600_000L)
+        assertEquals(0L, away.peakLeft(2, 3, t0 + 3_600_000L))
+        // Saved and read back.
+        val g = Farm(Random(1))
+        Save.read(Save.write(a.apply { plant(2, 3, "ditch", now); tick(now + 5 * 60_000L) }), g)
+        assertEquals(a.tile(2, 3).ripeAt, g.tile(2, 3).ripeAt)
+    }
+
+    @Test fun trimmingTakesLeavesForMoreBud() {
+        val tr = dev.m4s4t0.kushacres.model.Trim(Random(1))
+        assertEquals(Farm.TRIM_MAX, tr.leaves.size)
+        assertTrue(tr.leaves.zipWithNext().all { (a, b) -> b - a >= 2 * dev.m4s4t0.kushacres.model.Trim.HALF - 1e-6f })
+        assertTrue(tr.snip(tr.leaves[0]))
+        assertFalse(tr.snip(tr.leaves[0]))
+        assertEquals(1, tr.misses)
+        for (l in tr.leaves.drop(1)) assertTrue(tr.snip(l))
+        assertTrue(tr.done)
+        assertEquals(5, tr.clean)
+        val miss = dev.m4s4t0.kushacres.model.Trim(Random(2))
+        repeat(3) { miss.snip(-1f) }
+        assertTrue(miss.done)
+        assertEquals(0.5f, dev.m4s4t0.kushacres.model.Trim.shears(1.5f), 1e-6f)
+        assertEquals(0f, dev.m4s4t0.kushacres.model.Trim.shears(2f), 1e-6f)
+        // A clean trim on the starter plant gives more bud than none; a worker can't trim.
+        val a = farm(); val b = farm(); val c = farm()
+        a.harvest(2, 2, t0, trim = 5); b.harvest(2, 2, t0); c.harvest(2, 2, t0, byHand = false, trim = 5)
+        val ga = a.stash["ditch"]!!; val gb = b.stash["ditch"]!!
+        assertTrue(ga >= gb)
+        assertEquals(5, a.events.filterIsInstance<FarmEvent.Harvest>().single().trim)
+        assertEquals(0, c.events.filterIsInstance<FarmEvent.Harvest>().single().trim)
+        assertEquals(1L, a.stat(Stat.CLEAN_TRIMS))
+    }
 }

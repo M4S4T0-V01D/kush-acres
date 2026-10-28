@@ -67,11 +67,11 @@ internal fun dumpPanels(dir: String) {
     }
     run {
         // Pests and mould on two grown plots, by day and at night.
-        val plots = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT }.take(2)
+        val plots = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT }.take(3)
         for ((i, xy) in plots.withIndex()) {
             val t = f.tile(xy.first, xy.second)
             f.plant(xy.first, xy.second, Strains.ladder[0].id, now - 86_400_000L)
-            if (i == 0) t.pest = true else t.mould = true
+            when (i) { 0 -> t.pest = true; 1 -> t.mould = true; else -> { t.progress = Strains.ladder[0].seconds.toDouble(); t.ripeAt = now } }
         }
         val w = dev.m4s4t0.kushacres.ui.World()
         val cx = plots.sumOf { w.centerX(it.first, it.second) } / plots.size
@@ -83,6 +83,7 @@ internal fun dumpPanels(dir: String) {
             shot(name, 0, 340) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
         }
         for (xy in plots) f.tile(xy.first, xy.second).let { it.pest = false; it.mould = false }
+        shot("trim", 0, 300) { androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) { dev.m4s4t0.kushacres.ui.TrimGame { } } }
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
     shot("stats", 7, 1600)

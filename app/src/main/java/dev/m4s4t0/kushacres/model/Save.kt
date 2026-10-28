@@ -29,6 +29,7 @@ object Save {
                 if (t.pest) put("pe", true)
                 if (t.mould) put("mo", true)
                 if (t.pheno != 0) put("ph", t.pheno)
+                if (t.ripeAt != 0L) put("ra", t.ripeAt)
                 if (t.anchor >= 0) put("an", t.anchor)
             })
         }
@@ -53,7 +54,7 @@ object Save {
             tile.item = t.optString("it", "").takeIf { it.isNotEmpty() }
             tile.doneAt = t.optLong("d"); tile.amount = t.optInt("a")
             tile.lvl = t.optInt("lv", 1).coerceIn(1, Facility.MAX_LEVEL)
-            tile.pest = t.optBoolean("pe"); tile.mould = t.optBoolean("mo"); tile.pheno = t.optInt("ph"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
+            tile.pest = t.optBoolean("pe"); tile.mould = t.optBoolean("mo"); tile.pheno = t.optInt("ph"); tile.ripeAt = t.optLong("ra"); tile.anchor = t.optInt("an", -1).let { if (it < 0) -1 else remap(it) }
             val bad = when (tile.kind) {
                 Kind.FACILITY -> Facility.of(tile.item) == null
                 Kind.HOUSE -> WorkHouse.of(tile.item) == null

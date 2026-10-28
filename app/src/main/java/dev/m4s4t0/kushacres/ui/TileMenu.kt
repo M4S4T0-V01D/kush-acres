@@ -46,6 +46,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
     val tile = f.tile(x, y)
     // Asking before a move that would stunt a growing plant, and before destroying one.
     var confirm by remember(at) { mutableStateOf<String?>(null) }
+    var trimming by remember(at) { mutableStateOf(false) }
     fun close() { ui.menu = null }
     fun moveIt() { ui.mode = Mode.Move(x to y); close(); Store.toast("Tap where it should go") }
     BoxWithConstraints(Modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, null) { close() }) {
@@ -76,6 +77,10 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
             }
             T(title, 14.sp, Gold)
             Spacer(Modifier.height(6.dp))
+            if (trimming) {
+                TrimGame { n -> report(f.harvest(x, y, Store.now(), trim = n)); Store.changed(); close() }
+                return@Column
+            }
             val c = confirm
             if (c != null) {
                 T(c, 12.sp, Cream, bold = false)
@@ -100,8 +105,11 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
             when (tile.kind) {
                 Kind.PLOT -> {
                     val stunt = f.stuntSeconds(x, y)
-                    if (tile.ready()) item("Harvest", Gold) {
-                        report(f.harvest(x, y, Store.now())); Store.changed(); close()
+                    if (tile.ready()) {
+                        val peak = f.peakLeft(x, y, Store.now())
+                        if (peak > 0) T("At its peak: +15% bud for ${dur(peak / 1000)}", 10.sp, Gold, bold = false)
+                        item("Harvest", Gold) { report(f.harvest(x, y, Store.now())); Store.changed(); close() }
+                        item("Trim and harvest ✂", Leaf) { trimming = true }
                     }
                     if (tile.pest) item("Shoo the bugs", Gold) { f.clearPest(x, y); Store.changed(); close() }
                     if (tile.mould) item("Scrape off the mould", Gold) { f.clearPest(x, y); Store.changed(); close() }

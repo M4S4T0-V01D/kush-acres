@@ -77,7 +77,7 @@ internal fun MenuPanel(ui: UiState, start: Int = 0) {
 }
 
 @Composable
-private fun Row2(left: String, right: String, color: Color = Cream) {
+internal fun Row2(left: String, right: String, color: Color = Cream) {
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         T(left, 12.sp, Dim, Modifier.weight(1f), bold = false)
         T(right, 12.sp, color)
@@ -431,31 +431,10 @@ private fun Trophies() {
 private fun Stats() {
     Store.rev
     val f = Store.farm
-    var confirm by remember { mutableStateOf(false) }
-    T("Legacy", 14.sp, Gold)
-    Row2("Times sold", "${f.legacy}")
-    Row2("Legacy bonus", "Prices +${25 * f.legacy}%, growth and XP +${10 * f.legacy}%", Leaf)
-    Row2("Best level", "${f.bestLevel}")
+    LegacySection()
+    Spacer(Modifier.height(8.dp))
     Row2("Season", "${f.season().title}: ${f.season().desc}", Sky)
     Row2("Season turns in", dur(Season.left(Store.now()) / 1000))
-    Spacer(Modifier.height(8.dp))
-    if (f.canSellFarm()) {
-        if (!confirm) Btn("Sell the farm…", Modifier.fillMaxWidth(), color = Bad) { confirm = true }
-        else {
-            T("Start over at level 1 on fresh land. You keep trophies, stats, hybrids, decor, paint and exotic seeds, " +
-                "and every sale gets +25% for good.", 11.sp, Cream, bold = false)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Btn("Keep farming", Modifier.weight(1f), color = WoodEdge) { confirm = false }
-                Btn("Sell it", Modifier.weight(1f), color = Bad) {
-                    confirm = false
-                    val r = f.sellFarm(Store.now())
-                    if (r == Result.OK) { Audio.play(Sfx.LEVEL_UP); Store.toast("Fresh start! Legacy ${f.legacy}") }
-                    report(r)
-                }
-            }
-        }
-    } else T("Reach level ${Progress.LEGACY_LEVEL} to sell the farm and start over with a permanent bonus.", 10.sp, Dim, bold = false)
     Spacer(Modifier.height(12.dp))
     T("Lifetime", 14.sp, Gold)
     for (st in Stat.entries) Row2(st.title, if (st == Stat.EARNED || st == Stat.SPENT) money(f.stat(st)) else fmt(f.stat(st)))

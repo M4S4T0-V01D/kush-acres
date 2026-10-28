@@ -148,7 +148,7 @@ private fun Offer(c: Contract, i: Int, town: String, now: Long) {
             Column(Modifier.weight(1f)) {
                 T("${c.title} for ${c.buyer}", 12.sp, Gold)
                 T(Contracts.about(c), 10.sp, if (c.chapter >= 0) Cream else Dim, bold = false)
-                T((if (c.weekly) "Until the week ends" else "${hours(c.hours)} to fill") + " · +${Contracts.gain(c)} rep", 10.sp, Dim, bold = false)
+                T((if (c.weekly) "Until the week ends" else "${hours(c.hours)} to fill") + " · +${Contracts.gain(f, c)} rep", 10.sp, Dim, bold = false)
             }
             T("~${money(Contracts.estimate(f, c))}", 12.sp, Gold)
         }

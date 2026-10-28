@@ -45,7 +45,7 @@ object Storefronts {
     fun stores(f: Farm) = f.sites.sumOf { s -> s.tiles.count { isStore(it) } }
     fun chemists(f: Farm) = f.sites.sumOf { it.crew[Crew.CHEMIST.ordinal] }
     /** How much faster than plain the Lab researches: +10% per store level anywhere, +50% per Lab Chemist. */
-    fun researchSpeed(f: Farm) = 1 + 0.1 * levels(f) + 0.5 * chemists(f)
+    fun researchSpeed(f: Farm) = (1 + 0.1 * levels(f) + 0.5 * chemists(f)) * Legacy.mult(f, LegacyPerk.LAB_NOTES, 0.5)
     fun researchMillis(f: Farm, s: Strain) = ((20 + 3L * s.level) * 60_000L / researchSpeed(f)).toLong()
 
     /** The lab bud a store sells next: the dearest hybrid in the stash. */

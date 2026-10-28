@@ -54,7 +54,9 @@ internal fun dumpPanels(dir: String) {
     shot("hunts-away", 4)
     f.huntBack = now - 1
     shot("hunts-back", 4)
-    shot("stats", 7)
+    f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
+    shot("stats", 7, 1600)
+    f.legacy = 0; f.legacyPerks.clear(); f.heirlooms.clear()
     f.rep["home"] = 1600; f.chains["home"] = 2
     val offers = Contracts.offers(f, "home", now)
     Contracts.take(f, "home", offers.indexOfFirst { it.tag.isEmpty() }, now)

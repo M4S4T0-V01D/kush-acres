@@ -231,7 +231,9 @@ object Contracts {
     }
 
     /** Reputation [c] earns when filled. */
-    fun gain(c: Contract) = if (c.weekly) 80 else if (c.chapter >= 0) 50 else c.kind.rep
+    private fun base(c: Contract) = (if (c.weekly) 80 else if (c.chapter >= 0) 50 else c.kind.rep)
+    /** What [c] earns [f] in reputation, with the Known Face perk. */
+    fun gain(f: Farm, c: Contract) = Math.round(base(c) * Legacy.mult(f, LegacyPerk.KNOWN_FACE, 0.25)).toInt()
 
     /** The line under a contract's title. */
     fun about(c: Contract): String = when {
@@ -297,7 +299,7 @@ object Contracts {
         var bucks = 1L + (work / 2).roundToLong()
         if (c.chapter >= 0 || c.season != null) bucks += Chains.BUCKS
         val xp = max(1L, (Farm.xpNeed(f.level) * 0.012 * work).roundToLong())
-        val gain = gain(c)
+        val gain = gain(f, c)
         f.rep[c.town] = rep(f, c.town) + gain
         f.earnCash(cash); f.potBucks += bucks
         f.events += FarmEvent.Cash(cash)

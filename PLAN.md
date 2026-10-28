@@ -149,8 +149,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 
 ## Phase 13 — Legacy 2.0 (prestige)
 - Selling the farm at Lv 40 already gives a legacy bonus; this deepens it
-- [ ] Heirloom genetics: keep a few chosen strains/phenos across runs
-- [ ] Pick a permanent perk each run (a perk tree), new start-map choices
+- [x] Heirloom genetics: keep a few chosen strains/phenos across runs (1 strain, 3 with Seed Vault; unlocked from Lv 1, +10% yield)
+- [x] Pick a permanent perk each run (a perk tree), new start-map choices (Legacy.kt: 9 perks in Grower/Trader/Scientist branches, a point per sale; Homestead, Creekside, Quarry Hill, Old Greenhouse)
 
 ## Phase 14 — Phenotype hunting
 - [ ] Plants grow with a random pheno (yield, potency, colour); keep the best as mothers and clone them

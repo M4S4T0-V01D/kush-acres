@@ -220,6 +220,11 @@ class Farm(var rng: Random = Random.Default) {
     /** Every strain ever harvested, for the collection book. */
     val grown = LinkedHashSet<String>()
     var legacy = 0
+    /** Legacy perks bought with the points selling the farm gives. */
+    val legacyPerks = LinkedHashSet<LegacyPerk>()
+    /** Ladder strains kept from the last sale: unlocked from level 1, and they yield a little more. */
+    val heirlooms = LinkedHashSet<String>()
+    var startMap = StartMap.HOMESTEAD
     var bestLevel = 1
     var streak = 0
     var bestStreak = 0
@@ -304,7 +309,7 @@ class Farm(var rng: Random = Random.Default) {
     fun stashUsed(): Int = stash.values.sum()
     fun season(): Season = Season.at(lastTick)
     fun waterMillis(): Long = (20 + 10L * up(Upgrade.MULCH)) * 60_000L * (if (season() == Season.SUMMER) 2 else 1) / (if (on(Buff.HEATWAVE)) 2 else 1)
-    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0)
+    fun yieldMult(): Double = (1 + 0.08 * up(Upgrade.GENETICS)) * Legacy.mult(this, LegacyPerk.BIG_BUDS, 0.1) * (if (season() == Season.AUTUMN) 1.2 else 1.0) * (if (on(Buff.HARVEST_MOON)) 1.5 else 1.0)
     fun priceMult(): Double {
         val have = placedDecor()
         var deco = perkWide(Perk.SELL, have) + Chains.bonus(this, Perk.SELL)
@@ -313,7 +318,7 @@ class Farm(var rng: Random = Random.Default) {
         if (Decor.VAN in have) deco += 0.06
         if (Decor.STATUE in have) deco += 0.08
         return (1 + 0.05 * up(Upgrade.CRED)) * (1 + deco) * (if (on(Buff.RUSH)) 1.5 else 1.0) * (if (on(Buff.TIP)) 1.25 else 1.0) *
-            (if (on(Buff.FESTIVAL)) 1.5 else 1.0) * (1 + 0.25 * legacy) * (if (season() == Season.WINTER) 1.25 else 1.0) *
+            (if (on(Buff.FESTIVAL)) 1.5 else 1.0) * (1 + 0.25 * legacy) * Legacy.mult(this, LegacyPerk.SILVER_TONGUE, 0.15) * (if (season() == Season.WINTER) 1.25 else 1.0) *
             (if (built(Special.DISPENSARY)) 1.15 else 1.0) * (if (built(Special.MONUMENT)) 1.25 else 1.0)
     }
     fun xpMult(): Double {
@@ -324,7 +329,7 @@ class Farm(var rng: Random = Random.Default) {
         if (Decor.KOI in have) deco += 0.10
         if (Decor.DISCO in have) deco += 0.10
         val rvs = sites.count { s -> s.tiles.any { it.kind == Kind.VEHICLE && it.item == Vehicle.RV.name } }
-        return (1 + 0.05 * shack) * (1 + deco + 0.05 * rvs) * (1 + 0.1 * legacy) * (if (on(Buff.FOCUS)) 1.5 else 1.0) *
+        return (1 + 0.05 * shack) * (1 + deco + 0.05 * rvs) * (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.QUICK_STUDY, 0.15) * (if (on(Buff.FOCUS)) 1.5 else 1.0) *
             (if (built(Special.ACADEMY)) 1.25 else 1.0) * (if (built(Special.MONUMENT)) 1.1 else 1.0)
     }
     /** Farm-wide holiday decor bonus of kind [p]: each kind of decor counts once, from any farm. */
@@ -343,7 +348,7 @@ class Farm(var rng: Random = Random.Default) {
         s.hybrid -> s.id in bred
         s.exotic -> s.site == null || site.def.id == s.site
         s.site != null -> s.level <= level && site.def.id == s.site
-        else -> s.level <= level
+        else -> s.level <= level || s.id in heirlooms
     }
     /** Whether [s] counts as yours for the lab: native strains only need their farm owned, not on screen. */
     fun owned(s: Strain) = when {
@@ -515,12 +520,12 @@ class Farm(var rng: Random = Random.Default) {
         (1 + 0.05 * decorAround(x, y, Decor.GNOME) + 0.10 * decorAround(x, y, Decor.TIKI) + 0.15 * decorAround(x, y, Decor.LAVA) +
             0.20 * decorAround(x, y, Decor.WINDMILL) + 0.25 * decorAround(x, y, Decor.UFO) + perkNear(x, y, Perk.GROW)) *
         (1 + 0.2 * houseNear(x, y, WorkHouse.GROW)) * (1 + 0.1 * crew(Crew.BOTANIST)) *
-        (1 + 0.1 * legacy) * when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 } *
+        (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.GREEN_THUMB, 0.15) * when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 } *
         (if (here(Special.VAULT)) 1.3 else 1.0) * (if (built(Special.TEMPLE)) 1.1 else 1.0)
 
     fun goldenChance(x: Int, y: Int): Double = GOLDEN_CHANCE + 0.03 * decorAround(x, y, Decor.BEEHIVE) +
         0.06 * decorAround(x, y, Decor.ALIEN) + 0.08 * decorAround(x, y, Decor.TOTEM) + perkNear(x, y, Perk.GOLD) + (if (on(Buff.LUCKY)) 0.21 else 0.0) + (if (on(Buff.DUST)) 0.15 else 0.0) +
-        (if (here(Special.DOME)) 0.08 else 0.0)
+        (if (here(Special.DOME)) 0.08 else 0.0) + (if (Legacy.has(this, LegacyPerk.GOLDEN_TOUCH)) 0.05 else 0.0)
 
     /** The share of t0..t1 that a buff covers. */
     private fun cover(b: Buff, t0: Long, t1: Long): Double {
@@ -962,7 +967,7 @@ class Farm(var rng: Random = Random.Default) {
         val s = t.strain?.let { Strains[it] } ?: return Result.BLOCKED
         if (!t.ready()) return Result.NOT_READY
         val golden = rng.nextDouble() < goldenChance(x, y) * (if (Trait.GOLDEN in s.traits) 1.5 else 1.0)
-        val mult = yieldMult() * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
+        val mult = yieldMult() * (if (Trait.BIG in s.traits) 1.12 else 1.0) * (if (s.id in heirlooms) Legacy.HEIRLOOM_YIELD else 1.0) * (1 + 0.08 * crew(Crew.TRIMMER)) * (1 + 0.1 * decorAround(x, y, Decor.COMPOST) + 0.2 * decorAround(x, y, Decor.GREENHOUSE) +
             0.25 * decorAround(x, y, Decor.CRYSTAL) + perkNear(x, y, Perk.YIELD)) * (1 + 0.15 * houseNear(x, y, WorkHouse.TRIM)) *
             (if (here(Special.TERRACE)) 1.25 else 1.0)
         var grams = max(1, (s.yield * mult * (0.9 + rng.nextDouble() * 0.25)).roundToLong().toInt())
@@ -1330,7 +1335,7 @@ class Farm(var rng: Random = Random.Default) {
         orders.fill(null); orderAt.fill(0); deliverAt.fill(0); deliverPay.fill(0); envelopes = 0
         shack = 0; happening = null; runnerOn = true; runnerAt = 0; bmBought.clear(); bmRot = -1L
         totalHarvests = 0; totalEarned = 0; stats.fill(0); trophies.clear(); bred.clear(); grown.clear()
-        legacy = 0; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
+        legacy = 0; legacyPerks.clear(); heirlooms.clear(); startMap = StartMap.HOMESTEAD; bestLevel = 1; streak = 0; bestStreak = 0; lastDay = -1L; questDay = -1L
         quests.clear(); questBonus = false; events.clear()
         potBucks = 0; gems = 0; mineAt = 0; tokens.clear(); unlockedStrains.clear(); pets.clear()
         farmer = null; festivalUntil = 0; festivalSite = null
@@ -1937,10 +1942,13 @@ class Farm(var rng: Random = Random.Default) {
 
     /**
      * Starts over on fresh land for a permanent bonus. The other farms are sold too. Kept: legacy, stats, trophies, hybrids, streak, paint,
-     * envelopes, exotic seeds and all decor (placed decor goes back in the inventory).
+     * envelopes, exotic seeds and all decor (placed decor goes back in the inventory). The new land is laid out as [map],
+     * and up to [Legacy.slots] of the strains in [keep] become heirlooms in place of the last ones.
      */
-    fun sellFarm(now: Long): Result {
+    fun sellFarm(now: Long, map: StartMap = StartMap.HOMESTEAD, keep: Collection<String> = emptyList()): Result {
         if (!canSellFarm()) return Result.LOCKED
+        val ok = Legacy.eligible(this).map { it.id }.toSet()
+        val kept = keep.filter { it in ok }.distinct().take(Legacy.slots(this))
         for (s in sites) for (t in s.tiles) if (t.kind == Kind.DECOR || t.kind == Kind.PATH) t.item?.let { decorInv[it] = (decorInv[it] ?: 0) + 1 }
         // Back to the home farm only; its paint stays.
         site = sites[0]
@@ -1954,9 +1962,13 @@ class Farm(var rng: Random = Random.Default) {
         // Towns remember you, but deals in hand go with the farm.
         offers.clear(); offerDay.clear(); deals.clear()
         legacy++
+        heirlooms.clear(); heirlooms += kept
+        startMap = map
+        if (Legacy.has(this, LegacyPerk.OLD_MONEY)) cash += Legacy.OLD_MONEY
         questDay = -1L
         lastTick = now
         newGame(now)
+        Legacy.lay(this, map)
         refreshQuests(now)
         return Result.OK
     }

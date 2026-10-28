@@ -45,6 +45,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.json.JSONObject
+import dev.m4s4t0.kushacres.model.Legacy
+import dev.m4s4t0.kushacres.model.LegacyPerk
+import dev.m4s4t0.kushacres.model.StartMap
 import org.junit.Test
 import kotlin.random.Random
 
@@ -402,6 +405,45 @@ class FarmTest {
         assertTrue(f.shackAt() != null)
         assertTrue(f.priceMult() > price * 0.9)
         assertEquals(40, f.bestLevel)
+    }
+
+    @Test fun legacyPerksHeirloomsAndStartMaps() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = 40
+        val heir = Legacy.eligible(f).last()
+        val junk = Strains.ladder.first { it.level > 40 }.id
+        assertTrue(Legacy.slots(f) == 1 && Legacy.points(f) == 0)
+        assertEquals(Result.LOCKED, Legacy.take(f, LegacyPerk.GREEN_THUMB))
+        assertEquals(Result.OK, f.sellFarm(t0, StartMap.CREEKSIDE, listOf(heir.id, junk)))
+        assertEquals(setOf(heir.id), f.heirlooms.toSet())
+        assertTrue(f.unlocked(heir) && heir.level > f.level)
+        assertEquals(StartMap.CREEKSIDE, f.startMap)
+        assertEquals(2, f.tiles.count { it.kind == Kind.WATER })
+        // The pond waters the plots beside it.
+        assertTrue(f.sprinkled(f.ox + 3, f.oy + 2))
+        // One point: a branch's second perk waits for its first.
+        assertEquals(1, Legacy.points(f))
+        assertEquals(Result.LOCKED, Legacy.take(f, LegacyPerk.BIG_BUDS))
+        val speed = f.speed(f.ox + 2, f.oy + 2)
+        assertEquals(Result.OK, Legacy.take(f, LegacyPerk.GREEN_THUMB))
+        assertEquals(speed * 1.15, f.speed(f.ox + 2, f.oy + 2), 1e-9)
+        assertEquals(Result.BLOCKED, Legacy.take(f, LegacyPerk.GREEN_THUMB))
+        assertEquals(Result.LOCKED, Legacy.take(f, LegacyPerk.BIG_BUDS))
+        // Old Money pays out on the next sale; Quarry Hill starts bigger with boulders.
+        f.legacyPerks += listOf(LegacyPerk.SILVER_TONGUE, LegacyPerk.KNOWN_FACE, LegacyPerk.OLD_MONEY, LegacyPerk.BIG_BUDS, LegacyPerk.SEED_VAULT)
+        assertEquals(3, Legacy.slots(f))
+        f.level = 40
+        assertEquals(Result.OK, f.sellFarm(t0, StartMap.QUARRY, Legacy.eligible(f).takeLast(4).map { it.id }))
+        assertEquals(3, f.heirlooms.size)
+        assertEquals(30 + Legacy.OLD_MONEY, f.cash)
+        assertEquals(Legacy.QUARRY_LAND, f.land)
+        assertTrue(f.tiles.count { it.kind == Kind.ROCK } >= 6)
+        assertEquals(0, f.tiles.count { it.kind == Kind.WATER })
+        val g = farm()
+        Save.read(Save.write(f), g)
+        assertEquals(f.legacyPerks, g.legacyPerks); assertEquals(f.heirlooms, g.heirlooms); assertEquals(StartMap.QUARRY, g.startMap)
+        g.restart(t0)
+        assertTrue(g.legacyPerks.isEmpty() && g.heirlooms.isEmpty())
     }
 
     @Test fun seasonsTurnWeeklyAndChangeTheRules() {

@@ -320,7 +320,7 @@ object People {
     /** [k]'s keeper in the town next to [site]: the home town has the originals, every other town its own look. */
     fun portrait(k: Keeper, site: String = "home"): Bitmap = portraitCache.getOrPut("${k.name}/$site") { portraitPx(k, site).bitmap() }
 
-    private val SKINS = intArrayOf(0xFFF0C8A6.toInt(), 0xFFE0A07C.toInt(), 0xFFC08058.toInt(), 0xFFB07A58.toInt(), 0xFF94603C.toInt(), 0xFF6A4028.toInt())
+    internal val SKINS = intArrayOf(0xFFF0C8A6.toInt(), 0xFFE0A07C.toInt(), 0xFFC08058.toInt(), 0xFFB07A58.toInt(), 0xFF94603C.toInt(), 0xFF6A4028.toInt())
     private val KEEPER_SKIN = mapOf(Keeper.VIOLET to 0xFFC08058.toInt(), Keeper.DEX to 0xFF94603C.toInt(), Keeper.HANK to 0xFFE0A07C.toInt(),
         Keeper.MONA to 0xFFF0C8A6.toInt(), Keeper.GUS to 0xFF6A4028.toInt(), Keeper.SHADE to 0xFFB07A58.toInt())
 
@@ -485,22 +485,22 @@ object People {
     }
 
     /** The bare shoulders line every portrait's clothes are cut from. */
-    private val SHOULDERS = intArrayOf(2, 96, 4, 86, 11, 78, 26, 72, 40, 68, 56, 68, 70, 72, 85, 78, 92, 86, 94, 96)
-    private fun mirrored(pts: IntArray) = IntArray(pts.size) { i -> if (i % 2 == 0) BIG - pts[i] else pts[i] }
+    internal val SHOULDERS = intArrayOf(2, 96, 4, 86, 11, 78, 26, 72, 40, 68, 56, 68, 70, 72, 85, 78, 92, 86, 94, 96)
+    internal fun mirrored(pts: IntArray) = IntArray(pts.size) { i -> if (i % 2 == 0) BIG - pts[i] else pts[i] }
     /** Lines through consecutive points, for inner contours the outline pass can't see. */
-    private fun Px.trace(c: Int, vararg pts: Int) { for (i in 0 until pts.size / 2 - 1) line(pts[i * 2], pts[i * 2 + 1], pts[i * 2 + 2], pts[i * 2 + 3], c) }
+    internal fun Px.trace(c: Int, vararg pts: Int) { for (i in 0 until pts.size / 2 - 1) line(pts[i * 2], pts[i * 2 + 1], pts[i * 2 + 2], pts[i * 2 + 3], c) }
     /** Blends [c] over what's drawn inside an ellipse, strongest in the middle. */
-    private fun Px.tint(cx: Int, cy: Int, rx: Int, ry: Int, c: Int, a: Float) {
+    internal fun Px.tint(cx: Int, cy: Int, rx: Int, ry: Int, c: Int, a: Float) {
         for (y in cy - ry..cy + ry) for (x in cx - rx..cx + rx) {
             val d = (x - cx) * (x - cx) / (rx * rx + 0.5f) + (y - cy) * (y - cy) / (ry * ry + 0.5f)
             if (d <= 1f && get(x, y) != 0) set(x, y, mix(get(x, y), c, a * (1f - d * 0.6f)))
         }
     }
     /** Clothes over the shoulders, lit from the left. */
-    private fun clothes(px: Px, c: Int) = px.poly(SHOULDERS) { x, y -> when { x > 70 -> shade(c, 0.8f); x < 22 && y < 88 -> shade(c, 1.15f); else -> c } }
+    internal fun clothes(px: Px, c: Int) = px.poly(SHOULDERS) { x, y -> when { x > 70 -> shade(c, 0.8f); x < 22 && y < 88 -> shade(c, 1.15f); else -> c } }
 
     /** Neck, ears, a shaded face lit from the upper left, and the nose. [jaw] widens the chin. */
-    private fun face(px: Px, skin: Int, jaw: Int = 0) {
+    internal fun face(px: Px, skin: Int, jaw: Int = 0) {
         val l = shade(skin, 1.12f); val s = shade(skin, 0.86f); val d = shade(skin, 0.7f)
         px.poly(s, 41, 52, 55, 52, 56, 74, 40, 74)
         px.rect(41, 56, 15, 4, d)
@@ -522,7 +522,7 @@ object People {
     }
 
     /** Both eyes, 10 px wide, top row at [y]; [lid] rows of upper lid come down for a sleepy look. */
-    private fun eyes(px: Px, y: Int, skin: Int, iris: Int, lash: Int = 0xFF1E1418.toInt(), white: Int = 0xFFF6F2EE.toInt(), lid: Int = 0) {
+    internal fun eyes(px: Px, y: Int, skin: Int, iris: Int, lash: Int = 0xFF1E1418.toInt(), white: Int = 0xFFF6F2EE.toInt(), lid: Int = 0) {
         val rows = arrayOf(
             "..KKKKKK..",
             ".KWwIIIIwK",

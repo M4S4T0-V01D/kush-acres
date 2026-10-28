@@ -49,6 +49,12 @@ internal fun dumpPanels(dir: String) {
         File(dir, "$name.png").writeBytes(scene.render().encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
     }
+    shot("events", 0, 1300) {
+        val kinds = dev.m4s4t0.kushacres.model.EventKind.entries
+        for (row in kinds.chunked(3)) androidx.compose.foundation.layout.Row {
+            for (k in row) Px(dev.m4s4t0.kushacres.art.EventArt.portrait(k, dev.m4s4t0.kushacres.model.Holiday.entries.first()), 100.dp, Modifier.padding(3.dp))
+        }
+    }
     shot("rail", 0, 260) { dev.m4s4t0.kushacres.ui.Rail(UiState(), Modifier) }
     shot("cup", 2)
     shot("hunts", 0) { dev.m4s4t0.kushacres.ui.HuntsPanel() }

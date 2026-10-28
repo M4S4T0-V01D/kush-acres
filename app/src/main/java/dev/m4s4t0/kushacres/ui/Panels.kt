@@ -66,6 +66,7 @@ import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.art.Coins
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.DecorArt
+import dev.m4s4t0.kushacres.art.EventArt
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
@@ -791,11 +792,9 @@ fun Dialogs() {
             val ask = ev.kind == EventKind.RAID || ev.kind == EventKind.STRANGER || ev.kind == EventKind.TRADER ||
                 ev.kind == EventKind.GRANDMA || (ev.kind == EventKind.HOLIDAY && ev.strain != null)
             Modal(onClose = { answer(false) }) {
-                Px(when (ev.kind) {
-                    EventKind.RAID -> Sprites.lock; EventKind.RAIN -> Sprites.drop; EventKind.PESTS -> Sprites.trash
-                    EventKind.STRANGER, EventKind.TRADER -> Sprites.bag; EventKind.CELEB, EventKind.METEOR, EventKind.POTBUCKS, EventKind.HOLIDAY -> Sprites.star
-                    EventKind.STORM -> Sprites.drop; EventKind.GRANDMA -> Sprites.bag; else -> Sprites.arrow
-                }, 40.dp)
+                val rim = if (ev.kind == EventKind.RAID) Bad else Gold
+                Px(EventArt.portrait(ev.kind, f.holiday()), 120.dp, Modifier.frame(Color(0xFF14100B), rim, 3.dp))
+                Spacer(Modifier.height(8.dp))
                 T(title, 18.sp, Gold, align = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
                 T(text, 13.sp, Cream, align = TextAlign.Center, bold = false)

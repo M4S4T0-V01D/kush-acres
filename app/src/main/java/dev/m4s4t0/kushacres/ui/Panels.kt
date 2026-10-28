@@ -264,7 +264,7 @@ private fun SeedCell(ui: UiState, s: Strain, edge: Color) {
             T(dur(s.seconds), 10.sp, Sky)
             if (s.exotic) T("${f.seeds[s.id] ?: 0} seeds", 11.sp, Color(0xFFD86AF0))
             else T(money(f.seedCost(s)), 11.sp, Gold)
-            T("${s.yield}g × ${money(s.price)}", 9.sp, Dim, bold = false)
+            T("${s.yield}g × ${money(f.price(s.id).toLong())}", 9.sp, Dim, bold = false)
             T(s.traits.joinToString(" · ") { it.label }, 8.sp, Color(0xFF9FD86A), bold = false, align = TextAlign.Center)
             if (f.favourite(s)) T("★ In season", 9.sp, Gold, align = TextAlign.Center)
             s.parents?.let { (a, b) -> T("${Strains[a]?.name} × ${Strains[b]?.name}", 8.sp, Color(0xFF5CD0E0), bold = false, align = TextAlign.Center) }

@@ -21,6 +21,7 @@ import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Holiday
 import dev.m4s4t0.kushacres.model.SiteDef
+import dev.m4s4t0.kushacres.model.Trait
 import dev.m4s4t0.kushacres.model.BucksItem
 import dev.m4s4t0.kushacres.model.Hybrids
 import dev.m4s4t0.kushacres.model.Pet
@@ -1465,5 +1466,18 @@ class FarmTest {
         assertEquals(5, a.events.filterIsInstance<FarmEvent.Harvest>().single().trim)
         assertEquals(0, a.tile(2, 2).trim)
         assertEquals(1L, a.stat(Stat.CLEAN_TRIMS))
+    }
+
+    @Test fun plantingChargesWhatTheShelfShows() {
+        val f = farm(); f.cash = 100_000_000; f.level = 99
+        val thrifty = Strains.all.filter { !it.exotic && Trait.THRIFTY in it.traits && f.unlocked(it) }
+        assertTrue(thrifty.isNotEmpty())
+        for (s in thrifty) {
+            val before = f.cash
+            assertEquals(Result.OK, f.plant(2, 3, s.id, t0))
+            assertEquals(s.seed * 3 / 4, before - f.cash)
+            assertEquals(f.seedCost(s), before - f.cash)
+            f.tile(2, 3).strain = null
+        }
     }
 }

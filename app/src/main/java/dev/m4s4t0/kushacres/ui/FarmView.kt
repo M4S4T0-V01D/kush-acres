@@ -958,7 +958,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     Act.SHOO -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 20f, "shoo!", 0xFFFFE27A.toInt(), Store.now())
                     Act.WATER -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 12f, "~", 0xFF8FD4FF.toInt(), Store.now())
                     Act.PLANT -> floaters += Floater(world.centerX(x, y).toFloat(), world.centerY(x, y) - 8f,
-                        "-$" + fmt(Strains[ui.seed]!!.seed), 0xFFFF9A7A.toInt(), Store.now())
+                        Strains[ui.seed]!!.let { if (it.exotic) "-1 seed" else "-$" + fmt(Store.farm.seedCost(it)) }, 0xFFFF9A7A.toInt(), Store.now())
                     else -> {}
                 }
                 Store.changed()

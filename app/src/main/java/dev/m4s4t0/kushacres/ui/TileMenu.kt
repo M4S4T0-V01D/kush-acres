@@ -48,7 +48,6 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
     val tile = f.tile(x, y)
     // Asking before a move that would stunt a growing plant, and before destroying one.
     var confirm by remember(at) { mutableStateOf<String?>(null) }
-    var trimming by remember(at) { mutableStateOf(false) }
     fun close() { ui.menu = null }
     fun moveIt() { ui.mode = Mode.Move(x to y); close(); Store.toast("Tap where it should go") }
     BoxWithConstraints(Modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, null) { close() }) {
@@ -80,13 +79,6 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
             }
             T(title, 14.sp, Gold)
             Spacer(Modifier.height(6.dp))
-            if (trimming) {
-                TrimGame { n ->
-                    if (f.trim(x, y, n) == Result.OK) Store.toast(if (n > 0) "Trimmed: +${Math.round(Farm.TRIM_STEP * 100 * tile.trim)}% bud at harvest" else "No clean leaves that time")
-                    Store.changed(); close()
-                }
-                return@Column
-            }
             val c = confirm
             if (c != null) {
                 T(c, 12.sp, Cream, bold = false)
@@ -118,7 +110,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     }
                     if (strain != null && !tile.ready()) {
                         val bonus = Math.round(Farm.TRIM_STEP * 100 * tile.trim)
-                        if (f.canTrim(x, y)) item(if (bonus > 0) "Trim ✂ (+$bonus% so far)" else "Trim ✂", Leaf) { trimming = true }
+                        if (f.canTrim(x, y)) item(if (bonus > 0) "Trim ✂ (+$bonus% so far)" else "Trim ✂", Leaf) { ui.trim = x to y; close() }
                         else if (tile.trim >= Farm.TRIM_BANK) T("Fully trimmed: +$bonus% bud", 10.sp, Leaf, bold = false)
                         else if (!tile.pest && !tile.mould) {
                             val at = ((tile.progress + f.trimWait(x, y)) / strain.seconds * 100).toInt().coerceAtMost(99)

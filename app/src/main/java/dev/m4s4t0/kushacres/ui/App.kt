@@ -125,6 +125,8 @@ class UiState {
     var menu by mutableStateOf<Pair<Int, Int>?>(null)
     /** The room you have walked into, if any. */
     var room by mutableStateOf<dev.m4s4t0.kushacres.model.RoomKind?>(null)
+    /** The plot whose trimming game is open. */
+    var trim by mutableStateOf<Pair<Int, Int>?>(null)
     /** The farmer creator open to restyle, and the farm-moving map open. */
     var creator by mutableStateOf(false)
     var buildTab by mutableIntStateOf(0)
@@ -235,7 +237,7 @@ fun Modifier.frame(bg: Color = Wood, edge: Color = WoodEdge, w: Dp = 2.dp) = thi
 fun Modifier.woodBox(bg: Color = Wood, edge: Color = WoodEdge, w: Dp = 2.dp) = this.frame(bg, edge, w)
 
 @Composable
-fun Btn(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = Leaf, icon: Bitmap? = null, onClick: () -> Unit) {
+fun Btn(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = Leaf, icon: Bitmap? = null, size: TextUnit = 13.sp, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     Row(
         modifier
@@ -247,7 +249,7 @@ fun Btn(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, co
         horizontalArrangement = Arrangement.Center,
     ) {
         if (icon != null) { Px(icon, 16.dp); Spacer(Modifier.width(6.dp)) }
-        T(text, 13.sp, if (enabled) Cream else Dim.copy(alpha = 0.6f))
+        T(text, size, if (enabled) Cream else Dim.copy(alpha = 0.6f))
     }
 }
 
@@ -279,6 +281,7 @@ fun App() {
         }
         ui.menu?.let { TileMenu(ui, it) }
         Interior(ui)
+        TrimOverlay(ui)
         Toast()
         if (ui.panel != Panel.NONE) PanelHost(ui)
         Dialogs()
@@ -704,7 +707,7 @@ internal fun PowerLine() {
 private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
     val f = Store.farm
     val spot = f.houses().firstOrNull { it.x == x && it.y == y }
-    if (h == WorkHouse.STORE) return StoreInfo(x, y, spot?.staffed == true)
+    if (h == WorkHouse.STORE) return StoreInfo(ui, x, y, spot?.staffed == true)
     T(h.desc + ".", 12.sp, Dim)
     when {
         h == WorkHouse.BUNK -> T("Beds for ${f.workerCap()} workers on this farm.", 11.sp, Sky)
@@ -717,10 +720,13 @@ private fun HouseInfo(ui: UiState, x: Int, y: Int, h: WorkHouse) {
 
 /** A lab storefront: what's on the shelf, how fast it sells, and growing it into the next kind of store. */
 @Composable
-private fun StoreInfo(x: Int, y: Int, staffed: Boolean) {
+private fun StoreInfo(ui: UiState, x: Int, y: Int, staffed: Boolean) {
     val f = Store.farm
     val lvl = f.tile(x, y).lvl
     val next = Storefronts.next(f)
+    Btn("Go inside · Style ${Interiors.score(f, RoomKind.STORE)}/${Interiors.MAX_SCORE}", Modifier.fillMaxWidth().padding(vertical = 4.dp), color = Gold) {
+        ui.selected = null; ui.room = RoomKind.STORE
+    }
     val style = Interiors.storeBonus(f)
     T("Sells your lab-bred bud by itself at +${Math.round((Storefronts.premium(lvl) + style) * 100 - 100)}% over market, even while you're away.", 12.sp, Dim)
     T(if (style > 0) "Shop style ${Interiors.score(f, RoomKind.STORE)}/${Interiors.MAX_SCORE}: +${Math.round(style * 100)}% of that. Go inside to decorate more."

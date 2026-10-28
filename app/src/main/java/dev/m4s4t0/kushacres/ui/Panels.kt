@@ -68,6 +68,8 @@ import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.EventArt
 import dev.m4s4t0.kushacres.art.Sprites
+import dev.m4s4t0.kushacres.model.Interiors
+import dev.m4s4t0.kushacres.model.RoomKind
 import dev.m4s4t0.kushacres.model.Bunker
 import dev.m4s4t0.kushacres.art.Town
 import dev.m4s4t0.kushacres.model.Decor
@@ -619,6 +621,10 @@ private fun ShackPanel(ui: UiState) {
                     val bunks = Helper.entries.filter { it.shack in 1..f.shack }.joinToString { it.title }
                     T(if (bunks.isEmpty()) "No spare bunks yet. Runners and Fetchers need a Cozy Cabin" else "Room for: $bunks", 11.sp, Sky)
                 }
+            }
+            Spacer(Modifier.height(8.dp))
+            Btn("Go inside · Comfort ${Interiors.score(f, RoomKind.HOME)}/${Interiors.MAX_SCORE}", Modifier.fillMaxWidth(), color = Gold) {
+                ui.panel = Panel.NONE; ui.room = RoomKind.HOME
             }
         }
         item {

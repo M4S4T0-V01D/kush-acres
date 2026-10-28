@@ -110,7 +110,6 @@ internal fun dumpPanels(dir: String) {
         w.render(f, now, 1.3f, dusk, null, false)
         val pic = dev.m4s4t0.kushacres.ui.photo(w, f, 720, 360, android.graphics.RectF(0f, 0f, 720f, 360f), 3f, 1.3f, dusk)
         File(dir, "snap.png").writeBytes(pic.image().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes)
-        shot("trim", 0, 300) { androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) { dev.m4s4t0.kushacres.ui.TrimGame { } } }
     }
     f.legacy = 2; f.legacyPerks += dev.m4s4t0.kushacres.model.LegacyPerk.GREEN_THUMB; f.heirlooms += dev.m4s4t0.kushacres.model.Legacy.eligible(f).last().id
     shot("stats", 4, 1600)
@@ -207,6 +206,8 @@ internal fun dumpPanels(dir: String) {
     }
     shot("home", 0, 900) { dev.m4s4t0.kushacres.ui.Interior(UiState().apply { room = dev.m4s4t0.kushacres.model.RoomKind.HOME }) }
     shot("store", 0, 900) { dev.m4s4t0.kushacres.ui.Interior(UiState().apply { room = dev.m4s4t0.kushacres.model.RoomKind.STORE }) }
+    val grown = (0 until 60).flatMap { yy -> (0 until 60).map { it to yy } }.firstOrNull { (xx, yy) -> f.inLand(xx, yy) && f.tile(xx, yy).strain != null }
+    if (grown != null) shot("trim", 0, 1300) { dev.m4s4t0.kushacres.ui.TrimOverlay(UiState().apply { trim = grown }) }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

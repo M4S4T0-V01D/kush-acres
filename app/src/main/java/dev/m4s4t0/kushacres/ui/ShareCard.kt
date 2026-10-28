@@ -59,7 +59,7 @@ object ShareCard {
         rect(sl, st, sr, sb, def.wild)
         val now = System.currentTimeMillis()
         val w = World()
-        val x0 = f.ox; val y0 = f.oy; val x1 = f.ox + f.land - 1; val y1 = f.oy + f.land - 1
+        val (x0, y0, x1, y1) = f.landBox()
         var l = w.centerX(x0, y1) - TW / 2 - 8; var r = w.centerX(x1, y0) + TW / 2 + 8
         var t = w.centerY(x0, y0) - TH / 2 - 56; var b = w.centerY(x1, y1) + TH / 2 + Sprites.DEPTH + 8
         // Widen whichever side is short so the view matches the scene box.

@@ -105,6 +105,10 @@ sealed class Mode {
     /** Pick something up, then tap where it goes. */
     data class Move(val from: Pair<Int, Int>? = null) : Mode()
     data object Demolish : Mode()
+    /** Tools menu: each tap destroys what's there at once, no second tap. */
+    data object Destroy : Mode()
+    /** Tools menu: tap a growing plant to open its trimming game. */
+    data object Trim : Mode()
 }
 
 enum class Panel { NONE, SEEDS, ORDERS, TOWN, BUILD, SHACK, FACILITY, MENU, FARMS, HOLIDAY, BUCKS, SETTINGS, LAB, STRAINS, HUNTS }
@@ -127,6 +131,8 @@ class UiState {
     var room by mutableStateOf<dev.m4s4t0.kushacres.model.RoomKind?>(null)
     /** The plot whose trimming game is open. */
     var trim by mutableStateOf<Pair<Int, Int>?>(null)
+    /** Whether the tools row (seed, move, trim, destroy) is open above the bottom bar. */
+    var tools by mutableStateOf(false)
     /** The farmer creator open to restyle, and the farm-moving map open. */
     var creator by mutableStateOf(false)
     var buildTab by mutableIntStateOf(0)
@@ -544,6 +550,8 @@ private fun BottomBar(ui: UiState) {
                 is Mode.PlaceStairs -> "Tap where the bunker stairs go (2×1 grass): ${money(f.bunkerCost())}"
                 is Mode.Move -> if (m.from == null) "Tap something to pick it up" else "Tap an empty spot to put it down"
                 Mode.Demolish -> "Tap something empty to remove it"
+                Mode.Destroy -> "Destroying: each tap removes what's there, plants first"
+                Mode.Trim -> "Tap a growing plant to trim it"
                 Mode.Farm -> ""
             }
             T(what, 13.sp, Cream, Modifier.weight(1f))
@@ -555,8 +563,9 @@ private fun BottomBar(ui: UiState) {
     val seed = Strains[ui.seed]!!
     val ready = f.orders.withIndex().count { (i, o) -> i < f.orderSlots() && o != null && !f.delivering(i) && f.canFill(o) }
     if (f.floor > 0) BunkerBar(ui)
+    if (ui.tools) ToolsRow(ui)
     Row(Modifier.fillMaxWidth().frame(Wood, WoodEdge, 3.dp).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), seed.name, if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(f.seedCost(seed))) { ui.panel = Panel.SEEDS }
+        BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), "Tools " + if (ui.tools) "▾" else "▴", seed.name, badge = ui.tools) { ui.tools = !ui.tools }
         BarButton(Modifier.weight(1f), Sprites.bag, "Orders", if (ready > 0) "$ready ready" else null, badge = ready > 0) { ui.panel = Panel.ORDERS }
         BarButton(Modifier.weight(1f), Sprites.stall, "Town", null) { ui.shop = null; ui.panel = Panel.TOWN }
         if (f.floor > 0) BarButton(Modifier.weight(1f), Sprites.stairs(1, 0), "Surface", null) { f.goDown(0); ui.recenter++; Store.changed() }
@@ -564,6 +573,20 @@ private fun BottomBar(ui: UiState) {
             if (f.hasBunker()) BarButton(Modifier.weight(1f), Sprites.stairs(0, 1), "Bunker", null) { f.goDown(1); ui.selected = null; ui.recenter++; Store.changed() }
             BarButton(Modifier.weight(1f), Sprites.hammer, "Build", null) { ui.panel = Panel.BUILD }
         }
+    }
+}
+
+/** The Tools button's row: plant with the seed picker, or switch to moving, trimming or destroying. */
+@Composable
+internal fun ToolsRow(ui: UiState) {
+    val f = Store.farm
+    val seed = Strains[ui.seed]!!
+    fun pick(m: Mode) { ui.tools = false; startPlacing(ui, m) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).woodBox().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        BarButton(Modifier.weight(1.3f), Sprites.strainIcon(seed), "Seed", if (seed.exotic) "${f.seeds[seed.id] ?: 0} seeds" else money(f.seedCost(seed))) { ui.tools = false; ui.panel = Panel.SEEDS }
+        BarButton(Modifier.weight(1f), Sprites.arrow, "Move", null) { pick(Mode.Move()) }
+        BarButton(Modifier.weight(1f), Sprites.scissors, "Trim", null) { pick(Mode.Trim) }
+        BarButton(Modifier.weight(1f), Sprites.trash, "Destroy", null) { pick(Mode.Destroy) }
     }
 }
 

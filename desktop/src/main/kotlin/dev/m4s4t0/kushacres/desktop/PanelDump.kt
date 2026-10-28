@@ -148,6 +148,23 @@ internal fun dumpPanels(dir: String) {
         shot("farm-big", 0, 500) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
     }
     run {
+        // Plots bought next door: the realtor card, the tools row, then the farm with its fence around both.
+        f.level = 30; f.cash = 1_000_000_000_000L
+        (0..3).forEach { f.buyAnnex(it) }
+        for (a in f.site.annexes) for (yy in a.y until a.y + a.n) for (xx in a.x until a.x + a.n)
+            if ((xx + yy) % 2 == 0 && f.tile(xx, yy).kind == Kind.GRASS) f.build(xx, yy, Kind.PLOT)
+        shot("annex-card", 0, 420) { dev.m4s4t0.kushacres.ui.AnnexCard(UiState()) }
+        shot("tools", 0, 200) { dev.m4s4t0.kushacres.ui.ToolsRow(UiState()) }
+        val (x0, y0, x1, y1) = f.landBox()
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val xs = listOf(w.centerX(x0, y0), w.centerX(x1, y0), w.centerX(x0, y1), w.centerX(x1, y1))
+        val ys = listOf(w.centerY(x0, y0), w.centerY(x1, y0), w.centerY(x0, y1), w.centerY(x1, y1))
+        w.view(xs.min() - 20, ys.min() - 30, xs.max() + 20, ys.max() + 20, 1)
+        w.render(f, now, 1.3f, dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f), null, false)
+        val img = w.bitmap.asImageBitmap()
+        shot("farm-annex", 0, 700) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+    }
+    run {
         // The bunker: its stairs up top, then its first floor lit and planted, by day.
         f.level = 40
         val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }

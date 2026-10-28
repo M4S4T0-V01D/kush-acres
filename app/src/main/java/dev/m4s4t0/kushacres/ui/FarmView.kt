@@ -385,11 +385,14 @@ class World {
                 canvas.drawRect(px.toFloat(), py - 5f, px + 1f, py.toFloat(), fill)
             }
             // Only the sides that face the wild; a side on the edge of the map needs no fence.
-            for (j in 0..land) {
-                if (ox + land < Farm.MAX) post(ox + land, oy + j)
-                if (oy + land < Farm.MAX) post(ox + j, oy + land)
-                if (ox > 0) post(ox, oy + j)
-                if (oy > 0) post(ox + j, oy)
+            fun wild(a: Int, b: Int) = a in 0 until Farm.MAX && b in 0 until Farm.MAX && !f.inLand(a, b)
+            val box = f.landBox()
+            for (y in box[1]..box[3]) for (x in box[0]..box[2]) {
+                if (!f.inLand(x, y)) continue
+                if (wild(x + 1, y)) { post(x + 1, y); post(x + 1, y + 1) }
+                if (wild(x, y + 1)) { post(x, y + 1); post(x + 1, y + 1) }
+                if (wild(x - 1, y)) { post(x, y); post(x, y + 1) }
+                if (wild(x, y - 1)) { post(x, y); post(x + 1, y) }
             }
         }
         selected?.let { (x, y) ->
@@ -805,7 +808,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         val wPx = constraints.maxWidth.toFloat()
         val hPx = constraints.maxHeight.toFloat()
         val f = Store.farm
-        fun fit(): Float = wPx / (f.land * TW + 24f)
+        fun fit(): Float = f.landBox().let { b -> wPx / ((b[2] - b[0] + b[3] - b[1] + 2) / 2f * TW + 24f) }
         fun minScale() = wPx / (World.W + 40f)
         fun clamp() {
             // Keep some of the island on screen.
@@ -814,7 +817,8 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         }
         fun centerOnLand() {
             scale = fit()
-            val cx = f.ox + (f.land - 1) / 2f; val cy = f.oy + (f.land - 1) / 2f
+            val b = f.landBox()
+            val cx = (b[0] + b[2]) / 2f; val cy = (b[1] + b[3]) / 2f
             val wx = world.centerX(cx, cy); val wy = world.centerY(cx, cy)
             offset = Offset(wPx / 2 - wx * scale, hPx * 0.5f - wy * scale)
         }
@@ -900,7 +904,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                 is Mode.Build, is Mode.PlaceDecor -> if (tile.kind == Kind.GRASS) Act.BUILD else null
                 is Mode.PlaceFacility, is Mode.PlaceHouse, is Mode.PlacePower, is Mode.PlaceSpecial, is Mode.PlaceVehicle, is Mode.PlaceStairs -> null
                 is Mode.Move -> null
-                Mode.Demolish -> null
+                Mode.Demolish, Mode.Destroy, Mode.Trim -> null
                 Mode.Farm -> when {
                     tile.pest || tile.mould -> Act.SHOO
                     tile.kind == Kind.FACILITY -> if (tile.strain != null && now >= tile.doneAt) Act.COLLECT else null
@@ -1036,6 +1040,33 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         ui.selected = null
                     }
                     else -> { ui.selected = x to y; Store.toast("Tap it again to demolish") }
+                }
+                Mode.Destroy -> {
+                    ui.selected = null
+                    val r = when {
+                        tile.kind == Kind.GRASS -> return
+                        tile.kind == Kind.WATER -> { Store.toast("Water stays where nature put it"); return }
+                        tile.kind == Kind.ROCK -> f.clearRock(x, y)
+                        // A plant goes first; the plot under it goes on the next tap.
+                        tile.kind == Kind.PLOT && tile.strain != null -> f.uproot(x, y)
+                        else -> f.demolish(x, y)
+                    }
+                    if (r == Result.OK) {
+                        buzz(); Audio.play(Sfx.DEMOLISH); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f); Store.changed()
+                    } else if (r == Result.BLOCKED) Store.toast(when {
+                        tile.kind == Kind.PLOT -> "That's your last plot: keep at least one"
+                        f.floor > 0 -> "Down here things can only be moved"
+                        else -> "Buildings can't be destroyed, only moved"
+                    })
+                    else complain(r)
+                }
+                Mode.Trim -> when {
+                    tile.kind != Kind.PLOT || tile.strain == null -> Store.toast("Tap a growing plant to trim it")
+                    f.canTrim(x, y) -> ui.trim = x to y
+                    tile.ready() -> Store.toast("It's ripe: harvest it instead")
+                    tile.pest || tile.mould -> Store.toast("Deal with the bugs or mould first")
+                    tile.trim >= Farm.TRIM_BANK -> Store.toast("Already fully trimmed")
+                    else -> Store.toast("Not ready to trim: ${dur(f.trimWait(x, y).toLong())} more growing")
                 }
                 is Mode.Move -> {
                     val from = m.from

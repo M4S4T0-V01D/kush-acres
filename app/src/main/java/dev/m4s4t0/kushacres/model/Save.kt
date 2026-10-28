@@ -110,7 +110,8 @@ object Save {
                 put(JSONObject().put("id", st.def.id).put("land", st.land).put("roof", st.roof).put("wall", st.wall)
                     .put("workers", st.workers).put("crew", JSONArray(st.crew.toList())).put("hv", st.harvests).put("goals", JSONArray(st.goals.toList())).put("shack", st.shack).put("up", ups(st.upgrades)).put("tiles", writeTiles(st.tiles))
                     .apply { if (st.floors.isNotEmpty()) put("floors", JSONArray().apply { st.floors.forEach { fl -> put(JSONObject().put("n", fl.size).put("tiles", writeTiles(fl.tiles))) } }) }
-                    .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) }; st.grass?.let { put("grass", it) }; st.dirt?.let { put("dirt", it) } })
+                    .apply { st.cx?.let { put("cx", it) }; st.cy?.let { put("cy", it) }; st.grass?.let { put("grass", it) }; st.dirt?.let { put("dirt", it) } }
+                    .apply { if (st.annexes.isNotEmpty()) put("annex", JSONArray().apply { st.annexes.forEach { put(JSONArray(listOf(it.dir, it.x, it.y, it.n))) } }) })
             }
         })
         val orders = JSONArray()
@@ -260,6 +261,13 @@ object Save {
             readUps(if (so.has("up")) so.optJSONObject("up") else oldUp, st.upgrades)
             if (so.has("grass")) st.grass = so.optInt("grass")
             if (so.has("dirt")) st.dirt = so.optInt("dirt")
+            so.optJSONArray("annex")?.let { a ->
+                for (k in 0 until a.length()) a.optJSONArray(k)?.let { v ->
+                    val n = v.optInt(3)
+                    val ax = Annex(v.optInt(0), v.optInt(1), v.optInt(2), n)
+                    if (n > 0 && ax.dir in 0..3 && ax.x >= 0 && ax.y >= 0 && ax.x + n <= Farm.MAX && ax.y + n <= Farm.MAX && st.annexes.none { it.dir == ax.dir }) st.annexes += ax
+                }
+            }
             if (so.has("cx") && so.has("cy")) { st.cx = so.optInt("cx").coerceIn(0, Farm.MAX - 1); st.cy = so.optInt("cy").coerceIn(0, Farm.MAX - 1) }
             readTiles(so.optJSONArray("tiles"), st.tiles, stride)
             so.optJSONArray("floors")?.let { a ->

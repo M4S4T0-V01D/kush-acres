@@ -37,6 +37,7 @@ import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Town
+import dev.m4s4t0.kushacres.model.Annex
 import dev.m4s4t0.kushacres.model.SiteDef
 import dev.m4s4t0.kushacres.model.TownFolk
 import dev.m4s4t0.kushacres.model.Towns
@@ -315,6 +316,7 @@ private fun MonaShop(ui: UiState) {
                 if (r == Result.OK) { ui.recenter++; Store.toast("The farm grew to ${f.land}×${f.land}!") }
             }
         }
+        item { AnnexCard(ui) }
         item {
             Store.rev
             val next = f.nextShack()
@@ -332,6 +334,42 @@ private fun MonaShop(ui: UiState) {
                 else "Farms elsewhere. Every one's got its own ground, its own weather in the wood.", 12.sp, Gold)
         }
         farmCards(ui)
+    }
+}
+
+/** The plot next door on any side, as big as the farm, for serious money. */
+@Composable
+internal fun AnnexCard(ui: UiState) {
+    val f = Store.farm
+    Store.rev
+    if (f.floor > 0) return
+    val c = f.annexCost()
+    val locked = f.level < SiteDef.REALTOR_LEVEL
+    Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Px(Sprites.map, 30.dp)
+            Spacer(Modifier.width(6.dp))
+            Column(Modifier.weight(1f)) {
+                T("Buy the plot next door", 13.sp, Gold)
+                T(if (locked) "Mona sells neighbouring land from Lv ${SiteDef.REALTOR_LEVEL}."
+                    else "A ${f.land}×${f.land} plot beside the farm, one per side. ${f.site.annexes.size}/4 bought here.", 11.sp, Cream, bold = false)
+            }
+            if (!locked && f.site.annexes.size < 4) T(money(c), 12.sp, if (f.cash >= c) Gold else Bad)
+        }
+        if (!locked) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            for ((d, side) in Annex.SIDES.withIndex()) {
+                if (f.site.annexes.any { it.dir == d }) {
+                    Box(Modifier.weight(1f).height(34.dp), contentAlignment = Alignment.Center) { T("✓ $side", 11.sp, Leaf) }
+                    continue
+                }
+                Btn(side, Modifier.weight(1f), enabled = f.annexSpot(d) != null && f.cash >= c, size = 11.sp) {
+                    val r = f.buyAnnex(d)
+                    if (r == Result.OK) { ui.recenter++; Store.toast("The $side plot is yours: the farm grew!") }
+                    else if (r == Result.BLOCKED) Store.toast("There's no room on that side")
+                    else report(r)
+                }
+            }
+        }
     }
 }
 

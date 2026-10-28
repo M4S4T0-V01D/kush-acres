@@ -193,6 +193,7 @@ private fun MapPicker(modifier: Modifier, cost: Long?, onDone: (Boolean) -> Unit
         }
         // Where the farm is now, then where it would go.
         drawRect(Color(0xFFF2C440), Offset(f.ox * c, f.oy * c), Size(n * c, n * c), style = Stroke(2f))
+        for (a in f.site.annexes) drawRect(Color(0xFFF2C440), Offset(a.x * c, a.y * c), Size(a.n * c, a.n * c), style = Stroke(2f))
         pick?.let { (px, py) ->
             val x0 = (px - n / 2).coerceIn(0, M - n); val y0 = (py - n / 2).coerceIn(0, M - n)
             val col = if (ok) Color(0xFF6AE04A) else Color(0xFFE04A4A)

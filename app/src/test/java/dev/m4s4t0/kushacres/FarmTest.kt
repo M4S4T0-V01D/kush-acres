@@ -1587,4 +1587,34 @@ class FarmTest {
         g.restart(t0); Save.read(json, g)
         assertEquals(json, Save.write(g))
     }
+
+    @Test fun buyingThePlotNextDoor() {
+        val f = farm()
+        f.cash = 1_000_000_000; f.level = SiteDef.REALTOR_LEVEL
+        val n = f.land
+        // Home sits in the map's corner: nothing west or north of it.
+        assertEquals(null, f.annexSpot(2)); assertEquals(null, f.annexSpot(3))
+        assertEquals(Result.BLOCKED, f.buyAnnex(3))
+        val c = f.annexCost()
+        assertEquals(Result.OK, f.buyAnnex(0))
+        assertEquals(c * 2, f.annexCost())
+        assertEquals(Result.BLOCKED, f.buyAnnex(0))
+        assertTrue(f.inLand(f.ox + n, f.oy) && f.inLand(f.ox + 2 * n - 1, f.oy + n - 1))
+        assertFalse(f.inLand(f.ox + 2 * n, f.oy))
+        var owned = 0; f.eachLand { _, _, _ -> owned++ }
+        assertEquals(2 * n * n, owned)
+        // Building works on it, and it survives a save.
+        val (ax, ay) = f.ox + n + 1 to f.oy + 1
+        f.tile(ax, ay).kind = Kind.GRASS
+        assertEquals(Result.OK, f.build(ax, ay, Kind.PLOT))
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(Save.write(f), Save.write(g))
+        assertEquals(1, g.site.annexes.size)
+        // Moving the farm takes the plot next door along with what's on it.
+        assertEquals(Result.OK, f.relocate(16, 16, free = true))
+        assertEquals(f.ox + n, f.site.annexes[0].x)
+        assertEquals(Kind.PLOT, f.tile(f.ox + n + 1, f.oy + 1).kind)
+        f.level = 1
+        assertEquals(Result.LOCKED, f.buyAnnex(1))
+    }
 }

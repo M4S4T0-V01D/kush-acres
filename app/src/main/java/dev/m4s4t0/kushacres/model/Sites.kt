@@ -260,6 +260,15 @@ object Bunker {
     fun sizeCost(n: Int, size: Int): Long = (300_000.0 * 3.0.pow(size - START) * 2.0.pow(n - 1)).toLong()
 }
 
+/** An extra square of land [n] across with its top-left at [x],[y], bought on side [dir] of the farm (see [Annex.SIDES]). */
+data class Annex(val dir: Int, val x: Int, val y: Int, val n: Int) {
+    fun has(a: Int, b: Int) = a in x until x + n && b in y until y + n
+    companion object {
+        /** Side names by dir: 0 is +x, 1 is +y, 2 is -x, 3 is -y. */
+        val SIDES = listOf("East", "South", "West", "North")
+    }
+}
+
 /** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
 class Site(val def: SiteDef) {
     val tiles = Array(Farm.MAX * Farm.MAX) { Tile() }
@@ -291,6 +300,8 @@ class Site(val def: SiteDef) {
     var made = 0
     var used = 0
     var specials: Set<String> = emptySet()
+    /** Plots bought next door from Mona, at most one per side; they stay where they were bought as the farm grows. */
+    val annexes = ArrayList<Annex>()
     /** Top-left corner of the owned square. */
     val ox get() = cx?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ax).roundToInt()
     val oy get() = cy?.let { (it - land / 2).coerceIn(0, Farm.MAX - land) } ?: ((Farm.MAX - land) * def.ay).roundToInt()

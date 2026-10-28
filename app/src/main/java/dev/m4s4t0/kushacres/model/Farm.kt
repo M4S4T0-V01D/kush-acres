@@ -312,11 +312,25 @@ class Farm(var rng: Random = Random.Default) {
     var festivalSite: String? = null
 
     fun tile(x: Int, y: Int): Tile = tiles[y * MAX + x]
-    fun inLand(x: Int, y: Int) = x in ox until ox + land && y in oy until oy + land
+    fun inLand(x: Int, y: Int) = (x in ox until ox + land && y in oy until oy + land) ||
+        (floor == 0 && site.annexes.any { it.has(x, y) })
+    /** The box round everything owned on the floor on screen: left, top, right, bottom, inclusive. */
+    fun landBox(): IntArray {
+        val b = intArrayOf(ox, oy, ox + land - 1, oy + land - 1)
+        if (floor == 0) for (a in site.annexes) {
+            b[0] = min(b[0], a.x); b[1] = min(b[1], a.y); b[2] = max(b[2], a.x + a.n - 1); b[3] = max(b[3], a.y + a.n - 1)
+        }
+        return b
+    }
     /** Calls [f] for every owned square of the active site. */
     inline fun eachLand(f: (x: Int, y: Int, t: Tile) -> Unit) {
-        val x0 = ox; val y0 = oy; val n = land
-        for (y in y0 until y0 + n) for (x in x0 until x0 + n) f(x, y, tile(x, y))
+        if (floor > 0 || site.annexes.isEmpty()) {
+            val x0 = ox; val y0 = oy; val n = land
+            for (y in y0 until y0 + n) for (x in x0 until x0 + n) f(x, y, tile(x, y))
+        } else {
+            val b = landBox()
+            for (y in b[1]..b[3]) for (x in b[0]..b[2]) if (inLand(x, y)) f(x, y, tile(x, y))
+        }
     }
     /** Runs [f] with each owned site made active in turn, then puts the one on screen back. */
     inline fun eachSite(f: (Site) -> Unit) {
@@ -807,8 +821,9 @@ class Farm(var rng: Random = Random.Default) {
     /** After a break, give the player a few minutes before the next event. */
     fun delayEvents(now: Long) { nextEventAt = now + (3 + rng.nextInt(4)) * 60_000L }
 
-    private fun growing() = (0 until land * land).map { ox + it % land to oy + it / land }
-        .filter { (x, y) -> tile(x, y).let { it.kind == Kind.PLOT && it.strain != null && !it.ready() && !it.pest && !it.mould } }
+    private fun growing() = ArrayList<Pair<Int, Int>>().also { out ->
+        eachLand { x, y, t -> if (t.kind == Kind.PLOT && t.strain != null && !t.ready() && !t.pest && !t.mould) out += x to y }
+    }
 
     fun makeEvent(now: Long, force: EventKind? = null): Happening? {
         val dog = placed(Decor.DOG)
@@ -1539,16 +1554,21 @@ class Farm(var rng: Random = Random.Default) {
         val nx = (cx - n / 2).coerceIn(0, MAX - n); val ny = (cy - n / 2).coerceIn(0, MAX - n)
         if (nx == ox && ny == oy) return Result.BLOCKED
         if (!canPlace(s.def, cx, cy, n)) return Result.BLOCKED
+        val dx = nx - ox; val dy = ny - oy
+        // Plots bought next door come along, so they have to fit on the map too.
+        val moved = s.annexes.map { it.copy(x = it.x + dx, y = it.y + dy) }
+        if (moved.any { it.x < 0 || it.y < 0 || it.x + it.n > MAX || it.y + it.n > MAX }) return Result.BLOCKED
         val c = relocateCost()
         if (!free) { if (cash < c) return Result.NO_CASH; spend(c) }
-        val old = Array(n * n) { i -> Tile().also { it.copyFrom(tile(ox + i % n, oy + i / n)) } }
-        val dx = nx - ox; val dy = ny - oy
+        val old = ArrayList<Triple<Int, Int, Tile>>()
+        eachLand { x, y, t -> old += Triple(x, y, Tile().also { it.copyFrom(t) }) }
         s.tiles.forEach { it.clear() }
         s.cx = cx; s.cy = cy
+        s.annexes.clear(); s.annexes += moved
         Sites.carve(s.def, s.tiles, nx, ny, n)
-        for (i in old.indices) {
-            val t = tile(nx + i % n, ny + i / n)
-            t.copyFrom(old[i])
+        for ((x, y, o) in old) {
+            val t = tile(x + dx, y + dy)
+            t.copyFrom(o)
             if (t.anchor >= 0) t.anchor += dy * MAX + dx
         }
         s.spots = null
@@ -1599,6 +1619,33 @@ class Farm(var rng: Random = Random.Default) {
         if (cash < next.third) return Result.NO_CASH
         spend(next.third)
         land = next.first
+        return Result.OK
+    }
+
+    /** What the next plot next door costs: twice what the farm's land has cost so far, doubling with each one owned. */
+    fun annexCost(): Long = nice(max(1_000_000.0, 2.0 * LAND.filter { it.first <= land }.sumOf { it.third }) * 2.0.pow(site.annexes.size))
+
+    /** The square the same size as the farm flush against its [dir] side, or null if that side's taken, off the map or mostly water. */
+    fun annexSpot(dir: Int): Annex? {
+        if (floor > 0 || site.annexes.any { it.dir == dir }) return null
+        val n = land
+        val a = when (dir) { 0 -> Annex(0, ox + n, oy, n); 1 -> Annex(1, ox, oy + n, n); 2 -> Annex(2, ox - n, oy, n); else -> Annex(3, ox, oy - n, n) }
+        if (a.x < 0 || a.y < 0 || a.x + n > MAX || a.y + n > MAX) return null
+        var wet = 0
+        for (y in a.y until a.y + n) for (x in a.x until a.x + n) if (tile(x, y).kind == Kind.WATER) wet++
+        return if (wet > n * n / 4) null else a
+    }
+
+    /** Buys the plot of land next door on [dir]'s side, as big as the farm is now. */
+    fun buyAnnex(dir: Int): Result {
+        if (level < SiteDef.REALTOR_LEVEL) return Result.LOCKED
+        val a = annexSpot(dir) ?: return Result.BLOCKED
+        val c = annexCost()
+        if (cash < c) return Result.NO_CASH
+        spend(c)
+        site.annexes += a
+        site.spots = null
+        layoutRev++
         return Result.OK
     }
 

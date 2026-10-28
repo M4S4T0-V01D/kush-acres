@@ -186,7 +186,7 @@ object Sites {
 }
 
 /** A work building on a farm, and whether a worker staffs it. */
-class HouseSpot(val x: Int, val y: Int, val house: WorkHouse, val staffed: Boolean)
+class HouseSpot(val x: Int, val y: Int, val house: WorkHouse, val staffed: Boolean, val size: Int = 1)
 
 /** One farm you own: its own land and everything on it. Cash, stash, helpers and the rest are shared. */
 class Site(val def: SiteDef) {

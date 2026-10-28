@@ -476,7 +476,7 @@ private fun BottomBar(ui: UiState) {
                     else -> ""
                 }
                 is Mode.PlaceFacility -> "Tap grass to build the ${m.f.title}: ${money(f.facilityCost(m.f))}"
-                is Mode.PlaceHouse -> "Tap grass to build the ${m.h.title}: ${money(f.houseCost(m.h))}"
+                is Mode.PlaceHouse -> (if (m.h.size == 2) "Tap where the ${m.h.title}'s back corner goes (it needs 2×2 grass)" else "Tap grass to build the ${m.h.title}") + ": ${money(f.houseCost(m.h))}"
                 is Mode.PlaceVehicle -> "Tap where the ${m.v.title}'s back corner goes (it needs 2×2 grass): ${money(m.v.cost)}"
                 is Mode.PlacePower -> "Tap grass to build the ${m.g.title}: ${money(f.generatorCost(m.g))}"
                 is Mode.PlaceSpecial -> "Tap grass to build the ${m.s.title}: ${m.s.gems} gems + ${money(m.s.cash)}"
@@ -560,6 +560,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                     val extras = buildList {
                         add(if (f.sprinkled(x, y)) "Sprinkler" else if (wet) "Watered ${dur((tile.wetUntil - now) / 1000)}" else "Dry: tap to water (+50% speed)")
                         if (f.lamps(x, y) > 0) add("Lamps +${f.lamps(x, y) * 25}%")
+                        if (f.shaded(x, y)) add("Shaded −5%")
                     }
                     T(extras.joinToString("  ·  "), 11.sp, if (wet) Sky else Dim)
                 }

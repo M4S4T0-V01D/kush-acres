@@ -143,8 +143,8 @@ enum class Helper(val title: String, val job: String, val level: Int, val cost: 
 }
 
 /**
- * Work buildings: one square each, they speed up the plots or facilities within [reach] squares. A worker staffing
- * one doubles its effect ([staffed]); the bunkhouse makes room for two more workers on its farm instead.
+ * Work buildings: [size]×[size] squares each, they speed up the plots or facilities within [reach] squares of them. A
+ * worker staffing one doubles its effect ([staffed]); the bunkhouse makes room for two more workers on its farm instead.
  */
 enum class WorkHouse(val title: String, val desc: String, val staffed: String, val level: Int, val cost: Long, val reach: Int) {
     STORE("Lab Storefront", "Sells your lab-bred bud by itself, even while you're away. Upgrades from a stand to a flagship store", "Sells 50% faster", 8, 10_000, 0),
@@ -157,6 +157,8 @@ enum class WorkHouse(val title: String, val desc: String, val staffed: String, v
 
     /** The effect strength: 1 unstaffed, 2 staffed. */
     fun power(staffed: Boolean) = if (staffed) 2 else 1
+    /** The water tower stands on one square; the rest take 2×2. */
+    val size get() = if (this == TOWER) 1 else 2
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.name == id }

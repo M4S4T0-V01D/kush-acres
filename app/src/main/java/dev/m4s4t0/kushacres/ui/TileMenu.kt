@@ -69,7 +69,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                 Kind.SHACK, Kind.PART -> "Shack"
                 Kind.VEHICLE, Kind.CAB -> f.vehicleOn(x, y)?.title ?: "Vehicle"
                 Kind.FACILITY -> Facility.of(tile.item)?.title ?: "Facility"
-                Kind.HOUSE -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: "Building"
+                Kind.HOUSE, Kind.WING -> if (Storefronts.isStore(tile)) Storefronts.name(tile.lvl) else WorkHouse.of(tile.item)?.title ?: "Building"
                 Kind.POWER -> Generator.of(tile.item)?.title ?: "Generator"
                 Kind.SPECIAL -> Special.of(tile.item)?.title ?: "Special"
                 Kind.DECOR, Kind.PATH -> Decor.of(tile.item)?.title ?: "Decor"
@@ -145,7 +145,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     f.vehicleOn(x, y)?.let { T(it.desc + ".", 12.sp, Cream) }
                     item("Move") { moveIt() }
                 }
-                Kind.HOUSE, Kind.POWER, Kind.SPECIAL -> {
+                Kind.HOUSE, Kind.WING, Kind.POWER, Kind.SPECIAL -> {
                     item("Details", Gold) { ui.selected = x to y; close() }
                     item("Move") { moveIt() }
                 }

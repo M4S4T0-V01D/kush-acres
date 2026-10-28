@@ -46,6 +46,7 @@ import dev.m4s4t0.kushacres.art.Keeper
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.audio.Audio
 import dev.m4s4t0.kushacres.audio.Sfx
+import dev.m4s4t0.kushacres.art.BigHouses
 import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.art.DecorArt
 import dev.m4s4t0.kushacres.art.People
@@ -393,6 +394,7 @@ class World {
                     val ax = a % Farm.MAX; val ay = a / Farm.MAX
                     listOf(ax to ay, ax + 1 to ay, ax to ay + 1, ax + 1 to ay + 1)
                 }
+                Kind.HOUSE, Kind.WING -> f.anchorOf(mx, my).let { (ax, ay) -> f.houseCells(ax, ay) }
                 else -> listOf(mx to my)
             }
             val c = if ((t * 3).toInt() % 2 == 0) 0xFF7BD34B.toInt() else 0xFFB6F27A.toInt()
@@ -419,7 +421,25 @@ class World {
             val u = minOf(viewU(ax, ay), viewU(ax + 1, ay + 1)); val w = minOf(viewV(ax, ay), viewV(ax + 1, ay + 1))
             Triple(v, ax to ay, u to w)
         } }
+        // So do the bigger work buildings.
+        val bigHouses = f.houses().filter { it.size == 2 }.map { h ->
+            Triple(h, minOf(viewU(h.x, h.y), viewU(h.x + 1, h.y + 1)), minOf(viewV(h.x, h.y), viewV(h.x + 1, h.y + 1)))
+        }
+        val bigAt = bigHouses.mapTo(HashSet()) { it.first.x to it.first.y }
         for (s in 0..(Farm.MAX - 1) * 2) {
+          for ((h, u, w) in bigHouses) {
+              if (s != u + w + 2) continue
+              val bx = OX + (u - w) * (TW / 2); val by = OY + (u + w) * (TH / 2) + 32
+              val top = by - BigHouses.AY
+              ground(bx.toFloat(), by - TH.toFloat(), TW * 0.9f)
+              val (art, sl) = put(BigHouses.sprite(h.house, f.tile(h.x, h.y).lvl), bx, bx - BigHouses.AX, top)
+              hits += Hit(h.x, h.y, art, sl, top)
+              // A staffed building keeps a light on.
+              if (h.staffed) BigHouses.glow(h.house).let { (gx0, gy) ->
+                  val gx = if (flip) BigHouses.W - 1 - gx0 else gx0
+                  light(sl + gx + 0.5f, top + gy + 0.5f, 10f, 0xFFC060, 0.7f + 0.1f * sin(t * 5 + h.x))
+              }
+          }
           for ((v, a, uw) in vehicles) {
               val (u, w) = uw
               if (s != u + w + 2) continue
@@ -528,7 +548,7 @@ class World {
                 Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
                 Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
-                Kind.HOUSE -> WorkHouse.of(tile.item)?.let { h ->
+                Kind.HOUSE -> WorkHouse.of(tile.item)?.takeIf { (x to y) !in bigAt }?.let { h ->
                     stand(x, y, if (h == WorkHouse.STORE) Buildings.store(tile.lvl) else Buildings.house(h), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
                     // A staffed building keeps a light on.
                     if (staffed?.contains(x to y) == true) light(cx.toFloat(), cy - 14f, 8f, 0xFFC060, 0.7f + 0.1f * sin(t * 5 + x))
@@ -878,7 +898,9 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         }
 
         /** A plain tap that didn't do a farming action: place, move or show what's there. */
-        fun tap(x: Int, y: Int) {
+        fun tap(x0: Int, y0: Int) {
+            // A work building's other squares stand for the building.
+            val (x, y) = f.anchorOf(x0, y0)
             val tile = f.tile(x, y)
             when (val m = ui.mode) {
                 is Mode.PlaceHouse -> {
@@ -887,7 +909,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         buzz(); Audio.play(Sfx.BUILD); world.fx.burst(Burst.DUST, world.centerX(x, y).toFloat(), world.centerY(x, y) - 2f)
                         Store.toast(if (m.h == WorkHouse.BUNK) "Bunkhouse built: room for 2 more workers" else if (m.h == WorkHouse.STORE) "Your stand is open! It sells lab-bred bud from the stash" else "${m.h.title} built! Hire a worker to staff it")
                         ui.mode = Mode.Farm; Store.changed()
-                    } else if (r == Result.BLOCKED) Store.toast("Pick an empty grass square")
+                    } else if (r == Result.BLOCKED) Store.toast(if (m.h.size == 2) "It needs a free 2×2 grass spot with its back corner here" else "Pick an empty grass square")
                     else if (r == Result.LIMIT) Store.toast("That's the most of those one farm can hold")
                     else complain(r)
                 }
@@ -949,6 +971,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                         else Store.toast(when (f.tile(from.first, from.second).kind) {
                             Kind.SHACK, Kind.PART -> "The shack needs a free 2×2 spot with its back corner here"
                             Kind.VEHICLE, Kind.CAB -> "It needs a free 2×2 spot with its back corner here"
+                            Kind.HOUSE -> if (f.houseCells(from.first, from.second).size > 1) "It needs a free 2×2 spot with its back corner here" else "Pick an empty grass square"
                             else -> "Pick an empty grass square"
                         })
                     }
@@ -989,7 +1012,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
                     fun openMenu(): Boolean {
                         if (ui.mode != Mode.Farm || start == null || !f.inLand(start.first, start.second)) return false
                         if (f.tile(start.first, start.second).kind == Kind.GRASS) return false
-                        ui.selected = null; ui.menuAt = down.position; ui.menu = start
+                        ui.selected = null; ui.menuAt = down.position; ui.menu = f.anchorOf(start.first, start.second)
                         buzz(); Audio.play(Sfx.TAP)
                         return true
                     }

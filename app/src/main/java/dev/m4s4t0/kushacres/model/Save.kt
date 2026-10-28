@@ -74,6 +74,9 @@ object Save {
             if (parts != 3) tiles.forEach { if ((it.kind == Kind.CAB || it.kind == Kind.VEHICLE) && it.anchor == i) it.clear() }
         }
         tiles.forEach { t -> if (t.kind == Kind.CAB && tiles.getOrNull(t.anchor)?.kind != Kind.VEHICLE) t.clear() }
+        // Work buildings anchor themselves; a wing without its building goes.
+        for ((i, t) in tiles.withIndex()) if (t.kind == Kind.HOUSE) t.anchor = i
+        tiles.forEach { t -> if (t.kind == Kind.WING && tiles.getOrNull(t.anchor)?.kind != Kind.HOUSE) t.clear() }
     }
 
     fun write(f: Farm): String {
@@ -252,6 +255,8 @@ object Save {
             f.paint(it.roof, it.wall)
             // Version 1 had no shack: put one down wherever it fits.
             f.autoPlaceShack()
+            // Before 0.13 work buildings took one square.
+            f.spreadHouses()
         }
         o.optJSONArray("orders")?.let { arr ->
             for (i in 0 until minOf(arr.length(), Farm.MAX_ORDERS)) {

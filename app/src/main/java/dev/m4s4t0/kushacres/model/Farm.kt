@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /** ROCK can be cleared for cash; WATER stays and keeps the plots beside it wet. */
-enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB }
+enum class Kind { GRASS, PLOT, SPRINKLER, LAMP, SHACK, PART, FACILITY, DECOR, PATH, ROCK, WATER, HOUSE, POWER, SPECIAL, VEHICLE, CAB, WING }
 
 /**
  * One square of land. Plots grow things; sprinklers, lamps and decor help the squares around them. The shack covers
@@ -38,7 +38,7 @@ class Tile {
     var pest = false
     /** Mould from damp weather: like bugs, the plant stops until it's scraped off. */
     var mould = false
-    /** For [Kind.PART] and [Kind.CAB]: index of the shack's or vehicle's anchor square. */
+    /** For [Kind.PART], [Kind.CAB] and [Kind.WING]: index of the shack's, vehicle's or work building's anchor square. */
     var anchor = -1
     /** The growing plant's phenotype (see [Pheno]). */
     var pheno = 0
@@ -123,6 +123,8 @@ class Farm(var rng: Random = Random.Default) {
         /** Wet soil grows this much faster. */
         const val WET_BOOST = 1.5
         const val LAMP_BOOST = 0.25
+        /** Growth beside something big that shades the plot. */
+        const val SHADE = 0.95
         /** Delivering an order pays this many times selling it on the spot. */
         const val DELIVERY_PAY = 1.8
         /** Holiday tokens for a finished job and for finishing all three, before the level bonus. */
@@ -544,7 +546,16 @@ class Farm(var rng: Random = Random.Default) {
             0.20 * decorAround(x, y, Decor.WINDMILL) + 0.25 * decorAround(x, y, Decor.UFO) + perkNear(x, y, Perk.GROW)) *
         (1 + 0.2 * houseNear(x, y, WorkHouse.GROW)) * (1 + 0.1 * crew(Crew.BOTANIST)) *
         (1 + 0.1 * legacy) * Legacy.mult(this, LegacyPerk.GREEN_THUMB, 0.15) * when (season()) { Season.SPRING -> 1.15; Season.WINTER -> 0.9; else -> 1.0 } *
-        (if (here(Special.VAULT)) 1.3 else 1.0) * (if (built(Special.TEMPLE)) 1.1 else 1.0)
+        (if (here(Special.VAULT)) 1.3 else 1.0) * (if (built(Special.TEMPLE)) 1.1 else 1.0) * (if (shaded(x, y)) SHADE else 1.0)
+
+    /** Whether something big (the shack, a vehicle, a 2×2 work building) stands beside x,y, shading it. */
+    fun shaded(x: Int, y: Int) = neighbours(x, y) {
+        when (it.kind) {
+            Kind.SHACK, Kind.PART, Kind.VEHICLE, Kind.CAB, Kind.WING -> true
+            Kind.HOUSE -> WorkHouse.of(it.item)?.size == 2
+            else -> false
+        }
+    } > 0
 
     fun goldenChance(x: Int, y: Int): Double = GOLDEN_CHANCE + 0.03 * decorAround(x, y, Decor.BEEHIVE) +
         0.06 * decorAround(x, y, Decor.ALIEN) + 0.08 * decorAround(x, y, Decor.TOTEM) + perkNear(x, y, Perk.GOLD) + (if (on(Buff.LUCKY)) 0.21 else 0.0) + (if (on(Buff.DUST)) 0.15 else 0.0) +
@@ -1165,7 +1176,7 @@ class Farm(var rng: Random = Random.Default) {
     fun demolish(x: Int, y: Int): Result {
         val t = tile(x, y)
         when (t.kind) {
-            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB -> return Result.BLOCKED
+            Kind.GRASS, Kind.SHACK, Kind.PART, Kind.FACILITY, Kind.HOUSE, Kind.ROCK, Kind.WATER, Kind.POWER, Kind.SPECIAL, Kind.VEHICLE, Kind.CAB, Kind.WING -> return Result.BLOCKED
             Kind.PLOT -> if (t.strain != null || count(Kind.PLOT) <= 1) return Result.BLOCKED
             Kind.DECOR, Kind.PATH -> { val d = t.item ?: ""; decorInv[d] = (decorInv[d] ?: 0) + 1 }
             else -> {}
@@ -1223,6 +1234,20 @@ class Farm(var rng: Random = Random.Default) {
             clearVehicle(ax, ay)
             if (placeVehicle(tx, ty, v, due)) { layoutRev++; return Result.OK }
             placeVehicle(ax, ay, v, due)
+            return Result.BLOCKED
+        }
+        if (from.kind == Kind.HOUSE || from.kind == Kind.WING) {
+            val (ax, ay) = anchorOf(fx, fy)
+            val h = WorkHouse.of(tile(ax, ay).item) ?: return Result.BLOCKED
+            if (tx == ax && ty == ay) return Result.BLOCKED
+            val keep = Tile().also { it.copyFrom(tile(ax, ay)) }
+            val cells = houseCells(ax, ay)
+            cells.forEach { (cx, cy) -> tile(cx, cy).clear() }
+            site.spots = null
+            if (placeHouse(tx, ty, h, keep)) { layoutRev++; return Result.OK }
+            // Put it back just as it was (an old one-square building stays one square).
+            val a = ay * MAX + ax
+            cells.forEachIndexed { i, (cx, cy) -> tile(cx, cy).apply { if (i == 0) copyFrom(keep) else kind = Kind.WING; anchor = a } }
             return Result.BLOCKED
         }
         if (from.kind == Kind.GRASS || from.kind == Kind.ROCK || from.kind == Kind.WATER || !inLand(tx, ty)) return Result.BLOCKED
@@ -1398,7 +1423,7 @@ class Farm(var rng: Random = Random.Default) {
         for (i in old.indices) {
             val t = tile(nx + i % n, ny + i / n)
             t.copyFrom(old[i])
-            if (t.kind == Kind.PART || t.kind == Kind.CAB) t.anchor += dy * MAX + dx
+            if (t.anchor >= 0) t.anchor += dy * MAX + dx
         }
         s.spots = null
         return Result.OK
@@ -1532,12 +1557,13 @@ class Farm(var rng: Random = Random.Default) {
         site.spots?.let { return it }
         val out = ArrayList<HouseSpot>()
         var free = site.workers
+        val wings = site.tiles.filter { it.kind == Kind.WING }.mapTo(HashSet()) { it.anchor }
         eachLand { x, y, t ->
             if (t.kind != Kind.HOUSE) return@eachLand
             val h = WorkHouse.of(t.item) ?: return@eachLand
             val staffed = h != WorkHouse.BUNK && free > 0
             if (staffed) free--
-            out += HouseSpot(x, y, h, staffed)
+            out += HouseSpot(x, y, h, staffed, if (y * MAX + x in wings) 2 else 1)
         }
         site.spots = out
         return out
@@ -1549,7 +1575,10 @@ class Farm(var rng: Random = Random.Default) {
         for (s in houses()) {
             if (s.house != h) continue
             val reach = h.reach + (if (h == WorkHouse.TOWER && s.staffed) 1 else 0)
-            if (abs(s.x - x) <= reach && abs(s.y - y) <= reach) best = max(best, h.power(s.staffed))
+            // Reach counts from the nearest square of the building's footprint.
+            val dx = if (x < s.x) s.x - x else max(0, x - (s.x + s.size - 1))
+            val dy = if (y < s.y) s.y - y else max(0, y - (s.y + s.size - 1))
+            if (dx <= reach && dy <= reach) best = max(best, h.power(s.staffed))
         }
         return best
     }
@@ -1558,15 +1587,61 @@ class Farm(var rng: Random = Random.Default) {
     fun houseCost(h: WorkHouse): Long = nice(h.cost * 2.5.pow(count(h)))
 
     fun buildHouse(x: Int, y: Int, h: WorkHouse): Result {
-        if (!inLand(x, y) || tile(x, y).kind != Kind.GRASS) return Result.BLOCKED
+        if (!fits(x, y, h.size)) return Result.BLOCKED
         if (level < h.level) return Result.LOCKED
         if (count(h) >= (if (h == WorkHouse.STORE) Storefronts.PER_FARM else WorkHouse.MAX_EACH)) return Result.LIMIT
         val cost = houseCost(h)
         if (cash < cost) return Result.NO_CASH
         spend(cost)
-        tile(x, y).apply { kind = Kind.HOUSE; item = h.name; lvl = 1; progress = 0.0 }
-        site.spots = null
+        placeHouse(x, y, h, null)
+        layoutRev++
         return Result.OK
+    }
+
+    /** Whether an [n]×[n] footprint with its top-left at x,y is all free grass. */
+    fun fits(x: Int, y: Int, n: Int) = (0 until n * n).all { i -> inLand(x + i % n, y + i / n) && tile(x + i % n, y + i / n).kind == Kind.GRASS }
+
+    /** Puts [h]'s footprint down with its top-left at x,y, carrying over [keep]'s level and timers when it's being moved. */
+    private fun placeHouse(x: Int, y: Int, h: WorkHouse, keep: Tile?): Boolean {
+        if (!fits(x, y, h.size)) return false
+        val a = y * MAX + x
+        for (i in 0 until h.size * h.size) tile(x + i % h.size, y + i / h.size).apply { clear(); kind = Kind.WING; anchor = a }
+        tile(x, y).apply {
+            if (keep != null) copyFrom(keep) else { kind = Kind.HOUSE; item = h.name; lvl = 1; progress = 0.0 }
+            anchor = a
+        }
+        site.spots = null
+        return true
+    }
+
+    /** The square a building hangs off: a [Kind.WING]'s work building, else x,y itself. */
+    fun anchorOf(x: Int, y: Int): Pair<Int, Int> {
+        val t = tile(x, y)
+        return if (t.kind == Kind.WING && t.anchor >= 0) (t.anchor % MAX) to (t.anchor / MAX) else x to y
+    }
+
+    /** The squares the work building at ax,ay covers, its own first. */
+    fun houseCells(ax: Int, ay: Int): List<Pair<Int, Int>> {
+        val a = ay * MAX + ax
+        return listOf(ax to ay) + tiles.indices.filter { tiles[it].kind == Kind.WING && tiles[it].anchor == a }.map { (it % MAX) to (it / MAX) }
+    }
+
+    /**
+     * For saves from before work buildings took 2×2: spreads each one over the grass around it, keeping the square
+     * it stood on as one of its four. One with no room left stays a single square until it's moved.
+     */
+    fun spreadHouses() {
+        eachLand { x, y, t ->
+            val h = WorkHouse.of(t.item)
+            if (t.kind != Kind.HOUSE || h == null || h.size == 1 || houseCells(x, y).size > 1) return@eachLand
+            val keep = Tile().also { it.copyFrom(t) }
+            for ((dx, dy) in listOf(0 to 0, -1 to 0, 0 to -1, -1 to -1)) {
+                t.clear()
+                if (placeHouse(x + dx, y + dy, h, keep)) return@eachLand
+            }
+            t.copyFrom(keep); t.anchor = y * MAX + x
+        }
+        site.spots = null
     }
 
     /** Workers (and crew) the active farm has beds for: one, plus two per bunkhouse and two for an RV. */

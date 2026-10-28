@@ -183,7 +183,7 @@ private fun MapPicker(modifier: Modifier, cost: Long?, onDone: (Boolean) -> Unit
             val col = when (tiles[y * M + x].kind) {
                 Kind.WATER -> Color(0xFF3A7AC8)
                 Kind.ROCK -> Color(0xFF8A8A8A)
-                Kind.HOUSE -> Color(0xFFA0583A)
+                Kind.HOUSE, Kind.WING -> Color(0xFFA0583A)
                 Kind.PATH -> Color(0xFFC8A870)
                 else -> if ((x * 7 + y * 13) % 5 == 0) wild else ground.copy(alpha = 0.85f)
             }

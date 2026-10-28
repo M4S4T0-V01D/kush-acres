@@ -111,6 +111,23 @@ internal fun dumpPanels(dir: String) {
     shot("stores", 0) {
         androidx.compose.foundation.layout.Row { for (i in 1..Storefronts.MAX) Px(Buildings.store(i), 60.dp) }
     }
+    shot("big", 0, 600) {
+        val B = dev.m4s4t0.kushacres.art.BigHouses
+        val all = (1..Storefronts.MAX).map { B.sprite(WorkHouse.STORE, it) } + WorkHouse.entries.filter { it != WorkHouse.STORE && it.size == 2 }.map { B.sprite(it) }
+        for (row in all.chunked(4)) androidx.compose.foundation.layout.Row { for (b in row) Px(b, 72.dp) }
+    }
+    run {
+        // Big buildings on the farm itself, to check they sit on their 2×2.
+        fun spot() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
+        val placed = listOf(WorkHouse.BUNK, WorkHouse.STORE, WorkHouse.GROW).map { h -> spot().also { (a, b) -> f.buildHouse(a, b, h) } }
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val cx = placed.sumOf { w.centerX(it.first, it.second) } / placed.size
+        val cy = placed.sumOf { w.centerY(it.first, it.second) } / placed.size
+        w.view(cx - 110, cy - 90, cx + 110, cy + 50, 4)
+        w.render(f, now, 1.3f, dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f), null, false)
+        val img = w.bitmap.asImageBitmap()
+        shot("farm-big", 0, 500) { androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), filterQuality = androidx.compose.ui.graphics.FilterQuality.None) }
+    }
     // Skia's teardown can crash the JVM on the way out; the pictures are written by now.
     Runtime.getRuntime().halt(0)
 }

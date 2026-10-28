@@ -724,10 +724,11 @@ class FarmTest {
         assertEquals(Result.BLOCKED, f.buildHouse(x, y, WorkHouse.TOWER))
         assertTrue(f.houseCost(WorkHouse.GROW) > WorkHouse.GROW.cost)
         // Unstaffed it counts once; a worker doubles it.
-        assertEquals(1, f.houseNear(x + 2, y, WorkHouse.GROW))
-        assertEquals(0, f.houseNear(x + 3, y, WorkHouse.GROW))
+        // It's 2×2, so its reach is measured from the nearest square of it.
+        assertEquals(1, f.houseNear(x + 3, y, WorkHouse.GROW))
+        assertEquals(0, f.houseNear(x + 4, y, WorkHouse.GROW))
         assertEquals(Result.OK, f.hireWorker())
-        assertEquals(2, f.houseNear(x + 2, y, WorkHouse.GROW))
+        assertEquals(2, f.houseNear(x + 3, y, WorkHouse.GROW))
         // One bed until there's a bunkhouse.
         assertEquals(Result.LIMIT, f.hireWorker())
         val (bx, by) = grass()
@@ -737,7 +738,56 @@ class FarmTest {
         // Workers are kept with the save.
         val g = farm(); Save.read(Save.write(f), g)
         assertEquals(2, g.site.workers)
-        assertEquals(2, g.houseNear(x + 2, y, WorkHouse.GROW))
+        assertEquals(2, g.houseNear(x + 3, y, WorkHouse.GROW))
+    }
+
+    @Test fun bigBuildingsTakeTwoByTwo() {
+        val f = rich().apply { level = 30 }
+        fun spot() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
+        val (x, y) = spot()
+        assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.BUNK))
+        assertEquals(Kind.HOUSE, f.tile(x, y).kind)
+        for ((a, b) in listOf(x + 1 to y, x to y + 1, x + 1 to y + 1)) {
+            assertEquals(Kind.WING, f.tile(a, b).kind)
+            assertEquals(x to y, f.anchorOf(a, b))
+        }
+        assertEquals(4, f.houseCells(x, y).size)
+        assertEquals(2, f.houses().first { it.x == x && it.y == y }.size)
+        // The watchtower stays one square.
+        val (tx, ty) = spot()
+        assertEquals(Result.OK, f.buildHouse(tx, ty, WorkHouse.TOWER))
+        assertEquals(1, f.houseCells(tx, ty).size)
+        // Moving from any square moves the whole building, level and all.
+        f.tile(x, y).lvl = 2
+        val (mx, my) = spot()
+        assertEquals(Result.OK, f.move(x + 1, y + 1, mx, my))
+        assertEquals(Kind.HOUSE, f.tile(mx, my).kind)
+        assertEquals(2, f.tile(mx, my).lvl)
+        assertEquals(4, f.houseCells(mx, my).size)
+        for ((a, b) in listOf(x to y, x + 1 to y, x to y + 1, x + 1 to y + 1)) if (a to b !in f.houseCells(mx, my)) assertEquals(Kind.GRASS, f.tile(a, b).kind)
+        // It survives a save.
+        val g = farm(); Save.read(Save.write(f), g)
+        assertEquals(4, g.houseCells(mx, my).size)
+    }
+
+    @Test fun oldSmallBuildingsSpreadOut() {
+        val f = rich().apply { level = 30 }
+        val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
+        assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.DRYING))
+        // An old save had it on one square.
+        for ((a, b) in f.houseCells(x, y).drop(1)) f.tile(a, b).clear()
+        assertEquals(1, f.houseCells(x, y).size)
+        f.spreadHouses()
+        assertEquals(4, f.houseCells(x, y).size)
+        assertEquals(WorkHouse.DRYING, WorkHouse.of(f.tile(x, y).item))
+    }
+
+    @Test fun bigThingsShadeTheirNeighbours() {
+        val f = rich().apply { level = 30 }
+        val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) && f.fits(a + 2, b, 1) }
+        assertFalse(f.shaded(x + 2, y))
+        assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.TRIM))
+        assertTrue(f.shaded(x + 2, y))
     }
 
     @Test fun movingAGrowingPlantStuntsIt() {

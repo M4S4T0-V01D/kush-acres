@@ -1,6 +1,33 @@
-MIT License
-
+Kush Acres
 Copyright (c) 2026 M4S4T0-V01D
+
+This repository is under two licenses: the code is MIT, and the art, audio
+and name are all rights reserved.
+
+1. ART, AUDIO, NAME AND LOGO: ALL RIGHTS RESERVED
+
+The following are NOT covered by the MIT License below. No rights are granted
+to use, copy, modify, redistribute or publish them, in whole or in part,
+without written permission from M4S4T0-V01D:
+
+  - The pixel art, sprites, tiles, characters, animations and visual designs
+    of the game, including the source files that draw them:
+    app/src/main/java/dev/m4s4t0/kushacres/art/
+  - The music and sound effects, including the source files that generate them:
+    app/src/main/java/dev/m4s4t0/kushacres/audio/
+  - All image files and icons, including art/, docs/media/,
+    desktop/src/main/resources/ and the launcher icon in app/src/main/res/
+  - The website text and design in docs/
+  - The name "Kush Acres" and its logo, which may not be used to name,
+    publish or promote any other app, game or product
+
+You may download and play the official builds, and share unmodified
+screenshots and videos of the game you made yourself.
+
+2. CODE: MIT LICENSE
+
+Everything else in this repository (the source code not listed in section 1,
+and the build scripts) is licensed under the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

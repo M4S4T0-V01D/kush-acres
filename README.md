@@ -8,7 +8,7 @@
 Plant it, water it, watch it grow under a real sky, and turn a dirt patch behind a shack into the dankest empire in the county.
 
 [![Latest release](https://img.shields.io/github/v/release/M4S4T0-V01D/kush-acres?style=for-the-badge&color=2e9e34&label=release)](https://github.com/M4S4T0-V01D/kush-acres/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-e8433a?style=for-the-badge)](LICENSE)
+[![License: MIT code, art reserved](https://img.shields.io/badge/code-MIT-e8433a?style=for-the-badge)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/M4S4T0-V01D/kush-acres/total?style=for-the-badge&color=ffd23f&labelColor=333)](https://github.com/M4S4T0-V01D/kush-acres/releases)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-e8433a?style=for-the-badge&logo=linux&logoColor=white)
@@ -137,7 +137,12 @@ The roadmap lives in [PLAN.md](PLAN.md). The website is in [`docs/`](docs/) and 
 
 ## 📜 License
 
-[MIT](LICENSE) © M4S4T0-V01D. Use it, mod it, share it, just keep the copyright notice.
+© 2026 M4S4T0-V01D. See [LICENSE](LICENSE).
+
+- **Code: MIT.** Use it, learn from it, build on it, just keep the copyright notice.
+- **Art, music, sounds, the name and the logo: all rights reserved.** That covers the drawing code in `art/`, the sound code in `audio/`, every image and the website. Don't reuse them or publish the game, or anything called Kush Acres, without permission.
+
+Screenshots and videos you take of the game are fine to share.
 
 ---
 

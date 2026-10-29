@@ -323,6 +323,19 @@ class FarmTest {
         assertTrue(f.sellAllGoods() > 0 && f.goods.isEmpty())
     }
 
+    @Test fun higherDecorReachesFurther() {
+        assertEquals(1, Decor.GNOME.reach); assertEquals(1, Decor.PUMPKIN.reach)
+        assertEquals(2, Decor.TIKI.reach); assertEquals(3, Decor.WINDMILL.reach); assertEquals(4, Decor.TOTEM.reach)
+        assertEquals(0, Decor.BENCH.reach); assertEquals(0, Decor.BARREL.reach)
+        val f = farm()
+        f.cash = 10_000_000; f.level = 20
+        assertEquals(Result.OK, f.placeDecor(1, 3, Decor.TIKI))
+        assertEquals(1, f.decorAround(3, 5, Decor.TIKI))
+        assertEquals(0, f.decorAround(4, 3, Decor.TIKI))
+        assertEquals(4 * 5 - 1, f.areaOf(1, 3).size) // 5×5 cut off at the farm's edge, minus the torch itself
+        assertTrue(1 to 3 !in f.areaOf(1, 3))
+    }
+
     @Test fun decorHelpsAndHasALimit() {
         val f = farm()
         f.cash = 1_000_000; f.level = 20

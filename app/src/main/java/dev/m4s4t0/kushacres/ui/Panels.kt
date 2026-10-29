@@ -594,12 +594,12 @@ internal fun DecorList(ui: UiState, owned: Boolean) {
             val shed = f.decorInv.entries.filter { it.value > 0 }.mapNotNull { e -> Decor.of(e.key)?.let { it to e.value } }
             items(shed) { (d, n) ->
                 Store.rev
-                Card(DecorArt.sprite(d), "${d.title} ×$n", d.desc, "In your shed", "Place", true) { startPlacing(ui, Mode.PlaceDecor(d)) }
+                Card(DecorArt.sprite(d), "${d.title} ×$n", d.info, "In your shed", "Place", true) { startPlacing(ui, Mode.PlaceDecor(d)) }
             }
         }
         items(Decor.entries.filter { !it.black }) { d ->
             Store.rev
-            Card(DecorArt.sprite(d), d.title, d.desc, null, money(d.cost), f.cash >= d.cost, if (f.level < d.level) d.level else null) {
+            Card(DecorArt.sprite(d), d.title, d.info, null, money(d.cost), f.cash >= d.cost, if (f.level < d.level) d.level else null) {
                 startPlacing(ui, Mode.PlaceDecor(d))
             }
         }

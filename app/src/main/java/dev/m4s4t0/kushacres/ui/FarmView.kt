@@ -33,6 +33,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -1156,6 +1158,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
         /** A plain tap that didn't do a farming action: place, move or show what's there. */
         fun tap(x0: Int, y0: Int) {
             if (ui.photo) return
+            if (ui.area != null) { ui.area = null; return }
             // A work building's other squares stand for the building.
             val (x, y) = f.anchorOf(x0, y0)
             val tile = f.tile(x, y)
@@ -1425,6 +1428,16 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             val r = (offset.x + (world.vx + world.vw) * scale).roundToInt(); val b = (offset.y + (world.vy + world.vh) * scale).roundToInt()
             drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(world.vw * world.k, world.vh * world.k),
                 dstOffset = IntOffset(l, tp), dstSize = IntSize(r - l, b - tp), filterQuality = FilterQuality.None)
+            // The menu's Area view: what the chosen square reaches, tinted yellow.
+            ui.area?.let { (ax, ay) ->
+                val hw = Sprites.TW / 2f * scale; val hh = Sprites.TH / 2f * scale
+                for ((x, y) in f.areaOf(ax, ay)) {
+                    val cx = offset.x + world.centerX(x, y) * scale; val cy = offset.y + world.centerY(x, y) * scale
+                    val p = Path().apply { moveTo(cx, cy - hh); lineTo(cx + hw, cy); lineTo(cx, cy + hh); lineTo(cx - hw, cy); close() }
+                    drawPath(p, Color(0x66FFD84A))
+                    drawPath(p, Color(0xCCFFD84A), style = Stroke(max(1f, scale / 2)))
+                }
+            }
             if (f.floor == 0) drawIntoCanvas {
                 world.fx.drawSky(it.nativeCanvas, size.width, size.height, scale, t, light)
                 world.fx.drawHoliday(it.nativeCanvas, size.width, size.height, scale, t, light, f.holiday())

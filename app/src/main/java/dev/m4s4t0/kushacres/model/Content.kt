@@ -56,7 +56,8 @@ enum class Facility(
 }
 
 /**
- * Things to put around the farm. Neighbour effects reach the eight squares around and stack up to two of a kind;
+ * Things to put around the farm. Neighbour effects reach every square within [reach] (the eight around for low-level
+ * decor, wider the higher its level) and stack up to two of a kind;
  * farm-wide effects count once per kind. Paths are decor too, but don't count towards the shack's decor limit.
  */
 enum class Decor(
@@ -121,7 +122,20 @@ enum class Decor(
     BUDDHA("Chill Buddha", "+8% XP", 1, 0, black = true, perk = Perk.XP, amt = 0.08, bucks = 50),
     TIKIBAR("Tiki Bar", "Everything sells 5% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.05, bucks = 60);
 
+    /** How many squares out its neighbour effect reaches (0: none). Level 1-9 cover 3×3 like a sprinkler, then 5×5, 7×7 and 9×9. */
+    val reach: Int get() = when {
+        !near -> 0
+        level < 10 -> 1
+        level < 25 -> 2
+        level < 45 -> 3
+        else -> 4
+    }
+    val near: Boolean get() = this in NEAR || perk == Perk.GROW || perk == Perk.YIELD || perk == Perk.GOLD
+    /** Its description with the area it covers. */
+    val info: String get() = if (reach > 0) "$desc · ${2 * reach + 1}×${2 * reach + 1}" else desc
+
     companion object {
+        private val NEAR by lazy { setOf(GNOME, SCARECROW, COMPOST, BEEHIVE, TIKI, WINDMILL, GREENHOUSE, TOTEM, LAVA, ALIEN, UFO, CRYSTAL) }
         fun of(id: String?) = entries.firstOrNull { it.name == id }
         /** Holiday decor with neighbour or farm-wide effects of each kind. */
         val perks: Map<Perk, List<Decor>> = entries.filter { it.perk != null }.groupBy { it.perk!! }

@@ -167,6 +167,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     item("Move") { moveIt() }
                 }
                 Kind.DECOR, Kind.PATH -> {
+                    if (f.areaOf(x, y).isNotEmpty()) item("Area", Gold) { ui.area = x to y; close(); Store.toast("Tap anywhere to hide the area") }
                     item("Move") { moveIt() }
                     item("Put away", Bad) {
                         val r = f.demolish(x, y)
@@ -175,6 +176,7 @@ fun TileMenu(ui: UiState, at: Pair<Int, Int>) {
                     }
                 }
                 Kind.SPRINKLER, Kind.LAMP -> {
+                    if (f.areaOf(x, y).isNotEmpty()) item("Area", Gold) { ui.area = x to y; close(); Store.toast("Tap anywhere to hide the area") }
                     item("Move") { moveIt() }
                     item("Remove", Bad) {
                         val r = f.demolish(x, y); if (r == Result.OK) { Audio.play(Sfx.DEMOLISH); Store.changed() } else report(r); close()

@@ -136,7 +136,7 @@ internal fun HolidayPanel(ui: UiState) {
         items(h.decor) { d ->
             Store.rev
             val have = f.decorInv[d.name] ?: 0
-            Card(DecorArt.sprite(d), d.title, d.desc, if (have > 0) "$have ready to place from Build" else null,
+            Card(DecorArt.sprite(d), d.title, d.info, if (have > 0) "$have ready to place from Build" else null,
                 "${Holiday.DECOR}", enabled = f.tokens(h) >= Holiday.DECOR, actionIcon = tok) {
                 buy(f.buyHolidayDecor(h, d), "${d.title} bought. Place it from Build › Decor.")
             }
@@ -203,7 +203,7 @@ internal fun BucksPanel(ui: UiState) {
         items(Decor.bucksShop) { d ->
             Store.rev
             val have = f.decorInv[d.name] ?: 0
-            Card(DecorArt.sprite(d), d.title, d.desc, if (have > 0) "$have ready to place from Build" else null,
+            Card(DecorArt.sprite(d), d.title, d.info, if (have > 0) "$have ready to place from Build" else null,
                 "${d.bucks}", f.potBucks >= d.bucks, actionIcon = Coins.bucks) {
                 buy(f.buyBucksDecor(d), "${d.title} bought. Place it from Build › Decor.")
             }

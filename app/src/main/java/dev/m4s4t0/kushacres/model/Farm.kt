@@ -590,7 +590,30 @@ class Farm(var rng: Random = Random.Default) {
     }
 
     private fun around(x: Int, y: Int, kind: Kind) = neighbours(x, y) { it.kind == kind }
-    fun decorAround(x: Int, y: Int, d: Decor) = min(2, neighbours(x, y) { it.kind == Kind.DECOR && it.item == d.name })
+    /** How many [d] reach x,y (up to two): those within [Decor.reach] squares, not counting x,y itself. */
+    fun decorAround(x: Int, y: Int, d: Decor): Int {
+        val r = d.reach.coerceAtLeast(1)
+        var n = 0
+        for (ny in max(0, y - r)..min(MAX - 1, y + r)) for (nx in max(0, x - r)..min(MAX - 1, x + r)) {
+            if (nx == x && ny == y) continue
+            val t = tile(nx, ny)
+            if (t.kind == Kind.DECOR && t.item == d.name && ++n == 2) return 2
+        }
+        return n
+    }
+
+    /** The squares the thing at x,y has an effect on, for the menu's Area view; empty when it has none. */
+    fun areaOf(x: Int, y: Int): List<Pair<Int, Int>> {
+        val t = tile(x, y)
+        val r = when (t.kind) {
+            Kind.SPRINKLER, Kind.LAMP -> 1
+            Kind.DECOR -> if (t.item == Decor.BARREL.name) -1 else Decor.of(t.item)?.reach ?: 0
+            else -> 0
+        }
+        if (r < 0) return listOf(x - 1 to y, x + 1 to y, x to y - 1, x to y + 1).filter { (a, b) -> a in 0 until MAX && b in 0 until MAX }
+        return (max(0, y - r)..min(MAX - 1, y + r)).flatMap { ny -> (max(0, x - r)..min(MAX - 1, x + r)).map { it to ny } }
+            .filter { it != x to y }
+    }
 
     private fun barrelBeside(x: Int, y: Int): Boolean =
         listOf(x - 1 to y, x + 1 to y, x to y - 1, x to y + 1).any { (nx, ny) ->

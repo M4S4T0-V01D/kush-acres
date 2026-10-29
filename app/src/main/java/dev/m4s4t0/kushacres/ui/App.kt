@@ -131,6 +131,8 @@ class UiState {
     var room by mutableStateOf<dev.m4s4t0.kushacres.model.RoomKind?>(null)
     /** The plot whose trimming game is open. */
     var trim by mutableStateOf<Pair<Int, Int>?>(null)
+    /** The square whose area of effect is tinted yellow on the farm (from the menu's Area); the next tap clears it. */
+    var area by mutableStateOf<Pair<Int, Int>?>(null)
     /** Whether the tools row (seed, move, trim, destroy) is open above the bottom bar. */
     var tools by mutableStateOf(false)
     /** The farmer creator open to restyle, and the farm-moving map open. */
@@ -702,7 +704,7 @@ private fun InfoCard(ui: UiState, at: Pair<Int, Int>) {
                 T(if (sp.local) "Works on this farm." else "Works on every farm.", 11.sp, Leaf)
                 if (sp == Special.MINE && f.mineAt > 0) T("Next gem in ${dur(((f.mineAt - now) / 1000).coerceAtLeast(0))}", 11.sp, Sky)
             }
-            Kind.DECOR, Kind.PATH -> T(Decor.of(tile.item)?.desc ?: "", 12.sp, Dim)
+            Kind.DECOR, Kind.PATH -> T(Decor.of(tile.item)?.info ?: "", 12.sp, Dim)
             Kind.ROCK -> {
                 T("Too big to build on. Break it up to free the square.", 12.sp, Dim)
                 Spacer(Modifier.height(6.dp))

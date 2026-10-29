@@ -71,6 +71,27 @@ class SynthTest {
         assertEquals(heads.size, heads.toSet().size)
     }
 
+    @Test fun remixDealsNewTunesInTheSameGenre() {
+        try {
+            Tunes.mix = 12345
+            val mixed = Tunes.areas.map { Tunes.of(it) }
+            val plain = Tunes.areas.map { Tunes.of(it, 0) }
+            for ((a, b) in mixed.zip(plain)) assertEquals(b.style, a.style)
+            assertTrue(mixed.zip(plain).count { (a, b) -> a.seed != b.seed && (a.root != b.root || a.bpm != b.bpm || a.lead != b.lead) } >= mixed.size - 2)
+            for (t in mixed) assertTrue(t.bpm in t.style.bpm)
+            // Same salt, same songs; a few rendered to be sure they still play cleanly.
+            assertEquals(mixed, Tunes.areas.map { Tunes.of(it, 12345) })
+            for (id in listOf("home", "coast", "volcano", "fort20", "town")) {
+                val t = Tunes.of(id)
+                val m = Synth.music(t)
+                assertEquals(16 * 4 * 60.0 / t.bpm, m.size / Synth.RATE.toDouble(), 0.01)
+                check("remix-$id", m)
+            }
+            val heads = mixed.map { t -> dev.m4s4t0.kushacres.audio.Melodist.line(t, Tunes.feel(t), t.style == dev.m4s4t0.kushacres.audio.Style.LOFI).all.take(8).map { it.at to it.deg } }
+            assertTrue(heads.toSet().size >= heads.size - 2)
+        } finally { Tunes.mix = 0 }
+    }
+
     @Test fun wavHeader() {
         val w = Synth.wav(FloatArray(10))
         assertEquals("RIFF", String(w, 0, 4)); assertEquals(64, w.size)

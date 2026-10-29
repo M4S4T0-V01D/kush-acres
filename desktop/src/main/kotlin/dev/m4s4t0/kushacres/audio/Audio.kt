@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import javax.sound.sampled.AudioFormat
@@ -23,6 +24,8 @@ object Audio {
     var haptics by mutableStateOf(true); private set
     /** The radio station: "local" (each place's own tune), "shuffle", or a track id (see [Radio]). */
     var station by mutableStateOf("local"); private set
+    /** The music mix: 0 plays the written tunes, anything else a remix of them all (see [Tunes.of]). */
+    var mix by mutableIntStateOf(0); private set
 
     private lateinit var app: Context
     private var sfx: Array<FloatArray>? = null
@@ -53,6 +56,7 @@ object Audio {
         val p = prefs()
         music = p.getFloat("music", 0.5f); sound = p.getFloat("sound", 0.8f); haptics = p.getBoolean("haptics", false)
         station = p.getString("station", "local") ?: "local"
+        mix = p.getInt("mix", 0); Tunes.mix = mix
         thread(name = "synth", isDaemon = true, priority = Thread.MIN_PRIORITY) {
             runCatching {
                 sfx = Array(Sfx.entries.size) { Synth.sfx(Sfx.entries[it]) }
@@ -60,12 +64,14 @@ object Audio {
                 // Render each area's tune when it's wanted; keep the last few in memory.
                 while (true) {
                     val id = areaWant
-                    if (id != areaHave) {
-                        val t = tunes.remove(id) ?: Synth.music(Tunes.of(id))
-                        tunes[id] = t
+                    val salt = Tunes.mix
+                    val key = "$id#$salt"
+                    if (key != areaHave) {
+                        val t = tunes.remove(key) ?: Synth.music(Tunes.of(id, salt))
+                        tunes[key] = t
                         if (tunes.size > 4) tunes.remove(tunes.keys.first())
                         if (song == null) song = t else nextSong = t
-                        areaHave = id
+                        areaHave = key
                     }
                     Thread.sleep(200)
                 }
@@ -116,6 +122,13 @@ object Audio {
     fun changeSound(v: Float) { sound = v; prefs().edit().putFloat("sound", v).apply() }
     fun changeHaptics(v: Boolean) { haptics = v; prefs().edit().putBoolean("haptics", v).apply() }
     fun changeStation(v: String) { station = v; prefs().edit().putString("station", v).apply() }
+
+    /** Deals every tune afresh: new keys, tempos, leads and melodies, each in its own genre. */
+    fun remix() = useMix(generateSequence { (1..999_999).random() }.first { it != mix })
+    /** Back to the tunes as written. */
+    fun original() = useMix(0)
+
+    private fun useMix(v: Int) { mix = v; Tunes.mix = v; prefs().edit().putInt("mix", v).apply() }
 
     private fun mix() {
         val format = AudioFormat(Synth.RATE.toFloat(), 16, 1, true, false)

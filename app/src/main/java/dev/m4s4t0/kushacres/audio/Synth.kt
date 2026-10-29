@@ -14,12 +14,12 @@ enum class Sfx {
 
 object Synth {
     const val RATE = 22050
-    private const val TAU = (2 * PI).toFloat()
+    internal const val TAU = (2 * PI).toFloat()
 
     /** Frequency of a MIDI note. */
     fun hz(note: Int) = 440f * 2f.pow((note - 69) / 12f)
 
-    private class Buf(seconds: Float) {
+    internal class Buf(seconds: Float) {
         val s = FloatArray((seconds * RATE).toInt())
         /** Adds f(t, i) from `at` seconds for `len` seconds. */
         inline fun add(at: Float, len: Float, f: (t: Float) -> Float) {
@@ -29,25 +29,25 @@ object Synth {
         }
     }
 
-    private fun bell(freq: Float, t: Float, decay: Float) =
+    internal fun bell(freq: Float, t: Float, decay: Float) =
         (sin(TAU * freq * t) + 0.45f * sin(TAU * freq * 2.76f * t) * exp(-t * decay * 1.8f) +
             0.2f * sin(TAU * freq * 5.4f * t) * exp(-t * decay * 3f)) * exp(-t * decay) * attack(t, 0.004f)
 
-    private fun attack(t: Float, a: Float) = if (t < a) t / a else 1f
-    private fun square(phase: Float) = if ((phase % 1f) < 0.5f) 1f else -1f
+    internal fun attack(t: Float, a: Float) = if (t < a) t / a else 1f
+    internal fun square(phase: Float) = if ((phase % 1f) < 0.5f) 1f else -1f
     /** A softened square: round edges, less buzz. */
-    private fun soft(phase: Float) = sin(TAU * phase).let { it + sin(3 * TAU * phase) / 3f + sin(5 * TAU * phase) / 7f } * 0.8f
+    internal fun soft(phase: Float) = sin(TAU * phase).let { it + sin(3 * TAU * phase) / 3f + sin(5 * TAU * phase) / 7f } * 0.8f
 
-    private fun lowpass(x: FloatArray, cut: Float) {
+    internal fun lowpass(x: FloatArray, cut: Float) {
         val a = 1f - exp(-TAU * cut / RATE)
         var y = 0f
         for (i in x.indices) { y += a * (x[i] - y); x[i] = y }
     }
 
-    private fun noise(seed: Int, n: Int): FloatArray { val r = Random(seed); return FloatArray(n) { r.nextFloat() * 2 - 1 } }
+    internal fun noise(seed: Int, n: Int): FloatArray { val r = Random(seed); return FloatArray(n) { r.nextFloat() * 2 - 1 } }
 
     /** Peak to `peak`, so every effect sits at the same loudness. */
-    private fun norm(x: FloatArray, peak: Float = 0.8f): FloatArray {
+    internal fun norm(x: FloatArray, peak: Float = 0.8f): FloatArray {
         var m = 1e-6f
         for (v in x) m = maxOf(m, kotlin.math.abs(v))
         for (i in x.indices) x[i] = x[i] / m * peak
@@ -157,7 +157,7 @@ object Synth {
     }
 
     /** Bass riffs, a bar each: (beat, length, scale step over the chord root). */
-    private val RIFFS = listOf(
+    internal val RIFFS = listOf(
         listOf(Triple(0f, 1.5f, 0), Triple(1.5f, 0.5f, 0), Triple(2f, 1f, 4), Triple(3f, 0.5f, 2), Triple(3.5f, 0.5f, 1)),
         listOf(Triple(0f, 0.75f, 0), Triple(1f, 0.5f, 2), Triple(1.5f, 1f, 4), Triple(3f, 0.5f, 7), Triple(3.5f, 0.5f, 4)),
         listOf(Triple(0.5f, 1f, 0), Triple(1.5f, 0.5f, 0), Triple(2.5f, 0.5f, 2), Triple(3f, 1f, 4)),
@@ -184,6 +184,7 @@ object Synth {
     fun music(tune: Tune = Tunes.of("home")): FloatArray {
         val fe = Tunes.feel(tune)
         if (tune.style == Style.LOFI) return lofi(tune, fe)
+        if (tune.style != Style.REGGAE && tune.style != Style.DUB) return Band.play(tune, fe)
         val dub = tune.style == Style.DUB
         val beat = 60f / tune.bpm
         val bar = beat * 4
@@ -489,23 +490,31 @@ object Synth {
     }
 
     /** A felt piano: soft hammer, quick fade. */
-    private fun piano(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 2) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 4)) * exp(-t * 1.8f) * attack(t, 0.003f)
+    internal fun piano(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 2) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 4)) * exp(-t * 1.8f) * attack(t, 0.003f)
     /** A nylon-string guitar pluck. */
-    private fun nylon(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 5) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 8)) * exp(-t * 3.5f) * attack(t, 0.003f)
+    internal fun nylon(f: Float, t: Float) = (sin(TAU * f * t) + 0.4f * sin(TAU * 2 * f * t) * exp(-t * 5) + 0.15f * sin(TAU * 3 * f * t) * exp(-t * 8)) * exp(-t * 3.5f) * attack(t, 0.003f)
     /** A vibraphone, its motor wobbling. */
-    private fun vibes(f: Float, t: Float) = (sin(TAU * f * t) + 0.2f * sin(TAU * 4 * f * t) * exp(-t * 6)) * exp(-t * 1.2f) * (1 + 0.3f * sin(TAU * 5.5f * t)) * attack(t, 0.003f)
+    internal fun vibes(f: Float, t: Float) = (sin(TAU * f * t) + 0.2f * sin(TAU * 4 * f * t) * exp(-t * 6)) * exp(-t * 1.2f) * (1 + 0.3f * sin(TAU * 5.5f * t)) * attack(t, 0.003f)
     /** A soft pad of two detuned voices, swelling in and out over [len] seconds. */
-    private fun pad(f: Float, t: Float, len: Float) = (sin(TAU * f * t) + sin(TAU * f * 1.006f * t) + 0.3f * sin(TAU * 2 * f * t)) * 0.5f *
+    internal fun pad(f: Float, t: Float, len: Float) = (sin(TAU * f * t) + sin(TAU * f * 1.006f * t) + 0.3f * sin(TAU * 2 * f * t)) * 0.5f *
         (t / 0.4f).coerceAtMost(1f) * ((len - t) / 0.4f).coerceIn(0f, 1f)
 
     /** An electric piano: a soft tine with a little bell on the attack and a slow tremolo. */
-    private fun keys(f: Float, t: Float) = (sin(TAU * f * t) + 0.25f * sin(TAU * 2 * f * t) * exp(-t * 3) + 0.12f * sin(TAU * 7.1f * f * t) * exp(-t * 18)) *
+    internal fun keys(f: Float, t: Float) = (sin(TAU * f * t) + 0.25f * sin(TAU * 2 * f * t) * exp(-t * 3) + 0.12f * sin(TAU * 7.1f * f * t) * exp(-t * 18)) *
         exp(-t * 1.3f) * attack(t, 0.004f) * (1 + 0.12f * sin(TAU * 4.5f * t))
 
-    private fun guitar(f: Float, t: Float) = (sin(TAU * f * t) + 0.5f * sin(TAU * 2 * f * t) + 0.3f * sin(TAU * 3 * f * t) + 0.2f * sin(TAU * 4 * f * t)) * exp(-t * 16) * attack(t, 0.002f)
-    private fun organ(f: Float, t: Float) = (sin(TAU * f * t) + 0.7f * sin(TAU * 2 * f * t) + 0.4f * sin(TAU * 3 * f * t) + 0.25f * sin(TAU * 4 * f * t)) * (1 + 0.15f * sin(TAU * 6 * t))
+    internal fun guitar(f: Float, t: Float) = (sin(TAU * f * t) + 0.5f * sin(TAU * 2 * f * t) + 0.3f * sin(TAU * 3 * f * t) + 0.2f * sin(TAU * 4 * f * t)) * exp(-t * 16) * attack(t, 0.002f)
+    internal fun organ(f: Float, t: Float) = (sin(TAU * f * t) + 0.7f * sin(TAU * 2 * f * t) + 0.4f * sin(TAU * 3 * f * t) + 0.25f * sin(TAU * 4 * f * t)) * (1 + 0.15f * sin(TAU * 6 * t))
 
-    private fun lead(l: Lead, f: Float, t: Float): Float {
+    /** A saw wave with only the harmonics that fit under the sample rate, so high notes don't alias into a whistle. */
+    internal fun saw(phase: Float, f: Float): Float {
+        var x = 0f
+        val top = minOf(10, (RATE / 2.2f / f).toInt())
+        for (k in 1..top) x += sin(TAU * k * phase) / k
+        return x * 0.6f
+    }
+
+    internal fun lead(l: Lead, f: Float, t: Float): Float {
         val vib = 0.02f * sin(TAU * 5.5f * t) * attack(t, 0.25f)
         val ph = f * t + vib
         return when (l) {
@@ -517,6 +526,8 @@ object Synth {
             Lead.FLUTE -> (sin(TAU * ph) + 0.12f * sin(TAU * 2 * ph) + 0.05f * sin(TAU * 1731 * t) * sin(TAU * 97 * t)) * exp(-t * 0.4f) * attack(t, 0.05f) * 1.1f
             Lead.ORGAN -> organ(f, t) * 0.55f * attack(t, 0.01f) * exp(-t * 0.3f)
             Lead.GUITAR -> guitar(f, t) * 1.4f * exp(t * 11)
+            Lead.PULSE -> (if ((ph % 1f) < 0.25f) 0.5f else -0.5f) * attack(t, 0.004f) * (if (t < 0.1f) 1f else 0.75f)
+            Lead.SAW -> (saw(ph, f) * 0.6f + saw(f * 1.007f * t, f) * 0.4f) * attack(t, 0.01f) * exp(-t * 0.5f) * 0.8f
         }
     }
 
@@ -537,7 +548,7 @@ enum class Amb { DAY, NIGHT, RAIN }
 
 object Ambience {
     private const val RATE = Synth.RATE
-    private const val TAU = (2 * PI).toFloat()
+    internal const val TAU = (2 * PI).toFloat()
 
     /** A 16 s seamless loop. */
     fun loop(a: Amb): FloatArray {

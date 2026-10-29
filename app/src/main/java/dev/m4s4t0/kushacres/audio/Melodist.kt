@@ -180,11 +180,11 @@ class Melodist(
         /** The lead for [tune]: a rhythm vocabulary picked by its feel's note lengths, its own motif, a variation for the second half. */
         fun line(tune: Tune, fe: Feel, rich: Boolean): Line {
             val r = Random(tune.seed * 31 + 7)
-            val rhythm = when (fe.rhythm) {
+            val rhythm = (tune.style.cells ?: when (fe.rhythm) {
                 1 -> listOf("bouncy", "phonk", "house")
                 2 -> listOf("smooth", "dub", "fresh")
                 else -> listOf("latin", "house", "fresh")
-            }[r.nextInt(3)]
+            })[r.nextInt(3)]
             val m = Melodist(r, { at -> tune.prog[((at / 4).toInt() / tune.bars) % tune.prog.size] }, rich)
             val density = when { fe.plan == 2 -> 0.6f; rich -> 0.7f; else -> 0.85f }
             val base = m.write(16, rhythm, density)

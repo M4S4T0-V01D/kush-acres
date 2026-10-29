@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
@@ -20,7 +21,7 @@ import kotlin.concurrent.thread
  */
 object Audio {
     /** Bump when Synth changes, so the cached WAVs are rendered again. */
-    private const val VERSION = 5
+    private const val VERSION = 6
     /** Phones can vibrate; the desktop build has no such setting. */
     const val CAN_BUZZ = true
 
@@ -29,6 +30,8 @@ object Audio {
     var haptics by mutableStateOf(true); private set
     /** The radio station: "local" (each place's own tune), "shuffle", or a track id (see [Radio]). */
     var station by mutableStateOf("local"); private set
+    /** The music mix: 0 plays the written tunes, anything else a remix of them all (see [Tunes.of]). */
+    var mix by mutableIntStateOf(0); private set
 
     private lateinit var app: Context
     private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
@@ -44,7 +47,7 @@ object Audio {
     private var ambWant: Amb? = null
     private var foreground = false
     private lateinit var dir: File
-    /** The area whose tune should play, and the one whose tune is loaded. */
+    /** The area whose tune should play, and the "area#mix" whose tune is loaded. */
     private var areaWant = "home"
     private var areaHave: String? = null
     private var rendering = false
@@ -54,6 +57,7 @@ object Audio {
         val p = prefs()
         music = p.getFloat("music", 0.5f); sound = p.getFloat("sound", 0.8f); haptics = p.getBoolean("haptics", true)
         station = p.getString("station", "local") ?: "local"
+        mix = p.getInt("mix", 0); Tunes.mix = mix
         pool.setOnLoadCompleteListener { _, id, status -> if (status == 0) ids.indexOf(id).let { if (it >= 0) loaded[it] = true } }
         thread(name = "synth", priority = Thread.MIN_PRIORITY) {
             runCatching {
@@ -79,21 +83,23 @@ object Audio {
 
     /** Renders the wanted area's loop if it isn't cached yet, then swaps it in. Main thread only. */
     private fun loadTune() {
-        if (rendering || areaHave == areaWant) return
         val id = areaWant
+        val salt = mix
+        val key = "$id#$salt"
+        if (rendering || areaHave == key) return
         rendering = true
         thread(name = "synth-$id", priority = Thread.MIN_PRIORITY) {
-            val f = runCatching { file("music-$id") { Synth.music(Tunes.of(id)) } }.onFailure { Log.e("KushAcres", "tune", it) }.getOrNull()
+            val f = runCatching { file(if (salt == 0) "music-$id" else "music-$id-m$salt") { Synth.music(Tunes.of(id, salt)) } }.onFailure { Log.e("KushAcres", "tune", it) }.getOrNull()
             android.os.Handler(app.mainLooper).post {
                 rendering = false
                 if (f != null) {
                     song?.release()
                     song = player(f, music * 0.6f)
                     rateOn = 1f
-                    areaHave = id
+                    areaHave = key
                     refresh()
                 }
-                if (areaWant != id) loadTune()
+                if (areaWant != id || mix != salt) loadTune()
             }
         }
     }
@@ -129,6 +135,21 @@ object Audio {
     fun changeSound(v: Float) { sound = v; prefs().edit().putFloat("sound", v).apply() }
     fun changeHaptics(v: Boolean) { haptics = v; prefs().edit().putBoolean("haptics", v).apply() }
     fun changeStation(v: String) { station = v; prefs().edit().putString("station", v).apply() }
+
+    /** Deals every tune afresh: new keys, tempos, leads and melodies, each in its own genre. */
+    fun remix() = useMix(generateSequence { (1..999_999).random() }.first { it != mix })
+    /** Back to the tunes as written. */
+    fun original() = useMix(0)
+
+    private fun useMix(v: Int) {
+        mix = v; Tunes.mix = v
+        prefs().edit().putInt("mix", v).apply()
+        if (!::dir.isInitialized) return
+        thread(name = "synth-clean", priority = Thread.MIN_PRIORITY) {
+            dir.listFiles { f -> f.name.startsWith("music-") && "-m" in f.name && !f.name.endsWith("-m$v.wav") }?.forEach { it.delete() }
+        }
+        loadTune()
+    }
 
     private fun refresh() {
         song?.let { p -> val v = music * 0.6f; p.setVolume(v, v); if (foreground && v > 0f) { if (!p.isPlaying) p.start() } else if (p.isPlaying) p.pause()

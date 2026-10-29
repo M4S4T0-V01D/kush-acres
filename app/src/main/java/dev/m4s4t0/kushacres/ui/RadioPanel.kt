@@ -23,6 +23,12 @@ import dev.m4s4t0.kushacres.audio.Style
 
 private val Lofi = Color(0xFFC9A2FF)
 
+private fun styleColor(s: Style) = when (s) {
+    Style.REGGAE -> Leaf; Style.DUB -> Sky; Style.LOFI -> Lofi; Style.HOUSE -> Gold; Style.ITALO -> Color(0xFFFF7EC8)
+    Style.SYNTHPOP -> Color(0xFF6FE0E0); Style.DARKWAVE -> Color(0xFFA08CB8); Style.JUNGLE -> Color(0xFFFF9A4D)
+    Style.FUSION -> Color(0xFFFFD27A); Style.CHIP -> Color(0xFF9BE15D)
+}
+
 /** The radio: what's on now, the two stations, and every track, the locked ones greyed with how to get them. */
 @Composable
 internal fun RadioPanel(ui: UiState) {
@@ -65,7 +71,7 @@ internal fun RadioPanel(ui: UiState) {
                     T(t.name, 13.sp, if (has) Cream else Dim)
                     if (!has) T(t.how, 10.sp, Dim, bold = false)
                 }
-                T(Radio.styleName(t.style), 10.sp, when (t.style) { Style.REGGAE -> Leaf; Style.DUB -> Sky; Style.LOFI -> Lofi }.let { if (has) it else Dim })
+                T(Radio.styleName(t.style), 10.sp, styleColor(t.style).let { if (has) it else Dim })
             }
         }
     }

@@ -15,7 +15,7 @@ object Radio {
     const val SHUFFLE_MS = 4 * 60_000L
 
     /** Extra tracks you get by reaching a level. */
-    val LEVELS = mapOf("lofi1" to 5, "dub1" to 10, "reggae1" to 16, "lofi2" to 22, "dub2" to 30)
+    val LEVELS = mapOf("lofi1" to 5, "house1" to 8, "dub1" to 10, "chip1" to 13, "reggae1" to 16, "italo1" to 19, "lofi2" to 22, "jungle1" to 26, "dub2" to 30)
     /** Extra tracks only the town board gives out. */
     val BOARD = Tunes.extras.map { it.first }.filter { it !in LEVELS }
 
@@ -48,5 +48,5 @@ object Radio {
         else -> if (has(f, station)) station else area
     }
 
-    fun styleName(s: Style) = when (s) { Style.REGGAE -> "Reggae"; Style.DUB -> "Dub"; Style.LOFI -> "Lo-fi" }
+    fun styleName(s: Style) = s.label
 }

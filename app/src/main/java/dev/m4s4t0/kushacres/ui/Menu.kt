@@ -514,6 +514,14 @@ internal fun Settings(ui: UiState) {
         T("Vibration", 14.sp, Cream, Modifier.weight(1f))
         Btn(if (Audio.haptics) "On" else "Off", color = if (Audio.haptics) Leaf else WoodEdge) { Audio.changeHaptics(!Audio.haptics) }
     }
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            T("Songs", 14.sp, Cream)
+            T(if (Audio.mix == 0) "The originals" else "Remix #${Audio.mix}", 10.sp, Dim, bold = false)
+        }
+        if (Audio.mix != 0) { Btn("Originals", color = WoodEdge) { Audio.original() }; Spacer(Modifier.width(6.dp)) }
+        Btn("New songs", color = Gold) { Audio.remix(); Store.toast("Every song remixed") }
+    }
     Spacer(Modifier.height(12.dp))
     T("Everything you hear is made by the game itself, note by note.", 10.sp, Dim, bold = false)
     Spacer(Modifier.height(16.dp))

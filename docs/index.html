@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kush Acres · grow the dankest pixel farm in the county</title>
+<meta name="description" content="Kush Acres is a free pixel-art isometric cannabis farming game for Android and Linux. Grow 250 strains, breed hybrids, hunt phenos, run 30 farms and blaze through a real day and night.">
+<meta property="og:title" content="Kush Acres">
+<meta property="og:description" content="A free pixel-art isometric weed farming game for Android and Linux.">
+<meta property="og:image" content="https://m4s4t0-v01d.github.io/kush-acres/media/farm-day.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0d140b">
+<link rel="icon" href="media/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="smoke" aria-hidden="true"></canvas>
+<div id="leaves" aria-hidden="true"></div>
+
+<nav class="top">
+  <a class="brand" href="#"><img src="media/icon.png" alt="" width="32" height="32">KUSH ACRES</a>
+  <div class="links">
+    <a href="#features">Features</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#maps">Maps</a>
+    <a href="#download" class="pill">Download</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="rasta"><i></i><i></i><i></i></div>
+  <div class="hero-in">
+    <div class="hero-text">
+      <p class="kicker">a pixel-art weed farming game</p>
+      <h1><span class="g">KUSH</span> <span class="y">ACRES</span></h1>
+      <p class="lede">Plant it. Water it. Watch it grow under a real sky. Breed hybrids, hunt the perfect pheno,
+        win the Cup and turn a dirt patch behind a shack into the dankest empire in the county.</p>
+      <div class="cta">
+        <a class="btn btn-green" href="https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres.apk">
+          <span class="ico">▼</span> Android APK</a>
+        <a class="btn btn-gold" href="https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres-linux.tar.gz">
+          <span class="ico">▼</span> Linux</a>
+      </div>
+      <p class="meta"><span id="ver">latest release</span> · free · no ads · no account · <span id="dl"></span></p>
+    </div>
+    <figure class="hero-shot frame">
+      <img src="media/daynight.gif" alt="The farm going from day to night" width="544" height="288">
+      <figcaption>real-time day &amp; night · 24 hours in 6 seconds</figcaption>
+    </figure>
+  </div>
+</header>
+
+<section class="stats">
+  <div><b data-n="250">250</b><span>strains</span></div>
+  <div><b data-n="30">30</b><span>farms to own</span></div>
+  <div><b data-n="80">80</b><span>levels</span></div>
+  <div><b>4/20</b><span>holiday events</span></div>
+</section>
+
+<section id="features" class="wrap">
+  <h2><span class="leaf"></span>What's growing<span class="leaf"></span></h2>
+  <div class="grid">
+    <article class="card"><div class="em">🌱</div><h3>Grow from seed</h3>
+      <p>Every plant grows in real time with its own look. Water it, beat the pests and mould, and harvest it ripe and frosty.</p></article>
+    <article class="card"><div class="em">🧬</div><h3>Breed &amp; hunt phenos</h3>
+      <p>Cross strains in the lab and pop seed packs looking for that one elite keeper. Keep her as a mother and clone her forever.</p></article>
+    <article class="card"><div class="em">🏆</div><h3>Win the Cup</h3>
+      <p>Enter your best bud in the weekly Cup and beat rivals like Skunk Patel and The Reverend for cash, Bucks and bragging rights.</p></article>
+    <article class="card"><div class="em">🗺️</div><h3>30 farms</h3>
+      <p>Buy land in a redwood forest, a volcano island, a glowing neon valley, Zion Gardens, a walled fort, a haunted manor and more. Each one has its own map, town and strains.</p></article>
+    <article class="card"><div class="em">🌧️</div><h3>Weather &amp; seasons</h3>
+      <p>Sun, fog, rain and storms roll through on their own, and the seasons turn. Lamps glow and fireflies come out at night.</p></article>
+    <article class="card"><div class="em">💨</div><h3>Smoke a sesh</h3>
+      <p>Roll joints, blunts and hotboxes from your own stash for buffs. Some trips get very trippy.</p></article>
+    <article class="card"><div class="em">👨‍🌾</div><h3>Hire a crew</h3>
+      <p>Runners, fetchers, farmhands, cooks, a lookout and a manager keep the place running while you're away.</p></article>
+    <article class="card"><div class="em">🏚️</div><h3>Build it out</h3>
+      <p>Grow rooms, drying sheds, trim rooms, rollers, presses, a kitchen, power, a deep bunker and a lawn full of decor.</p></article>
+    <article class="card"><div class="em">🎉</div><h3>Holidays</h3>
+      <p>Real-calendar events: Halloween, Christmas, St Patrick's, Easter and of course 4/20, each with its own farm, tokens and pets.</p></article>
+    <article class="card"><div class="em">📸</div><h3>Photo mode</h3>
+      <p>Pick the hour and the sky, frame your farm and save the shot.</p></article>
+    <article class="card"><div class="em">🔄</div><h3>4-way rotation</h3>
+      <p>Spin the whole isometric world to see your farm from every side.</p></article>
+    <article class="card"><div class="em">⬆️</div><h3>Updates itself</h3>
+      <p>Install once. The game checks GitHub for new releases and updates in a tap.</p></article>
+  </div>
+</section>
+
+<section id="gallery" class="wrap">
+  <h2><span class="leaf"></span>Up close<span class="leaf"></span></h2>
+  <div class="duo">
+    <figure class="frame"><img src="media/grow.gif" alt="Plants growing from seedling to ripe" loading="lazy"><figcaption>seedling to frosty in seconds (sped way up)</figcaption></figure>
+    <figure class="frame"><img src="media/zion.gif" alt="Zion Gardens with butterflies and petals" loading="lazy"><figcaption>Zion Gardens: palms, jacarandas and butterflies</figcaption></figure>
+  </div>
+  <div class="gallery">
+    <a href="media/farm-day.png" class="frame"><img src="media/farm-day.png" alt="A big farm by day" loading="lazy"><span>Noon on the home farm</span></a>
+    <a href="media/farm-golden.png" class="frame"><img src="media/farm-golden.png" alt="Golden hour" loading="lazy"><span>Golden hour</span></a>
+    <a href="media/farm-night.png" class="frame"><img src="media/farm-night.png" alt="The farm at night" loading="lazy"><span>Lamps on, fireflies out</span></a>
+    <a href="media/close-day.png" class="frame"><img src="media/close-day.png" alt="Close up of the rows" loading="lazy"><span>Every plant drawn by hand</span></a>
+    <a href="media/close-night.png" class="frame"><img src="media/close-night.png" alt="Close up at night" loading="lazy"><span>Ripe buds glow at night</span></a>
+    <a href="media/close.gif" class="frame"><img src="media/close.gif" alt="The crew at work" loading="lazy"><span>The crew at work</span></a>
+  </div>
+</section>
+
+<section id="maps" class="wrap">
+  <h2><span class="leaf"></span>Pick your turf<span class="leaf"></span></h2>
+  <div class="maps">
+    <a href="media/zion-day.png" class="frame map"><img src="media/zion-day.png" alt="Zion Gardens" loading="lazy"><span>Zion Gardens</span></a>
+    <a href="media/fort20-day.png" class="frame map"><img src="media/fort20-day.png" alt="Fort 20" loading="lazy"><span>Fort 20</span></a>
+    <a href="media/fort20-keep-night.png" class="frame map"><img src="media/fort20-keep-night.png" alt="The keep at Fort 20 by night" loading="lazy"><span>The Fort 20 keep</span></a>
+    <a href="media/manor-night.png" class="frame map"><img src="media/manor-night.png" alt="Haunted Manor at night" loading="lazy"><span>Haunted Manor</span></a>
+    <a href="media/spooky-day.png" class="frame map"><img src="media/spooky-day.png" alt="Spooky Hollow" loading="lazy"><span>Spooky Hollow</span></a>
+    <a href="media/volcano-day.png" class="frame map"><img src="media/volcano-day.png" alt="Volcano Isle" loading="lazy"><span>Volcano Isle</span></a>
+    <a href="media/neon-night.png" class="frame map"><img src="media/neon-night.png" alt="Neon Valley at night" loading="lazy"><span>Neon Valley</span></a>
+    <a href="media/zion-night.png" class="frame map"><img src="media/zion-night.png" alt="Zion Gardens at night" loading="lazy"><span>Zion after dark</span></a>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="leaf"></span>The Farm Book<span class="leaf"></span></h2>
+  <div class="panels">
+    <a href="media/ui-strains.png" class="frame"><img src="media/ui-strains.png" alt="Strain book" loading="lazy"><span>Strain book</span></a>
+    <a href="media/ui-lab.png" class="frame"><img src="media/ui-lab.png" alt="Breeding lab" loading="lazy"><span>Breeding lab</span></a>
+    <a href="media/ui-cup.png" class="frame"><img src="media/ui-cup.png" alt="The Cup" loading="lazy"><span>The Cup</span></a>
+    <a href="media/ui-trip.png" class="frame"><img src="media/ui-trip.png" alt="A 4/20 sesh" loading="lazy"><span>4/20 sesh</span></a>
+    <a href="media/ui-events.png" class="frame"><img src="media/ui-events.png" alt="Event portraits" loading="lazy"><span>Visitors &amp; events</span></a>
+  </div>
+</section>
+
+<section id="download" class="wrap dl">
+  <h2><span class="leaf"></span>Get high-er level<span class="leaf"></span></h2>
+  <div class="dl-grid">
+    <div class="card">
+      <h3>📱 Android</h3>
+      <ol>
+        <li>Download <a href="https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres.apk"><code>KushAcres.apk</code></a></li>
+        <li>Open it and allow installs from your browser if Android asks</li>
+        <li>Plant your first seed. The game updates itself from then on</li>
+      </ol>
+      <a class="btn btn-green" href="https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres.apk"><span class="ico">▼</span> Download APK</a>
+    </div>
+    <div class="card">
+      <h3>🐧 Linux</h3>
+      <pre><code>tar xzf KushAcres-linux.tar.gz
+./KushAcres/bin/KushAcres</code></pre>
+      <p class="keys"><kbd>WASD</kbd>/<kbd>←↑↓→</kbd> pan · <kbd>+</kbd><kbd>−</kbd> zoom · <kbd>Q</kbd><kbd>E</kbd> rotate · <kbd>F11</kbd> fullscreen · <kbd>Esc</kbd> back</p>
+      <a class="btn btn-gold" href="https://github.com/M4S4T0-V01D/kush-acres/releases/latest/download/KushAcres-linux.tar.gz"><span class="ico">▼</span> Download for Linux</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="rasta thin"><i></i><i></i><i></i></div>
+  <p>Kush Acres is a game. Grow responsibly, adults only, and follow the laws where you live.</p>
+  <p><a href="https://github.com/M4S4T0-V01D/kush-acres">GitHub</a> · <a href="https://github.com/M4S4T0-V01D/kush-acres/releases">Releases</a> · <a href="https://github.com/M4S4T0-V01D/kush-acres/issues">Report a bug</a></p>
+  <p class="small">Made with Kotlin, Jetpack Compose and a lot of pixels. 🌿</p>
+</footer>
+
+<div id="lightbox" hidden><img alt=""><p></p></div>
+<script src="script.js"></script>
+</body>
+</html>

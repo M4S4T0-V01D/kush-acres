@@ -51,6 +51,7 @@ import dev.m4s4t0.kushacres.audio.Sfx
 import dev.m4s4t0.kushacres.art.BigHouses
 import dev.m4s4t0.kushacres.art.Buildings
 import dev.m4s4t0.kushacres.art.DecorArt
+import dev.m4s4t0.kushacres.art.Garden
 import dev.m4s4t0.kushacres.art.Haunted
 import dev.m4s4t0.kushacres.art.Landmarks
 import dev.m4s4t0.kushacres.art.Castle
@@ -284,6 +285,58 @@ class World {
         }
     }
 
+    private fun gardenWood(x: Int, y: Int, cx: Int, cy: Int, h: Int, edge: Boolean, def: SiteDef, t: Float) {
+        fun prop(k: Int, ox: Int = 0, oy: Int = 0) {
+            put(Garden.prop(k), cx + ox, cx + ox - Garden.PROP_AX, cy + oy - Garden.PROP_AY)
+            if (k == 4) light(cx + ox.toFloat(), cy + oy - Garden.LANTERN_UP.toFloat(), 10f, 0xFFC860, 0.6f + 0.12f * sin(t * 5f + x * 1.3f + y))
+        }
+        when {
+            h < def.trees - 1 && !edge -> {
+                // Flowers grow up around the foot of some trees, drawn behind the trunk.
+                if (hash(y * 5, x + 3) % 3 == 0) prop(1 + hash(x, y * 7) % 3, -7, -1)
+                put(Garden.tree(hash(y, x) % 6), cx, cx - 13, cy - 36)
+            }
+            h <= def.trees -> prop(hash(y * 3, x + 7) % Garden.PROPS)
+        }
+    }
+
+    /** Butterflies by day and petals on the breeze, over and around the farm. */
+    private fun gardenAir(ox: Int, oy: Int, land: Int, t: Float, day: Float) {
+        val wings = intArrayOf(0xFFE0302A.toInt(), 0xFFFFC82E.toInt(), 0xFF4ACE4A.toInt(), 0xFF4A8AFF.toInt(), 0xFFFF8AC0.toInt())
+        val span = land + 6
+        for (i in 0 until 5 + land / 2) {
+            val bx = ox - 3 + hash(i, 31) % span; val by = oy - 3 + hash(i, 47) % span
+            val px = centerX(bx, by) + sin(t * 0.23f + i * 1.7f) * 26f + sin(t * 0.9f + i) * 5f
+            val py = centerY(bx, by) - 12f + sin(t * 0.31f + i * 2.3f) * 10f + sin(t * 2.3f + i * 0.7f) * 2f
+            if (!seen(px.toInt(), py.toInt())) continue
+            val flap = kotlin.math.abs(sin(t * 11f + i * 1.3f))
+            val w = 0.5f + flap * 1.5f
+            val c = wings[hash(i, 5) % wings.size]
+            val x0 = floor(px * 2) / 2; val y0 = floor(py * 2) / 2
+            fill.color = c; fill.alpha = (255 * day).toInt()
+            canvas.drawRect(x0 - w, y0 - 1f, x0, y0 + 0.5f, fill)
+            canvas.drawRect(x0 + 0.5f, y0 - 1f, x0 + 0.5f + w, y0 + 0.5f, fill)
+            fill.color = Sprites.OUT; fill.alpha = (255 * day).toInt()
+            canvas.drawRect(x0, y0 - 1f, x0 + 0.5f, y0 + 1f, fill)
+        }
+        // Petals blowing off the flame trees, drifting down and to the side, then round again.
+        for (i in 0 until 10 + land) {
+            val life = 9f + hash(i, 13) % 5
+            val k = ((t + hash(i, 71) % 97) / life) % 1f
+            val bx = ox - 4 + hash(i, 3) % (land + 8); val by = oy - 4 + hash(i, 9) % (land + 8)
+            val px = centerX(bx, by) + k * 40f + sin(t * 1.7f + i) * 3f
+            val py = centerY(bx, by) - 30f + k * 34f
+            if (!seen(px.toInt(), py.toInt())) continue
+            val a = minOf(1f, minOf(k, 1f - k) * 6f) * day
+            fill.color = if (i % 3 == 0) 0xFFFF8A3A.toInt() else if (i % 3 == 1) 0xFFE0302A.toInt() else 0xFFFFB0C8.toInt()
+            fill.alpha = (230 * a).toInt()
+            val x0 = floor(px * 2) / 2; val y0 = floor(py * 2) / 2
+            val turn = sin(t * 4f + i) > 0
+            canvas.drawRect(x0, y0, x0 + if (turn) 1f else 0.5f, y0 + if (turn) 0.5f else 1f, fill)
+        }
+        fill.alpha = 255
+    }
+
     private fun hash(x: Int, y: Int) = ((x * 73856093) xor (y * 19349663)).let { if (it < 0) -it else it }
 
     /** Someone walking the farm, in fractional tile coordinates; [look] gives their sprite for a step frame. */
@@ -409,6 +462,11 @@ class World {
                 else -> Sprites.grass(hash(x, y) % 4, !inside, if (inside) ground else def.wild)
             }
             blit(bmp, tileX(x, y).toFloat(), tileY(x, y).toFloat())
+            // Zion: flowers through the wild grass and lilies on the water.
+            if (def.garden && !under) when {
+                tile.kind == Kind.WATER && hash(y, x + 5) % 3 == 0 -> blit(Garden.lilies(hash(x, y * 3) % 4), tileX(x, y).toFloat(), tileY(x, y).toFloat())
+                tile.kind == Kind.GRASS && !inside && hash(y + 5, x) % 4 != 0 -> blit(Garden.meadow(hash(x * 3, y) % 6), tileX(x, y).toFloat(), tileY(x, y).toFloat())
+            }
             if (buildMode && inside && tile.kind == Kind.GRASS) {
                 paint.alpha = 110
                 blit(Sprites.cursor(0xFFFFFFFF.toInt()), tileX(x, y).toFloat(), tileY(x, y).toFloat())
@@ -609,6 +667,7 @@ class World {
                 val edge = x in ox - 1..ox + land && y in oy - 1..oy + land
                 if (def.landmark?.yard(x, y) == true) continue
                 if (def.haunted) { hauntedWood(x, y, cx, cy, h, edge, def, t); continue }
+                if (def.garden) { gardenWood(x, y, cx, cy, h, edge, def, t); continue }
                 // The gates and the keep's yard stay clear.
                 if (castle != null && (castle.gate(x, y) || x in castle.x - 1..castle.x + Feature.Castle.KEEP && y in castle.y - 1..castle.y + Feature.Castle.KEEP)) continue
                 if (h < def.trees && !edge) put(Sprites.tree(if (def.pines) 2 + 3 * (hash(y, x) % 2) else hash(y, x) % 6), cx, cx - 13, cy - 36)
@@ -675,7 +734,10 @@ class World {
                 Kind.ROCK -> stand(x, y, Sprites.rock(hash(y, x) % 6), cx - 10, cy - 13)
                 Kind.FORT -> castle?.let { fort(x, y, cx, cy, it, t) }
                 Kind.LANDMARK -> {}
-                Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
+                Kind.GRASS -> if (def.trees > 0 && hash(x, y) % 11 == 0) {
+                    if (def.garden) put(Garden.prop(if (hash(y, x) % 2 == 0) 1 else 3), cx, cx - Garden.PROP_AX, cy - Garden.PROP_AY)
+                    else put(Sprites.bush(hash(y, x) % 4), cx, cx - 7, cy - 8)
+                }
                 Kind.FACILITY -> drawFacility(f, tile, x, y, cx, cy, now, t)
                 Kind.HOUSE -> WorkHouse.of(tile.item)?.takeIf { (x to y) !in bigAt }?.let { h ->
                     stand(x, y, if (h == WorkHouse.STORE) Buildings.store(tile.lvl) else Buildings.house(h), cx - Buildings.FAC_AX, cy - Buildings.FAC_AY)
@@ -708,6 +770,10 @@ class World {
         if (light.rain > 0) repeat((light.rain * 60 * dt + rnd.nextFloat()).toInt()) {
             val x = ox + rnd.nextInt(land); val y = oy + rnd.nextInt(land)
             fx.burst(Burst.SPLASH, centerX(x, y) + (rnd.nextFloat() - 0.5f) * TW * 0.7f, centerY(x, y) + (rnd.nextFloat() - 0.5f) * TH * 0.6f)
+        }
+        if (def.garden && !under) {
+            val day = (1f - light.night * 1.6f).coerceIn(0f, 1f) * (1f - light.rain)
+            if (day > 0.05f) gardenAir(ox, oy, land, t, day)
         }
         fx.step(dt)
         fx.draw(canvas)

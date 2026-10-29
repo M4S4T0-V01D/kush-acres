@@ -71,6 +71,8 @@ class SiteDef(
     val land: Int = START_LAND,
     /** Haunted woods: dead trees, cobwebs, toadstools and pumpkins instead of leafy trees and bushes. */
     val haunted: Boolean = false,
+    /** A garden world: flame trees, palms, flower beds and lanterns in the wilds, flowers underfoot and lilies on the water. */
+    val garden: Boolean = false,
 ) {
     /** The mansion standing on this map, if there is one. */
     val manor get() = features.firstNotNullOfOrNull { it as? Feature.Manor }
@@ -225,8 +227,8 @@ object Sites {
     val premium: List<SiteDef> = listOf(
         SiteDef("zion", "Zion Gardens", "Red, gold and green as far as you can see, and a bassline from the hills.", 12, 250, 0.5f, 0.5f,
             0xFF4AB04A.toInt(), 0xFF2E8A3A.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFFFD23A.toInt(), 4,
-            roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f),
-                Feature.Landmark("stage", "Sound System Stage", "Speaker stacks taller than the trees. Bass you feel in your chest.", 6, 8)), holiday = "bucks"),
+            roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f), Feature.Lake(0.22f, 0.75f, 2.5f),
+                Feature.Landmark("stage", "Sound System Stage", "Speaker stacks taller than the trees. Bass you feel in your chest.", 6, 8)), holiday = "bucks", garden = true),
     )
 
     private val byId = (all + holidays + premium).associateBy { it.id }

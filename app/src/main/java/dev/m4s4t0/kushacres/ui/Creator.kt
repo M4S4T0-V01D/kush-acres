@@ -141,7 +141,7 @@ private fun Overlay(onBack: (() -> Unit)? = null, content: @Composable () -> Uni
     if (onBack != null) BackHandler(onBack = onBack)
     Box(Modifier.fillMaxSize().background(Color(0xCC000000)).clickable(remember { MutableInteractionSource() }, null) {}, contentAlignment = Alignment.Center) {
         Column(
-            Modifier.widthIn(max = 340.dp).fillMaxWidth().padding(10.dp).woodBox(edge = Gold, w = 3.dp).verticalScroll(rememberScrollState()).padding(12.dp),
+            Modifier.widthIn(max = 340.dp).fillMaxWidth().padding(10.dp).woodBox(edge = Gold, w = 3.dp).vScroll().padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { content() }
     }

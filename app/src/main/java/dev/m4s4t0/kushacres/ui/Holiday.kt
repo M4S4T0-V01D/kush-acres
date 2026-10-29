@@ -85,7 +85,7 @@ internal fun HolidayPanel(ui: UiState) {
     Store.rev
     val h = Holiday.at(Store.now())
     if (h == null) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item { T("No holiday on right now. Each one opens its own shop for a few days.", 12.sp, Dim, bold = false) }
             items(Holiday.entries) { x ->
                 Row(Modifier.fillMaxWidth().frame(WoodIn, Color(x.main)).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -99,7 +99,7 @@ internal fun HolidayPanel(ui: UiState) {
     }
     val tok = Coins.token(h)
     fun buy(r: Result, msg: String) { report(r); if (r == Result.OK) Store.toast(msg) else if (r == Result.NO_CASH) Store.toast("Not enough ${h.tokens.lowercase()}") }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Row(Modifier.fillMaxWidth().frame(Color(0xFF2A1E2E), Color(h.main)).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Px(tok, 28.dp); Spacer(Modifier.width(8.dp))
@@ -168,7 +168,7 @@ internal fun HolidayPanel(ui: UiState) {
 internal fun BucksPanel(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Row(Modifier.fillMaxWidth().frame(Color(0xFF1E2A1E), Color(0xFF5AC05A)).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Px(Coins.bucks, 28.dp); Spacer(Modifier.width(8.dp))

@@ -36,7 +36,7 @@ internal fun RadioPanel(ui: UiState) {
     Store.rev
     val area = f.site.def.id
     val now = Radio.pick(area, f, System.currentTimeMillis())
-    Column(Modifier.verticalScroll(rememberScrollState())) {
+    Column(Modifier.vScroll()) {
         Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             T("♪", 22.sp, Gold)
             Spacer(Modifier.width(8.dp))

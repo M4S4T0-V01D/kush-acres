@@ -81,7 +81,7 @@ internal fun LazyListScope.farmCards(ui: UiState) {
 internal fun FarmsPanel(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             T(if (f.level < SiteDef.REALTOR_LEVEL) "Mona starts selling farms in other places at Lv ${SiteDef.REALTOR_LEVEL}."
                 else "Cash, stash and helpers go with you. Every farm keeps growing while you're away.", 11.sp, Dim, bold = false)

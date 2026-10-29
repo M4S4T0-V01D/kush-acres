@@ -42,7 +42,7 @@ internal fun ContractsTab() {
         f.lapsed = 0
         Spacer(Modifier.height(4.dp))
     }
-    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.vScroll(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RepHeader(town)
         val extra = f.deals.size - Contracts.held(f)
         T("In hand (${Contracts.held(f)}/${Contracts.taken(f)}${if (extra > 0) " + $extra special" else ""})", 13.sp, Cream)

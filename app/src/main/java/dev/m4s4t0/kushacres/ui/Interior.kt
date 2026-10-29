@@ -155,7 +155,7 @@ private fun Catalog(k: RoomKind, tab: Int, setTab: (Int) -> Unit, pick: (Furn) -
                 }
             }
             T("Floor · ${money(Interiors.PAINT)}", 11.sp, Dim)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BarRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(Interiors.FLOORS.indices.toList()) { i ->
                     Btn(Interiors.FLOORS[i], color = if (Interiors.room(f, k).floor == i) Gold else WoodEdge) {
                         val r = Interiors.paint(f, k, false, i); if (r == Result.OK) Store.changed() else report(r)
@@ -165,7 +165,7 @@ private fun Catalog(k: RoomKind, tab: Int, setTab: (Int) -> Unit, pick: (Furn) -
             return@Column
         }
         val list = Furn.entries.filter { it.fits(k) && it.wall == (tab == 1) }.sortedBy { it.level }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        BarRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(list) { furn ->
                 val locked = f.level < furn.level
                 Column(

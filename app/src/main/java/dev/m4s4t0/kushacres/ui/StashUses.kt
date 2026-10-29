@@ -85,7 +85,7 @@ internal fun ShipTab() {
     val f = Store.farm
     Store.rev
     val now = Store.now()
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             T("A distributor two counties over takes big lots at ${(Sesh.SHIP_RATE * 100).toInt()}% of the going rate. " +
@@ -121,7 +121,7 @@ internal fun ClinicTab() {
     val f = Store.farm
     Store.rev
     val town = Sesh.clinicTown(f)
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             T("The ${Towns[town].town} compassion clinic hands it out to patients who can't pay. No cash, but folks remember.", 11.sp, Cream, bold = false)

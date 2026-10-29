@@ -110,7 +110,7 @@ internal fun BoardPanel() {
     val f = Store.farm
     Store.rev
     val notes = Board.notes(f, Store.now())
-    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.vScroll(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         T("Small favours for the townsfolk, paid from your stash in one go. They pay well and come with a little extra. " +
             "Some of the radio's best tracks only turn up here.", 10.sp, Dim, bold = false)
         if (notes.isEmpty()) T("Nobody's asking for anything you grow yet.", 12.sp, Dim)
@@ -195,7 +195,7 @@ internal fun LandmarkPanel() {
     Store.rev
     val site = f.site.def.id
     val mark = f.site.def.landmark
-    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.vScroll(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (mark == null) { T("There's nothing to restore on this farm.", 12.sp, Dim); return@Column }
         T(mark.blurb, 11.sp, Dim, bold = false)
         T("Do it up in ${Restore.STEPS} steps. Each one pays well, and once it's finished it lights up and plants on " +

@@ -100,7 +100,7 @@ internal fun TownPanel(ui: UiState) {
 private fun MainStreet(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyVerticalGrid(GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    BarGrid(GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(Keeper.entries) { k ->
             Store.rev
             val locked = k == Keeper.SHADE && f.level < Farm.BLACK_MARKET_LEVEL
@@ -161,7 +161,7 @@ private fun VioletShop(ui: UiState) {
 private fun Supplies() {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item { T("Every facility batch uses one supply.", 10.sp, Dim, bold = false) }
         items(Supply.entries) { s ->
             Store.rev
@@ -191,7 +191,7 @@ private fun Upgrades() {
     Store.rev
     val icons = mapOf(Upgrade.STASH to Sprites.jar, Upgrade.MULCH to Sprites.drop, Upgrade.NUTRIENTS to Sprites.arrow,
         Upgrade.GENETICS to Sprites.star, Upgrade.CRED to Sprites.hat)
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item { T("Upgrades only count on ${f.site.def.name}. Each farm upgrades on its own.", 10.sp, Dim, bold = false) }
         items(Upgrade.entries) { u ->
             Store.rev
@@ -237,7 +237,7 @@ private fun Selling() {
     Spacer(Modifier.height(6.dp))
     T("Selling a lot of one strain drops its price. It recovers over time.", 10.sp, Dim, bold = false)
     Spacer(Modifier.height(6.dp))
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(entries, key = { it.key }) { e ->
             Store.rev
             val s = Strains[e.key] ?: return@items
@@ -276,7 +276,7 @@ private fun GoodsSelling() {
         val got = f.sellAllGoods(); Store.changed(); Store.toast("Sold for ${money(got)}")
     }
     Spacer(Modifier.height(6.dp))
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(entries, key = { it.key }) { e ->
             Store.rev
             val (fac, s) = f.goodsParts(e.key) ?: return@items
@@ -316,7 +316,7 @@ private fun HankShop(ui: UiState) {
 private fun MonaShop(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             val next = f.nextLand()
@@ -390,7 +390,7 @@ internal fun AnnexCard(ui: UiState) {
 private fun GusShop() {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(Helper.entries) { h ->
             Store.rev
             val hired = f.has(h)
@@ -463,7 +463,7 @@ private fun ShadeShop() {
     Store.rev
     val now = Store.now()
     val stock = f.bmStock(now)
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Row(verticalAlignment = Alignment.CenterVertically) {

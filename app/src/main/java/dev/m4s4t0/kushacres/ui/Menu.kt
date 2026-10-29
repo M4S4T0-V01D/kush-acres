@@ -65,7 +65,7 @@ internal fun MenuPanel(ui: UiState, start: Int = 0) {
     val dot = { b: Boolean, n: String -> if (b) "$n •" else n }
     Tabs(listOf(dot(f.canClaimDaily(now), "Daily"), dot(f.quests.any { !it.claimed && f.questDone(it) } || f.canClaimQuestBonus(), "Quests"),
         dot(f.level >= Cup.LEVEL && Cup.left(f, now) == Cup.ENTRIES, "Cup"), "Trophies", "Stats", "Settings"), tab) { tab = it; Audio.play(Sfx.TAP) }
-    Column(Modifier.verticalScroll(rememberScrollState())) {
+    Column(Modifier.vScroll()) {
         when (tab) {
             0 -> Daily()
             1 -> Quests()
@@ -79,11 +79,11 @@ internal fun MenuPanel(ui: UiState, start: Int = 0) {
 
 /** The Lab, the strain book and seed hunts each have their own sheet, opened from the rail on the farm. */
 @Composable
-internal fun LabPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { Lab() }
+internal fun LabPanel() = Column(Modifier.vScroll()) { Lab() }
 @Composable
-internal fun StrainsPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { StrainBook() }
+internal fun StrainsPanel() = Column(Modifier.vScroll()) { StrainBook() }
 @Composable
-internal fun HuntsPanel() = Column(Modifier.verticalScroll(rememberScrollState())) { HuntTab() }
+internal fun HuntsPanel() = Column(Modifier.vScroll()) { HuntTab() }
 
 @Composable
 internal fun Row2(left: String, right: String, color: Color = Cream) {

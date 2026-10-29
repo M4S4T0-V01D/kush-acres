@@ -174,7 +174,7 @@ fun PanelHost(ui: UiState) {
                 Panel.FARMS -> FarmsPanel(ui)
                 Panel.HOLIDAY -> HolidayPanel(ui)
                 Panel.BUCKS -> BucksPanel(ui)
-                Panel.SETTINGS -> Column(Modifier.verticalScroll(rememberScrollState())) { Settings(ui) }
+                Panel.SETTINGS -> Column(Modifier.vScroll()) { Settings(ui) }
                 Panel.RADIO -> RadioPanel(ui)
                 Panel.BOARD -> BoardPanel()
                 Panel.LANDMARK -> LandmarkPanel()
@@ -233,7 +233,7 @@ internal fun SeedPanel(ui: UiState) {
     val start = groups.indexOfFirst { (_, g) -> g.any { it.id == ui.seed } }.takeIf { it >= 0 }
         ?: groups.indexOfLast { (_, g) -> g.any { f.unlocked(it) } }.coerceAtLeast(0)
     var opened by remember(tab) { mutableStateOf(setOf(start)) }
-    LazyVerticalGrid(GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarGrid(GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         groups.forEachIndexed { gi, (name, g) ->
             val shown = name.isEmpty() || gi in opened
             if (name.isNotEmpty()) item(key = "h$gi", span = { GridItemSpan(maxLineSpan) }) {
@@ -285,7 +285,7 @@ internal fun Orders() {
     val f = Store.farm
     Store.rev
     val now = Store.now()
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             val vans = (0 until Farm.MAX_ORDERS).filter { f.delivering(it) }
@@ -414,7 +414,7 @@ private fun BuildPanel(ui: UiState) {
         3 -> DecorList(ui, owned = true)
         4 -> PowerList(ui)
         5 -> SpecialList(ui)
-        else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        else -> BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
                 Store.rev
                 Card(Sprites.arrow, "Move", "Pick up anything, the shack too, and put it somewhere else. Free.", null, "Move", true) {
@@ -435,7 +435,7 @@ private fun BuildPanel(ui: UiState) {
 internal fun FarmBuilds(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Card(Sprites.strainIcon(Strains.all.first()), "Grow plot", "Somewhere to plant. Each one costs a bit more.",
@@ -459,7 +459,7 @@ internal fun FarmBuilds(ui: UiState) {
 internal fun WorkList(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
@@ -517,7 +517,7 @@ internal fun WorkList(ui: UiState) {
 internal fun FacilityList(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(Facility.entries) { fac ->
             Store.rev
             val c = f.facilityCost(fac)
@@ -534,7 +534,7 @@ internal fun FacilityList(ui: UiState) {
 internal fun PowerList(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Column(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(6.dp)) {
@@ -556,7 +556,7 @@ internal fun PowerList(ui: UiState) {
 internal fun SpecialList(ui: UiState) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Row(Modifier.fillMaxWidth().frame(Color(0xFF261C30), Color(0xFFB060F0)).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -588,7 +588,7 @@ internal fun SpecialList(ui: UiState) {
 internal fun DecorList(ui: UiState, owned: Boolean) {
     val f = Store.farm
     Store.rev
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item { Store.rev; T("Decor placed ${f.decorCount()}/${f.decorCap()} (paths don't count)", 11.sp, Sky) }
         if (owned) {
             val shed = f.decorInv.entries.filter { it.value > 0 }.mapNotNull { e -> Decor.of(e.key)?.let { it to e.value } }
@@ -613,7 +613,7 @@ private fun ShackPanel(ui: UiState) {
     val f = Store.farm
     Store.rev
     val cur = SHACKS[f.shack]
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Store.rev
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -677,7 +677,7 @@ private fun FacilityPanel(ui: UiState) {
     val now = Store.now()
     val need = f.gramsFor(fac, t.lvl)
     val sup = f.supplies[fac.supply.ordinal]
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    BarColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         item {
             Store.rev
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -877,7 +877,7 @@ private fun UpdateDialog() {
             T("You have ${Updater.current(ctx)}", 11.sp, Dim)
             if (s.notes.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                T(s.notes.take(400), 11.sp, Cream, Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState()), bold = false)
+                T(s.notes.take(400), 11.sp, Cream, Modifier.heightIn(max = 180.dp).vScroll(), bold = false)
             }
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

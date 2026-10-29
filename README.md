@@ -8,6 +8,7 @@
 Plant it, water it, watch it grow under a real sky, and turn a dirt patch behind a shack into the dankest empire in the county.
 
 [![Latest release](https://img.shields.io/github/v/release/M4S4T0-V01D/kush-acres?style=for-the-badge&color=2e9e34&label=release)](https://github.com/M4S4T0-V01D/kush-acres/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-e8433a?style=for-the-badge)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/M4S4T0-V01D/kush-acres/total?style=for-the-badge&color=ffd23f&labelColor=333)](https://github.com/M4S4T0-V01D/kush-acres/releases)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-e8433a?style=for-the-badge&logo=linux&logoColor=white)
@@ -133,6 +134,10 @@ XDG_DATA_HOME=$(mktemp -d) KUSH_SHOWCASE=/tmp/kush-showcase ./build.sh :desktop:
 ```
 
 The roadmap lives in [PLAN.md](PLAN.md). The website is in [`docs/`](docs/) and served by GitHub Pages.
+
+## 📜 License
+
+[MIT](LICENSE) © M4S4T0-V01D. Use it, mod it, share it, just keep the copyright notice.
 
 ---
 

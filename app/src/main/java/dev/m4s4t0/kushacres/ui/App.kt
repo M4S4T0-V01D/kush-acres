@@ -222,6 +222,17 @@ fun T(text: String, size: TextUnit = 14.sp, color: Color = Cream, modifier: Modi
             shadow = if (color.luminance() > 0.35f) TextShadow else null))
 }
 
+/** One line of text that shrinks (down to [min]) instead of wrapping when its box gets too narrow, like big money on a phone. */
+@Composable
+fun FitT(text: String, size: TextUnit, color: Color = Cream, modifier: Modifier = Modifier, min: TextUnit = 8.sp) {
+    // Keyed on the length so a counting-up number doesn't start over from full size every frame.
+    var fit by remember(text.length, size) { mutableStateOf(size) }
+    Text(text, modifier, color = color, maxLines = 1, softWrap = false,
+        style = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = fit, lineHeight = fit * 1.2f,
+            shadow = if (color.luminance() > 0.35f) TextShadow else null),
+        onTextLayout = { if (it.hasVisualOverflow && fit > min) fit = (fit * 0.9f).let { s -> if (s < min) min else s } })
+}
+
 /** A hard drop shadow under light text, like a pixel font. */
 private val TextShadow = Shadow(Color(0xC0120D08), Offset(0f, 3f), 0f)
 private val Ink = Color(0xFF120D08)
@@ -417,20 +428,20 @@ private fun Hud(ui: UiState) {
         Row(Modifier.weight(1f).woodBox().padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.coin, 20.dp)
             Spacer(Modifier.width(6.dp))
-            T("$" + short(shown), if (narrow) 14.sp else 16.sp, Gold, Modifier.scale(bounce))
+            FitT("$" + short(shown), if (narrow) 14.sp else 16.sp, Gold, Modifier.scale(bounce))
         }
         Spacer(Modifier.width(6.dp))
         Row(Modifier.woodBox().clickable { ui.panel = Panel.BUCKS }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(dev.m4s4t0.kushacres.art.Coins.bucks, 20.dp)
             Spacer(Modifier.width(4.dp))
-            T(short(f.potBucks), if (narrow) 12.sp else 14.sp, Color(0xFF8AE07A))
+            FitT(short(f.potBucks), if (narrow) 12.sp else 14.sp, Color(0xFF8AE07A))
         }
         Spacer(Modifier.width(6.dp))
         val used = f.stashUsed(); val cap = f.stashCap()
         Row(Modifier.woodBox().clickable { ui.shop = Keeper.DEX; ui.panel = Panel.TOWN }.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Px(Sprites.jar, 20.dp)
             Spacer(Modifier.width(4.dp))
-            T("$used/${cap}g", if (narrow) 11.sp else 13.sp, if (used >= cap) Bad else if (used > cap * 0.8) Gold else Cream)
+            FitT("${short(used.toLong())}/${short(cap.toLong())}g", if (narrow) 11.sp else 13.sp, if (used >= cap) Bad else if (used > cap * 0.8) Gold else Cream)
         }
     }
     }

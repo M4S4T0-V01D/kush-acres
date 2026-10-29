@@ -138,6 +138,7 @@ object Save {
         f.research?.let { o.put("research", it) }; o.put("researchAt", f.researchAt)
         o.put("contracts", Contracts.save(f))
         o.put("board", Board.save(f))
+        o.put("drop", BudDrop.save(f))
         o.put("marks", Restore.save(f))
         o.put("quests", JSONArray().apply {
             f.quests.forEach { q ->
@@ -227,6 +228,7 @@ object Save {
         f.research = o.optString("research", "").takeIf { Strains[it]?.hybrid == true && it !in f.bred }; f.researchAt = o.optLong("researchAt", 0)
         Contracts.load(f, o.optJSONObject("contracts"))
         Board.load(f, o.optJSONObject("board"))
+        BudDrop.load(f, o.optJSONObject("drop"))
         Restore.load(f, o.optJSONObject("marks"))
         o.optJSONArray("cup")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { e -> f.cupScores += e.optString("s") to e.optInt("p") } }
         f.quests.clear()

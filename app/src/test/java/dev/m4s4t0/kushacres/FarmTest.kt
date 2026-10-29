@@ -3,6 +3,7 @@ package dev.m4s4t0.kushacres
 import kotlin.math.roundToInt
 import org.junit.Assert.assertNotNull
 import dev.m4s4t0.kushacres.model.BmItem
+import dev.m4s4t0.kushacres.model.BudDrop
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Contracts
 import dev.m4s4t0.kushacres.model.Need
@@ -1894,5 +1895,41 @@ class FarmTest {
         assertEquals(Radio.BOARD.size - 1, Radio.BOARD.count { it !in f.tracks })
         val g = farm(); Save.read(Save.write(f), g)
         assertTrue(prize in g.tracks)
+    }
+
+    @Test fun budDropCatchesAndEnds() {
+        val g = BudDrop(Random(3))
+        g.jar = 0.5f
+        g.items += BudDrop.Item(BudDrop.Kind.BUD, 0.5f, 0.85f, 0f)
+        g.items += BudDrop.Item(BudDrop.Kind.GOLD, 0.52f, 0.86f, 0f)
+        g.items += BudDrop.Item(BudDrop.Kind.BUD, 0.9f, 0.86f, 0f)
+        g.step(0.2f)
+        assertEquals(1 + BudDrop.GOLD_PTS, g.score)
+        assertEquals(2, g.caught)
+        repeat(BudDrop.LIVES) {
+            g.items += BudDrop.Item(BudDrop.Kind.BUG, 0.5f, 0.87f, 0f)
+            g.step(0.1f)
+        }
+        assertTrue(g.done)
+        assertEquals(0, g.lives)
+        assertTrue(g.step(1f).isEmpty())
+        g.jar = 5f
+        assertEquals(1 - BudDrop.JAR, g.jar, 1e-6f)
+    }
+
+    @Test fun budDropPaysOnlyTheFirstRoundsADay() {
+        val f = farm()
+        val cash0 = f.cash
+        var paid = 0L
+        repeat(BudDrop.PAID) { paid += BudDrop.reward(f, 20, t0) }
+        assertTrue(paid > 0)
+        assertTrue(f.cash >= cash0 + paid)
+        assertEquals(0, BudDrop.left(f, t0))
+        assertEquals(0L, BudDrop.reward(f, 50, t0))
+        assertEquals(50, f.dropBest)
+        assertEquals(BudDrop.PAID, BudDrop.left(f, t0 + 86_400_000L))
+        assertTrue(BudDrop.reward(f, 20, t0 + 86_400_000L) > 0)
+        val back = Farm(Random(1)).also { Save.read(Save.write(f), it) }
+        assertEquals(50, back.dropBest); assertEquals(1, back.dropPlays); assertEquals(f.dropDay, back.dropDay)
     }
 }

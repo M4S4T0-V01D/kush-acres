@@ -287,6 +287,10 @@ class Farm(var rng: Random = Random.Default) {
     val board = ArrayList<Note>()
     var boardDay = -1L
     var boardDone = 0
+    /** Bud Drop (see [BudDrop]): the best score, and the day and count of today's paid rounds. */
+    var dropBest = 0
+    var dropDay = -1L
+    var dropPlays = 0
     /** Landmark restoration (see [Restore]): steps done per site, the open step's need, and what's gone into it so far. */
     val marks = HashMap<String, Int>()
     val markNeeds = HashMap<String, Need>()
@@ -1639,6 +1643,7 @@ class Farm(var rng: Random = Random.Default) {
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); chains.clear(); weekly.clear(); lastDeal = null; lapsed = 0
+        dropBest = 0; dropDay = -1L; dropPlays = 0
         board.clear(); boardDay = -1L; boardDone = 0; marks.clear(); markNeeds.clear(); markValue.clear()
         research = null; researchAt = 0
         lastTick = now; nextEventAt = 0

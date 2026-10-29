@@ -131,6 +131,8 @@ class UiState {
     var room by mutableStateOf<dev.m4s4t0.kushacres.model.RoomKind?>(null)
     /** The plot whose trimming game is open. */
     var trim by mutableStateOf<Pair<Int, Int>?>(null)
+    /** Bud Drop is open (see [BudDropOverlay]). */
+    var drop by mutableStateOf(false)
     /** The square whose area of effect is tinted yellow on the farm (from the menu's Area); the next tap clears it. */
     var area by mutableStateOf<Pair<Int, Int>?>(null)
     /** Whether the tools row (seed, move, trim, destroy) is open above the bottom bar. */
@@ -301,6 +303,7 @@ fun App() {
         ui.menu?.let { TileMenu(ui, it) }
         Interior(ui)
         TrimOverlay(ui)
+        BudDropOverlay(ui)
         Toast()
         if (ui.panel != Panel.NONE) PanelHost(ui)
         Dialogs()
@@ -489,6 +492,9 @@ private fun SkyChip(ui: UiState) {
         Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
         Spacer(Modifier.width(4.dp))
         Box(Modifier.woodBox().clickable { ui.panel = Panel.RADIO }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("♪", 14.sp, Cream) }
+        Spacer(Modifier.width(4.dp))
+        // Bud Drop, the catch game for while things grow.
+        Box(Modifier.woodBox().clickable { ui.drop = true }.padding(horizontal = 5.dp, vertical = 2.dp)) { Px(Sprites.nug, 16.dp) }
         Spacer(Modifier.width(4.dp))
         Spacer(Modifier.weight(1f))
         Row(

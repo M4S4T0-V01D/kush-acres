@@ -534,6 +534,10 @@ object Sprites {
     val drop by lazy { icon(arrayOf(".....kk.....", "....kBBk....", "....kBbk....", "...kBbbbk...", "...kBbbbk...", "..kBwbbbbk..", "..kBwbbbbk..", ".kBbbbbbbbk.", ".kBbbbbbbbk.", ".kbbbbbbbbk.", "..kbbbbbbk..", "...kkkkkk...")) }
     val jar by lazy { icon(arrayOf("..kkkkkkkk..", "..knnnnnnk..", "..kkkkkkkk..", ".kSwwwwwwSk.", ".kwgGgggwSk.", ".kwgGGgggSk.", ".kwggggGgSk.", ".kwgGgggggk.", ".kwggggGgSk.", ".kwgggggggk.", ".kSSSSSSSSk.", "..kkkkkkkk..")) }
     val bag by lazy { icon(arrayOf("....kkkk....", "...knnnnk...", "....kNNk....", "...kNNNNk...", "..kNNNNNNk..", ".kNNNgGNNNk.", ".kNNgGGgNNk.", ".kNNNgGNNNk.", ".kNNNNgNNNk.", ".kNNNNNNNNk.", "..knnnnnnk..", "...kkkkkk...")) }
+    /** Bud Drop's falling things: a nug, a golden nug and a bug. */
+    val nug by lazy { icon(arrayOf("....kkkk....", "...kGGgGk...", "..kGgogGgk..", ".kGgGgGogGk.", ".kgogGgGggk.", ".kGgGogGgGk.", ".kgGgGgoggk.", "..kgGogGgk..", "..kgGgGggk..", "...kgogk....", "....kggk....", ".....kk.....")) }
+    val goldNug by lazy { icon(arrayOf("....kkkk....", "...kYYyYk...", "..kYywyYyk..", ".kYyYyYwyYk.", ".kywyYyYyyk.", ".kYyYwyYyYk.", ".kyYyYywyyk.", "..kyYwyYyk..", "..kyYyYyyk..", "...kywyk....", "....kyyk....", ".....kk.....")) }
+    val bug by lazy { icon(arrayOf("..k......k..", "...k....k...", "....kkkk....", "...kssssk...", "..krrkkrrk..", ".krrrkkrrrk.", "kkrkrkkrkrkk", ".krrrkkrrrk.", "kkrrrkkrrrkk", ".krkrkkrkrk.", "..krrkkrrk..", "...kkkkkk...")) }
     val hammer by lazy { icon(arrayOf("..kkkkkk....", ".ksSSSSsk...", ".ksSSSSssk..", "..kkknnkkk..", "....knnk....", "....knnk....", "....knnk....", "....knnk....", "....knnk....", "....knnk....", "....kNNk....", "....kkkk....")) }
     val stall by lazy { icon(arrayOf("kkkkkkkkkkkk", "krrwwrrwwrrk", "krrwwrrwwrrk", "kkkkkkkkkkkk", ".kn......nk.", ".kn......nk.", ".kn.gG.yY.k.", ".kkkkkkkkkk.", ".knNNNNNNnk.", ".knNNNNNNnk.", ".knnnnnnnnk.", ".kkkkkkkkkk.")) }
     val arrow by lazy { icon(arrayOf(".....kk.....", "....kGGk....", "...kGggGk...", "..kGggggGk..", ".kGggggggGk.", "kkkkggggkkkk", "...kggggk...", "...kggggk...", "...kggggk...", "...kggggk...", "...kggggk...", "...kkkkkk...")) }

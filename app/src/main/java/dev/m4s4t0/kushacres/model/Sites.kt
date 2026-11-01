@@ -87,7 +87,7 @@ class SiteDef(
         /** How big a newly bought site starts. */
         const val START_LAND = 8
         const val ESTATE_LAND = 12
-        const val REALTOR_LEVEL = 15
+        const val REALTOR_LEVEL = 26
     }
 }
 
@@ -98,49 +98,49 @@ object Sites {
 
     val all: List<SiteDef> = listOf(
         HOME,
-        SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 15, 120_000, 0.5f, 0.5f,
+        SiteDef("redwood", "Redwood Hollow", "Giant trees, cool shade, a quiet pond.", 26, 120_000, 0.5f, 0.5f,
             0xFF4F9A3E.toInt(), 0xFF2F6236.toInt(), 0xFF16241A.toInt(), 0xFF213624.toInt(), 0xFF5E8A4E.toInt(), 5, pines = true,
             roof = 2, wall = 5, features = listOf(Feature.Lake(0.18f, 0.2f, 4f), Feature.Lake(0.85f, 0.75f, 3f), Feature.Rocks(0.03f),
                 Feature.Landmark("lookout", "Fire Lookout", "A ranger's cabin up on stilts, watching the canopy for smoke. Not that smoke.", 26, 8))),
-        SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 19, 400_000, 1f, 0f,
+        SiteDef("mesa", "Dusty Mesa", "Sun-baked sand, boulders and one sweet oasis.", 37, 400_000, 1f, 0f,
             0xFFCFAE6A.toInt(), 0xFFAE8A4E.toInt(), 0xFF3A1E14.toInt(), 0xFF52291B.toInt(), 0xFFC0703E.toInt(), 0,
             roof = 0, wall = 0, features = listOf(Feature.Lake(0.3f, 0.75f, 3f), Feature.Rocks(0.09f),
                 Feature.Landmark("mission", "Old Mission", "Sun-bleached adobe and a bell nobody's rung in a century.", 14, 8))),
-        SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 23, 1_200_000, 0f, 1f,
+        SiteDef("bayou", "Bayou Bend", "Muggy swamp with a lazy river. Plots by water never dry out.", 49, 1_200_000, 0f, 1f,
             0xFF5C8C3A.toInt(), 0xFF3C6630.toInt(), 0xFF102624.toInt(), 0xFF173A36.toInt(), 0xFF3E8C7E.toInt(), 4,
             roof = 4, wall = 4, features = listOf(Feature.River(true, 0.62f, 2.5f), Feature.Lake(0.2f, 0.25f, 3.5f),
                 Feature.Lake(0.8f, 0.2f, 2.5f), Feature.Lake(0.9f, 0.9f, 3f),
                 Feature.Landmark("stiltshack", "Stilt Shack", "A tin-roofed shack on stilts. The gators pay rent.", 11, 20))),
-        SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 27, 4_000_000, 1f, 1f,
+        SiteDef("coast", "Sunset Coast", "Ocean on two sides and a sky on fire every evening.", 64, 4_000_000, 1f, 1f,
             0xFF86BE52.toInt(), 0xFF5E9440.toInt(), 0xFF3A1A22.toInt(), 0xFF52242E.toInt(), 0xFFE07A5A.toInt(), 2,
             roof = 1, wall = 1, features = listOf(Feature.Coast(0, 7), Feature.Coast(2, 6), Feature.Rocks(0.02f),
                 Feature.Landmark("lighthouse", "Sunset Lighthouse", "Still turns every night, guiding boats past the rocks.", 10, 22))),
-        SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 31, 10_000_000, 0.5f, 0f,
+        SiteDef("frost", "Frostpeak", "High, cold and clean. Pines, snow and a frozen tarn.", 80, 10_000_000, 0.5f, 0f,
             0xFFDCE6EC.toInt(), 0xFFB4C4D0.toInt(), 0xFF141E2C.toInt(), 0xFF1E2C40.toInt(), 0xFF7AA8D0.toInt(), 4, pines = true,
             roof = 1, wall = 2, features = listOf(Feature.Lake(0.2f, 0.85f, 3.5f), Feature.Rocks(0.06f),
                 Feature.Landmark("observatory", "Frostpeak Observatory", "Thin air and clear skies. The telescope sees all the way to the next galaxy.", 28, 18))),
-        SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 35, 30_000_000, 0f, 0.5f,
+        SiteDef("emerald", "Emerald Triangle", "Legendary soil. A river runs right through it.", 98, 30_000_000, 0f, 0.5f,
             0xFF3FA84A.toInt(), 0xFF2A7436.toInt(), 0xFF0E2418.toInt(), 0xFF153626.toInt(), 0xFF3CC07A.toInt(), 3,
             roof = 2, wall = 1, features = listOf(Feature.River(false, 0.25f, 2f), Feature.Lake(0.8f, 0.7f, 2.5f),
                 Feature.Landmark("growdome", "Grow Dome", "A glass dome full of purple light. The old-timers' secret garden.", 20, 26))),
-        SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 40, 80_000_000, 0.5f, 0.5f,
+        SiteDef("volcano", "Volcano Isle", "Black ash, warm ground, sea all round.", 123, 80_000_000, 0.5f, 0.5f,
             0xFF6E645A.toInt(), 0xFF4A423E.toInt(), 0xFF2A0E0C.toInt(), 0xFF3E1612.toInt(), 0xFFD04A2A.toInt(), 1,
             roof = 4, wall = 5, features = listOf(Feature.Coast(0, 4), Feature.Coast(1, 4), Feature.Coast(2, 4), Feature.Coast(3, 4),
                 Feature.Rocks(0.08f),
                 Feature.Landmark("moai", "Stone Heads", "Three stone heads that were here before anyone. They seem to approve.", 27, 9))),
-        SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 45, 200_000_000, 1f, 0.5f,
+        SiteDef("neon", "Neon Valley", "Glowing lakes and grass with a funny tint.", 150, 200_000_000, 1f, 0.5f,
             0xFF5FA87A.toInt(), 0xFF3A6E5A.toInt(), 0xFF1E1028.toInt(), 0xFF2C1840.toInt(), 0xFFC060E8.toInt(), 2,
             roof = 3, wall = 3, features = listOf(Feature.Lake(0.15f, 0.2f, 3f), Feature.Lake(0.25f, 0.8f, 3.5f),
                 Feature.Lake(0.75f, 0.1f, 2.5f),
                 Feature.Landmark("diner", "Neon Diner", "Open all night. The pie is legendary and so are the munchies.", 18, 18))),
-        SiteDef("fort20", "Fort 20", "Stone walls all the way round and a keep in the middle. Nobody's getting at this harvest.", 48, 420_000_000, 0.5f, 0.66f,
+        SiteDef("fort20", "Fort 20", "Stone walls all the way round and a keep in the middle. Nobody's getting at this harvest.", 168, 420_000_000, 0.5f, 0.66f,
             0xFF6EA84A.toInt(), 0xFF4A7A3A.toInt(), 0xFF1C1A1E.toInt(), 0xFF2A282E.toInt(), 0xFFB0A488.toInt(), 3,
             roof = 4, wall = 2, features = listOf(Feature.Lake(0.15f, 0.82f, 2.5f), Feature.Rocks(0.03f), Feature.Castle(17, 7))),
-        SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 51, 600_000_000, 0.5f, 1f,
+        SiteDef("highland", "Highland Terraces", "Rocky slopes with a stream off the peaks.", 187, 600_000_000, 0.5f, 1f,
             0xFF8AB04E.toInt(), 0xFF5E7E3A.toInt(), 0xFF1A1E24.toInt(), 0xFF262C36.toInt(), 0xFF8A9AB0.toInt(), 3, pines = true,
             roof = 4, wall = 2, features = listOf(Feature.River(true, 0.15f, 1.5f), Feature.Rocks(0.1f),
                 Feature.Landmark("pagoda", "Mountain Pagoda", "Red tiers stacked up to the clouds. Wind chimes and a lot of calm.", 24, 14))),
-        SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 58, 1_800_000_000, 0.5f, 0.5f,
+        SiteDef("crater", "Cosmic Crater", "Something fell here long ago. The plants like it.", 235, 1_800_000_000, 0.5f, 0.5f,
             0xFF7A70A8.toInt(), 0xFF4E4878.toInt(), 0xFF0E1030.toInt(), 0xFF181C48.toInt(), 0xFF7A88F0.toInt(), 1,
             roof = 3, wall = 2, features = listOf(Feature.Rim(13f), Feature.Lake(0.08f, 0.1f, 2.5f), Feature.Lake(0.92f, 0.9f, 2.5f),
                 Feature.Landmark("ufo", "The Crashed Saucer", "Whatever fell here is still humming.", 26, 17, 4))),
@@ -225,7 +225,7 @@ object Sites {
 
     /** Farms bought with Pot Bucks (their price is in Pot Bucks). Not on the realtor's list either. */
     val premium: List<SiteDef> = listOf(
-        SiteDef("zion", "Zion Gardens", "Red, gold and green as far as you can see, and a bassline from the hills.", 12, 250, 0.5f, 0.5f,
+        SiteDef("zion", "Zion Gardens", "Red, gold and green as far as you can see, and a bassline from the hills.", 19, 250, 0.5f, 0.5f,
             0xFF4AB04A.toInt(), 0xFF2E8A3A.toInt(), 0xFF2A1A0E.toInt(), 0xFF3E2814.toInt(), 0xFFFFD23A.toInt(), 4,
             roof = 2, wall = 3, features = listOf(Feature.River(true, 0.75f, 2f), Feature.Rocks(0.03f), Feature.Lake(0.22f, 0.75f, 2.5f),
                 Feature.Landmark("stage", "Sound System Stage", "Speaker stacks taller than the trees. Bass you feel in your chest.", 6, 8)), holiday = "bucks", garden = true),
@@ -377,7 +377,7 @@ class Floor {
 }
 
 object Bunker {
-    const val LEVEL = 15
+    const val LEVEL = 26
     const val COST = 250_000L
     const val START = 3
     const val SIZE_MAX = 10

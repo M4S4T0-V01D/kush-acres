@@ -69,8 +69,8 @@ enum class Upgrade(val title: String, val desc: String, val max: Int, val baseCo
     STASH("Stash Jars", "Hold 60% more bud", 15, 150.0, 2.4, 1),
     MULCH("Mulch", "Water lasts 10 min longer", 10, 120.0, 2.3, 3),
     NUTRIENTS("Nutrients", "Everything grows 6% faster", 10, 400.0, 2.6, 4),
-    GENETICS("Genetics", "8% more bud per harvest", 10, 600.0, 2.7, 6),
-    CRED("Street Cred", "Sell for 5% more", 10, 1500.0, 3.0, 8);
+    GENETICS("Genetics", "8% more bud per harvest", 10, 600.0, 2.7, 7),
+    CRED("Street Cred", "Sell for 5% more", 10, 1500.0, 3.0, 11);
 
     fun cost(lvl: Int): Long = nice(baseCost * growth.pow(lvl))
 }
@@ -122,7 +122,7 @@ class Farm(var rng: Random = Random.Default) {
         const val TRIM_MAX = 5
         const val TRIM_STEP = 0.02
         const val TRIM_BANK = 15
-        const val MAX_LEVEL = 80
+        const val MAX_LEVEL = Levels.MAX
         const val MAX_ORDERS = 6
         /** Wet soil grows this much faster. */
         const val WET_BOOST = 1.5
@@ -134,8 +134,8 @@ class Farm(var rng: Random = Random.Default) {
         /** Holiday tokens for a finished job and for finishing all three, before the level bonus. */
         const val QUEST_TOKENS = 4
         const val BONUS_TOKENS = 10
-        const val SPRINKLER_LEVEL = 6
-        const val LAMP_LEVEL = 10
+        const val SPRINKLER_LEVEL = 7
+        const val LAMP_LEVEL = 14
         val FARMHAND_LEVEL = Helper.FARMHAND.level
         val FARMHAND_COST = Helper.FARMHAND.cost
         val MANAGER_LEVEL = Helper.MANAGER.level
@@ -143,7 +143,7 @@ class Farm(var rng: Random = Random.Default) {
         const val GOLDEN_CHANCE = 0.04
         const val FAVOURITE_PRICE = 1.3
         const val FAVOURITE_GROW = 1.15
-        const val BLACK_MARKET_LEVEL = 6
+        const val BLACK_MARKET_LEVEL = 7
         const val EVENT_LEVEL = 3
         const val RUNNER_MILLIS = 6 * 60_000L
         val WORKER_LEVEL = WorkHouse.TOWER.level
@@ -153,16 +153,22 @@ class Farm(var rng: Random = Random.Default) {
         const val FESTIVAL_HOURS = 3
 
         /** Land sizes, with the level and cash each expansion needs. */
-        val LAND = listOf(Triple(6, 1, 0L), Triple(8, 5, 2_000L), Triple(10, 12, 25_000L), Triple(12, 20, 250_000L),
-            Triple(14, 30, 2_500_000L), Triple(16, 40, 25_000_000L), Triple(18, 44, 60_000_000L),
-            Triple(20, 48, 150_000_000L), Triple(22, 52, 400_000_000L), Triple(24, 56, 1_000_000_000L),
-            Triple(26, 60, 2_500_000_000L), Triple(28, 63, 6_000_000_000L), Triple(30, 66, 15_000_000_000L),
-            Triple(32, 69, 35_000_000_000L), Triple(34, 72, 80_000_000_000L), Triple(36, 75, 180_000_000_000L),
-            Triple(38, 78, 400_000_000_000L), Triple(40, 80, 1_000_000_000_000L))
+        val LAND = listOf(Triple(6, 1, 0L), Triple(8, 6, 2_000L), Triple(10, 19, 25_000L), Triple(12, 40, 250_000L),
+            Triple(14, 76, 2_500_000L), Triple(16, 123, 25_000_000L), Triple(18, 145, 60_000_000L),
+            Triple(20, 168, 150_000_000L), Triple(22, 194, 400_000_000L), Triple(24, 221, 1_000_000_000L),
+            Triple(26, 250, 2_500_000_000L), Triple(28, 272, 6_000_000_000L), Triple(30, 296, 15_000_000_000L),
+            Triple(32, 321, 35_000_000_000L), Triple(34, 347, 80_000_000_000L), Triple(36, 373, 180_000_000_000L),
+            Triple(38, 401, 400_000_000_000L), Triple(40, 420, 1_000_000_000_000L))
 
-        /** XP to go from [level] to the next: a quarter more than the plain curve, and up to 2.2 times as much early on. */
-        fun xpNeed(level: Int): Long =
-            ((8.0 * level * level + 0.6 * level.toDouble().pow(3.2)) * (1.25 + 0.95 * max(0, 15 - level) / 14.0)).roundToLong()
+        /**
+         * XP to go from [level] to the next: the old per-level curve at this tier, a quarter more than the plain curve and
+         * up to 2.2 times as much early on, shared out over the levels the tier now spans and stretched late on.
+         */
+        fun xpNeed(level: Int): Long {
+            val t = Levels.tier(level)
+            val plain = (8.0 * t * t + 0.6 * t.pow(3.2)) * (1.25 + 0.95 * max(0.0, 15 - t) / 14.0)
+            return max(1L, (plain * Levels.step(level) * Levels.stretch(level)).roundToLong())
+        }
 
         val BUYERS = listOf("Stoner Steve", "Auntie Mae", "DJ Haze", "Big Tony", "Professor Puff", "Skater Kai",
             "Granny Rose", "Chef Mo", "Hippie Jan", "Lil Kush", "Doc Green", "Mellow Mel", "Couch Carl", "Biker Bree",
@@ -186,6 +192,8 @@ class Farm(var rng: Random = Random.Default) {
     var cash = 30L
     var level = 1
         set(v) { field = v; Strains.scaleLevel = v }
+    /** How far along [level] is on the old 1 to 80 scale the economy is tuned in; see [Levels]. */
+    val tier: Double get() = Levels.tier(level)
     var xp = 0L
     /** Violet's upgrades and the shack tier belong to the farm on screen. */
     val upgrades get() = site.upgrades
@@ -429,7 +437,7 @@ class Farm(var rng: Random = Random.Default) {
     }
     /** Neighbour holiday decor bonus of kind [p] at x,y (up to two of each kind count). */
     private fun perkNear(x: Int, y: Int, p: Perk) = Decor.perks[p]?.sumOf { it.amt * decorAround(x, y, it) } ?: 0.0
-    fun orderSlots(): Int = min(MAX_ORDERS, 2 + level / 6)
+    fun orderSlots(): Int = min(MAX_ORDERS, 2 + Levels.steps(level, 6))
     fun unlocked(s: Strain) = when {
         s.holiday != null -> s.id in unlockedStrains
         s.hybrid -> s.id in bred
@@ -478,7 +486,7 @@ class Farm(var rng: Random = Random.Default) {
     /** Each extra generator of a kind on the same farm costs twice the last one. */
     fun generatorCost(g: Generator): Long = nice(g.cost * 2.0.pow(count(g)))
     /** A ground colour costs more the further you get; going back to the farm's own colour is free. */
-    fun groundCost(): Long = nice(1000.0 * 1.2.pow(level))
+    fun groundCost(): Long = nice(1000.0 * 1.2.pow(tier))
 
     // ---- Power and special buildings ----
 
@@ -835,16 +843,30 @@ class Farm(var rng: Random = Random.Default) {
         }
     }
 
-    /** The runner sells everything not set aside for open orders, plus all goods. Returns the cash made. */
+    /** How much the runner carries per trip, by rank. */
+    fun runnerBag() = Helper.RUNNER_BAG.at(Helper.RUNNER)
+
+    /**
+     * The runner fills their bag with bud not set aside for open orders, best price first, then goods with what room is
+     * left, and sells it all. Returns the cash made.
+     */
     fun run(): Long {
         val keep = HashMap<String, Int>()
         orders.filterNotNull().forEach { o -> o.items.forEach { keep[it.strain] = (keep[it.strain] ?: 0) + it.grams } }
+        var room = runnerBag()
         var got = 0L
-        for (k in stash.keys.toList()) {
-            val spare = (stash[k] ?: 0) - (keep[k] ?: 0)
-            if (spare > 0) got += sell(k, spare, byHand = false)
+        val best = stash.keys.toList().sortedByDescending { k -> (Strains[k]?.price ?: 0L) * (demand[k] ?: 1.0) }
+        for (k in best) {
+            if (room <= 0) break
+            val spare = min(room, (stash[k] ?: 0) - (keep[k] ?: 0))
+            if (spare > 0) { got += sell(k, spare, byHand = false); room -= spare }
         }
-        return got + sellAllGoods()
+        for (k in goods.keys.sortedByDescending { goodsPrice(it) }) {
+            val n = min(goods[k] ?: 0, room / Helper.GOOD_SPACE)
+            if (n <= 0) break
+            got += sellGoods(k, n); room -= n * Helper.GOOD_SPACE
+        }
+        return got
     }
 
     // ---- Random events (only while playing) ----
@@ -872,7 +894,7 @@ class Farm(var rng: Random = Random.Default) {
         val dog = placed(Decor.DOG)
         val pests = growing().filter { (x, y) -> !protected(x, y) && !hardy(x, y) }
         val choices = ArrayList<Pair<EventKind, Int>>()
-        if (level >= 5 && cash >= 500 && !built(Special.TEMPLE) && !on(Buff.SCANNER)) choices += EventKind.RAID to (if (dog) 1 else 2)
+        if (level >= 6 && cash >= 500 && !built(Special.TEMPLE) && !on(Buff.SCANNER)) choices += EventKind.RAID to (if (dog) 1 else 2)
         if (pests.isNotEmpty()) choices += EventKind.PESTS to 3
         if (count(Kind.PLOT) > 0) choices += EventKind.RAIN to 2
         choices += EventKind.RUSH to 2
@@ -929,7 +951,7 @@ class Farm(var rng: Random = Random.Default) {
                 Happening(kind, amount = (price(s) * g * 2).roundToLong(), strain = s, grams = g)
             }
             EventKind.METEOR -> {
-                val c = nice(100.0 + 40.0 * level * level); val pb = 2 + level / 20
+                val c = nice(100.0 + 40.0 * tier * tier); val pb = 2 + (tier / 20).toInt()
                 earn(c); potBucks += pb
                 events += FarmEvent.Cash(c)
                 Happening(kind, amount = c, grams = pb)
@@ -1211,7 +1233,7 @@ class Farm(var rng: Random = Random.Default) {
         if (Pheno.yieldGrade(p) >= 3 || Pheno.potency(p) >= 3 || Pheno.colour(p) > 0) events += FarmEvent.Find(s, p)
     }
 
-    fun motherSlots() = 2 + level / 10
+    fun motherSlots() = 2 + Levels.steps(level, 10)
 
     /** Keeps the best find of [id] as its mother, so planting it gives clones. */
     fun keepMother(id: String): Result {
@@ -1238,11 +1260,13 @@ class Farm(var rng: Random = Random.Default) {
             xp -= xpNeed(level)
             level++
             bestLevel = max(bestLevel, level)
-            val bonus = 25L * level * level
+            val t = tier
+            val step = Levels.step(level - 1)
+            val bonus = max(1L, (25.0 * t * t * step).roundToLong())
             cash += bonus
-            val pb = 2L + level / 10
+            val pb = max(1L, ((2.0 + t / 10) * step).roundToLong())
             potBucks += pb
-            val g = if (level % 5 == 0) 2L else 0L
+            val g = if ((t / 5).toInt() > (Levels.tier(level - 1) / 5).toInt()) 2L else 0L
             gems += g
             events += FarmEvent.LevelUp(level, bonus, unlocksAt(level), pb, g)
         }
@@ -1455,7 +1479,7 @@ class Farm(var rng: Random = Random.Default) {
     // ---- Hippie festivals ----
 
     fun canFestival() = land >= FESTIVAL_LAND
-    fun festivalCost(): Long = nice(2000.0 + 400.0 * level * level)
+    fun festivalCost(): Long = nice(2000.0 + 400.0 * tier * tier)
     fun festivalOn(now: Long = lastTick) = festivalUntil > now
     /** Throws a festival on the farm on screen: tents and hippies for [FESTIVAL_HOURS] hours, and prices ×1.5. */
     fun festival(now: Long): Result {
@@ -1543,11 +1567,11 @@ class Farm(var rng: Random = Random.Default) {
         when {
             item.buff != null -> addBuff(item.buff, now, item.minutes)
             item == BucksItem.SEEDS -> {
-                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(6, level) }.last()
+                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(7, level) }.last()
                 seeds[ex.strain!!] = (seeds[ex.strain] ?: 0) + BmItem.EXOTIC_PACK
             }
             item == BucksItem.ENVELOPE -> envelopes++
-            item == BucksItem.CASH -> earn(nice(500.0 + 100.0 * level * level))
+            item == BucksItem.CASH -> earn(nice(500.0 + 100.0 * tier * tier))
             item == BucksItem.GEM -> gems++
         }
         potBucks -= item.price
@@ -1703,7 +1727,7 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
-    fun rockCost(): Long = nice(200.0 + 40.0 * level * level)
+    fun rockCost(): Long = nice(200.0 + 40.0 * tier * tier)
 
     /** Breaks up a boulder on your land so the square can be built on. */
     fun clearRock(x: Int, y: Int): Result {
@@ -2178,7 +2202,7 @@ class Farm(var rng: Random = Random.Default) {
         val here = site.def.id
         val local = BmItem.entries.filter { it.site == here && it.level <= level }
         val rest = BmItem.entries.filter { it.site == null && !it.staple && it.level <= level }.shuffled(Random(rot * 7919 + 13 + here.hashCode() * 31L))
-        return (local + rest).take(if (level >= 30) 8 else 6)
+        return (local + rest).take(if (level >= 76) 8 else 6)
     }
 
     private fun turnOver(now: Long) {
@@ -2400,7 +2424,7 @@ class Farm(var rng: Random = Random.Default) {
         return Result.OK
     }
 
-    fun questBonusCash(): Long = nice((300.0 + 60.0 * level * level))
+    fun questBonusCash(): Long = nice(300.0 + 60.0 * tier * tier)
     fun canClaimQuestBonus() = quests.isNotEmpty() && quests.all { it.claimed } && !questBonus
 
     fun claimQuestBonus(now: Long): Result {

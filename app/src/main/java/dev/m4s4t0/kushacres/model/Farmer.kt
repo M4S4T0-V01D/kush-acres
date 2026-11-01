@@ -30,7 +30,7 @@ data class Farmer(
         val NAMES = listOf("Mary Jane", "Buddy", "Sage", "Willow", "Rusty", "Juniper", "Clay", "Indica", "Skye", "Dale", "Fern", "Roach")
 
         /** Restyling costs this much cash once the game has begun (or [RESTYLE_BUCKS] Pot Bucks). */
-        fun restyleCost(level: Int) = nice(500.0 + 150.0 * level)
+        fun restyleCost(level: Int) = nice(500.0 + 150.0 * Levels.tier(level))
         const val RESTYLE_BUCKS = 5L
         const val NAME_MAX = 18
 

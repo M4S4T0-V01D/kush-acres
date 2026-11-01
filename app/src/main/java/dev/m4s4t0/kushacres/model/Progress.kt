@@ -106,7 +106,11 @@ enum class Trophy(val title: String, val desc: String, val target: Long, val val
     LEVEL_10("Getting Somewhere", "Reach level 10", 10, { it.bestLevel.toLong() }),
     LEVEL_25("Seasoned Grower", "Reach level 25", 25, { it.bestLevel.toLong() }),
     LEVEL_50("Master Grower", "Reach level 50", 50, { it.bestLevel.toLong() }),
-    LEVEL_80("Legend of Kush", "Reach level 80", 80, { it.bestLevel.toLong() }),
+    LEVEL_80("Veteran Grower", "Reach level 80", 80, { it.bestLevel.toLong() }),
+    LEVEL_150("Kush Baron", "Reach level 150", 150, { it.bestLevel.toLong() }),
+    LEVEL_250("Grandmaster Grower", "Reach level 250", 250, { it.bestLevel.toLong() }),
+    LEVEL_350("Living Legend", "Reach level 350", 350, { it.bestLevel.toLong() }),
+    LEVEL_420("Legend of Kush", "Reach level ${Levels.MAX}", Levels.MAX.toLong(), { it.bestLevel.toLong() }),
     LAND_MAX("Lord of the Land", "Own the full ${Farm.MAX}×${Farm.MAX} farm", Farm.MAX.toLong(), { f -> f.sites.maxOf { it.land }.toLong() }),
     MANSION("Mansion Life", "Move into the Kush Mansion", 5, { it.bestShack().toLong() }),
     PALACE("Palace Dweller", "Move into the Kush Palace", 9, { it.bestShack().toLong() }),
@@ -162,18 +166,18 @@ object Hybrids {
 
 /** Daily rewards, quests, trophies, breeding and selling the farm, as extensions of the farm's rules. */
 object Progress {
-    const val BREED_LEVEL = 8
-    const val LEGACY_LEVEL = 40
+    const val BREED_LEVEL = 11
+    const val LEGACY_LEVEL = 123
     private val DAY_MULT = doubleArrayOf(1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 8.0)
 
     fun reward(f: Farm, day: Int): DailyReward {
         val d = (day - 1) % 7 + 1
-        val cash = nice((60.0 + 30.0 * f.level * f.level) * DAY_MULT[d - 1])
+        val cash = nice((60.0 + 30.0 * f.tier * f.tier) * DAY_MULT[d - 1])
         val r = when (d) {
             3 -> DailyReward(d, cash, Buff.JUICE, 30)
             5 -> DailyReward(d, cash, Buff.DUST, 20)
             7 -> {
-                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(6, f.level) }.last()
+                val ex = BmItem.entries.filter { it.strain != null && it.site == null && it.level <= maxOf(7, f.level) }.last()
                 DailyReward(d, cash, seeds = ex.strain, seedCount = 3)
             }
             else -> DailyReward(d, cash)

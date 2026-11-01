@@ -531,7 +531,7 @@ private fun Hints(ui: UiState) {
     Store.rev
     val text = when {
         // Starter tips. Lifetime stats drive them, so they don't come back after selling the farm.
-        ui.mode != Mode.Farm || f.level >= 5 -> null
+        ui.mode != Mode.Farm || f.level >= 6 -> null
         f.stat(Stat.HARVESTS) == 0L -> "Tap the ripe plants to harvest. Swipe across many at once!"
         f.stat(Stat.EARNED) == 0L && f.stashUsed() > 0 -> "Sell your bud at ${keeper(Keeper.DEX)}'s in Town, or fill an order for a bonus."
         f.stat(Stat.HARVESTS) < 6 && f.tiles.any { it.kind == Kind.PLOT && it.strain == null } -> "Tap empty plots to plant ${Strains[ui.seed]?.name}. Tap a growing plant to water it."

@@ -62,7 +62,7 @@ object Board {
         return List(NOTES) { i ->
             val need = when (if (i == 0) 0 else r.nextInt(3)) {
                 1 -> classes.randomOrNull(r)?.let { c -> Need("class:${c.name}", round10(Contracts.perHour(f, Contracts.fitting(f, c).maxBy { it.price }) * 0.8)) }
-                2 -> kitchens.randomOrNull(r)?.let { fac -> Need("goods:${fac.name}", 2 + f.level / 8 + r.nextInt(3)) }
+                2 -> kitchens.randomOrNull(r)?.let { fac -> Need("goods:${fac.name}", 2 + Levels.steps(f.level, 8) + r.nextInt(3)) }
                 else -> null
             } ?: ladder[r.nextInt(ladder.size)].let { s -> Need(s.id, round10(Contracts.perHour(f, s) * (0.5 + r.nextDouble() * 0.6))) }
             val prize = when {

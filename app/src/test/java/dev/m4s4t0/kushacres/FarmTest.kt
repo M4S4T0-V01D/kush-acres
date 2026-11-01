@@ -2,6 +2,7 @@ package dev.m4s4t0.kushacres
 
 import kotlin.math.roundToInt
 import org.junit.Assert.assertNotNull
+import dev.m4s4t0.kushacres.model.Levels
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.BudDrop
 import dev.m4s4t0.kushacres.model.Cup
@@ -124,7 +125,7 @@ class FarmTest {
 
     @Test fun waterRunsOutPartWay() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 7
+        f.cash = 1_000_000; f.level = Levels.of(7)
         f.plant(2, 3, "bluedream", t0); f.water(2, 3, t0)
         // 20 min wet = 30 min of growth, then 30 more dry minutes.
         assertEquals(50 * 60L, f.eta(2, 3, t0))
@@ -211,7 +212,7 @@ class FarmTest {
         val slow = f.farmhandMillis()
         f.level = Helper.FARMHAND.rankLevel(2) - 1
         assertEquals(Result.LOCKED, f.train(Helper.FARMHAND))
-        f.level = 99
+        f.level = Levels.of(99)
         repeat(Helper.RANKS - 1) { assertEquals(Result.OK, f.train(Helper.FARMHAND)) }
         assertEquals(Result.BLOCKED, f.train(Helper.FARMHAND))
         assertTrue(f.farmhandMillis() < slow)
@@ -221,7 +222,7 @@ class FarmTest {
 
     @Test fun furnishingTheHouse() {
         val f = farm()
-        f.cash = 10_000; f.level = 5
+        f.cash = 10_000; f.level = Levels.of(5)
         val home = RoomKind.HOME
         val (w, h) = Interiors.size(f, home)
         assertEquals(Result.BLOCKED, Interiors.buy(f, home, Furn.COUNTER, 0, 0)) // store-only
@@ -260,14 +261,14 @@ class FarmTest {
         assertEquals(Result.OK, f.build(4, 4, Kind.PLOT))
         assertTrue(f.plotCost() > c1)
         assertEquals(Result.LOCKED, f.expand())
-        f.level = 5
+        f.level = Levels.of(5)
         assertEquals(Result.OK, f.expand())
         assertEquals(8, f.land)
     }
 
     @Test fun saveRoundTrips() {
         val f = farm()
-        f.cash = 1234; f.level = 9; f.upgrades[Upgrade.MULCH.ordinal] = 3
+        f.cash = 1234; f.level = Levels.of(9); f.upgrades[Upgrade.MULCH.ordinal] = 3
         f.plant(2, 3, "ditch", t0); f.water(2, 3, t0)
         f.stash["mids"] = 12; f.tick(t0 + 60_000L)
         val g = Farm()
@@ -284,7 +285,7 @@ class FarmTest {
         assertEquals(Result.BLOCKED, f.build(1, 0, Kind.PLOT))
         assertEquals(Result.BLOCKED, f.demolish(1, 1))
         val cap = f.stashCap()
-        f.cash = 10_000; f.level = 5
+        f.cash = 10_000; f.level = Levels.of(5)
         assertEquals(Result.OK, f.upgradeShack())
         assertTrue(f.stashCap() > cap)
         assertEquals(Result.OK, f.move(1, 1, 4, 4))
@@ -329,7 +330,7 @@ class FarmTest {
         assertEquals(2, Decor.TIKI.reach); assertEquals(3, Decor.WINDMILL.reach); assertEquals(4, Decor.TOTEM.reach)
         assertEquals(0, Decor.BENCH.reach); assertEquals(0, Decor.BARREL.reach)
         val f = farm()
-        f.cash = 10_000_000; f.level = 20
+        f.cash = 10_000_000; f.level = Levels.of(20)
         assertEquals(Result.OK, f.placeDecor(1, 3, Decor.TIKI))
         assertEquals(1, f.decorAround(3, 5, Decor.TIKI))
         assertEquals(0, f.decorAround(4, 3, Decor.TIKI))
@@ -339,7 +340,7 @@ class FarmTest {
 
     @Test fun decorHelpsAndHasALimit() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 20
+        f.cash = 1_000_000; f.level = Levels.of(20)
         val base = f.speed(2, 3)
         assertEquals(Result.OK, f.placeDecor(1, 3, Decor.GNOME))
         assertTrue(f.speed(2, 3) > base)
@@ -355,7 +356,7 @@ class FarmTest {
 
     @Test fun helpersRunTheFarmWhileAway() {
         val f = farm()
-        f.cash = 100_000_000; f.level = 30; f.shack = 3
+        f.cash = 100_000_000; f.level = Levels.of(30); f.shack = 3
         f.upgrades[Upgrade.STASH.ordinal] = 10
         Helper.entries.forEach { assertEquals(it.name, Result.OK, f.hire(it)) }
         f.buildFacility(4, 4, Facility.ROLLER)
@@ -367,9 +368,47 @@ class FarmTest {
         assertTrue(f.supplies[Supply.PAPERS.ordinal] > 0)
     }
 
+    @Test fun runnerCarriesMoreAsTheyRankUp() {
+        val f = farm()
+        f.cash = 1_000_000; f.level = Levels.of(30); f.shack = 1
+        assertEquals(Result.OK, f.hire(Helper.RUNNER))
+        f.stash["ditch"] = 500; f.stash["og"] = 500
+        assertTrue(f.run() > 0)
+        assertEquals(Helper.RUNNER_BAG[0], f.runnerBag())
+        // A rookie runner takes one small bag, and the dearest bud goes first.
+        assertEquals(500 - Helper.RUNNER_BAG[0], f.stash["og"] ?: 0)
+        assertEquals(500, f.stash["ditch"])
+        f.ranks[Helper.RUNNER.ordinal] = 5
+        assertEquals(Helper.RUNNER_BAG[4], f.runnerBag())
+        f.run()
+        assertEquals(0, (f.stash["og"] ?: 0) + (f.stash["ditch"] ?: 0))
+    }
+
+    @Test fun levelCurveRunsTo420() {
+        assertEquals(1, Levels.of(1)); assertEquals(Levels.MAX, Levels.of(Levels.OLD_MAX)); assertEquals(420, Farm.MAX_LEVEL)
+        for (t in 1..Levels.OLD_MAX) assertEquals(t.toDouble(), Levels.tier(Levels.of(t)), 0.6)
+        for (l in 2 until Levels.MAX) assertTrue("$l", Farm.xpNeed(l) >= Farm.xpNeed(l - 1))
+        // Every ladder seed unlocks somewhere along the way, and there's still something new near the top.
+        assertTrue(Strains.ladder.all { it.level in 1..Levels.MAX })
+        assertTrue(Strains.ladder.count { it.level > 300 } >= 8)
+    }
+
+    @Test fun oldSavesMoveOntoTheLongerCurve() {
+        val f = farm()
+        f.level = 40; f.bestLevel = 45; f.xp = 1_000_000_000
+        val o = org.json.JSONObject(Save.write(f)); o.put("v", 5)
+        val g = Farm(); Save.read(o.toString(), g)
+        assertEquals(Levels.of(40), g.level)
+        assertEquals(Levels.of(45), g.bestLevel)
+        assertTrue(g.xp < Farm.xpNeed(g.level))
+        // A current save is left alone.
+        val h = Farm(); Save.read(Save.write(g), h)
+        assertEquals(g.level, h.level); assertEquals(g.bestLevel, h.bestLevel)
+    }
+
     @Test fun hiringNeedsABiggerShack() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 30
+        f.cash = 1_000_000; f.level = Levels.of(30)
         assertEquals(Result.SHACK, f.hire(Helper.RUNNER))
         f.shack = 1
         assertEquals(Result.OK, f.hire(Helper.RUNNER))
@@ -378,7 +417,7 @@ class FarmTest {
 
     @Test fun eventsHappenAndResolve() {
         val f = farm()
-        f.cash = 10_000; f.level = 10
+        f.cash = 10_000; f.level = Levels.of(10)
         assertTrue(!f.rollEvent(t0)) // first call only schedules
         assertTrue(f.rollEvent(t0 + 3_600_000L))
         f.resolve(false, t0)
@@ -402,7 +441,7 @@ class FarmTest {
 
     @Test fun blackMarketSellsExoticsAndRotates() {
         val f = farm()
-        f.cash = 100_000_000; f.level = 40
+        f.cash = 100_000_000; f.level = Levels.of(40)
         val stock = f.bmStock(t0)
         assertEquals(8, stock.size) // level 30+ gets a bigger shelf
         assertTrue(stock.none { it.staple })
@@ -416,7 +455,7 @@ class FarmTest {
 
     @Test fun backRoomStaplesClimbInPriceAndWork() {
         val f = farm()
-        f.cash = 100_000_000; f.level = 20
+        f.cash = 100_000_000; f.level = Levels.of(20)
         val p0 = f.bmStaplePrice(BmItem.BUGBOMB, t0)
         val pests = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.filter { (a, b) -> f.tile(a, b).kind == Kind.PLOT }
         for ((x, y) in pests) f.tile(x, y).pest = true
@@ -435,7 +474,7 @@ class FarmTest {
 
     @Test fun v2SaveKeepsTheNewStuff() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 30; f.shack = 2; f.paint(3, 4)
+        f.cash = 1_000_000; f.level = Levels.of(30); f.shack = 2; f.paint(3, 4)
         f.buildFacility(4, 4, Facility.PRESS); f.placeDecor(5, 5, Decor.GNOME)
         f.seeds["ghost"] = 3; f.goods["PRESS:ditch"] = 4; f.supplies[Supply.ICE.ordinal] = 7
         f.hire(Helper.RUNNER); f.envelopes = 2; f.addBuff(Buff.RUSH, t0, 10)
@@ -461,7 +500,7 @@ class FarmTest {
         f.cash = 1_000_000_000
         f.level = Progress.BREED_LEVEL - 1
         assertEquals(Result.LOCKED, f.breed(r.id, t0))
-        f.level = 80
+        f.level = Levels.of(80)
         assertEquals(Result.NO_BUD, f.breed(r.id, t0))
         val g = f.breedGrams(s)
         f.stash[r.a] = g; f.stash[r.b] = g + 5
@@ -523,9 +562,9 @@ class FarmTest {
 
     @Test fun sellingTheFarmKeepsTheLegacy() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 39
+        f.cash = 1_000_000; f.level = Levels.of(39)
         assertEquals(Result.LOCKED, f.sellFarm(t0))
-        f.level = 40; f.bestLevel = 40; f.placeDecor(5, 5, Decor.GNOME); f.bred += Hybrids.recipes.first().id
+        f.level = Levels.of(40); f.bestLevel = Levels.of(40); f.placeDecor(5, 5, Decor.GNOME); f.bred += Hybrids.recipes.first().id
         f.bump(Stat.HARVESTS, 50)
         val price = f.priceMult()
         assertEquals(Result.OK, f.sellFarm(t0))
@@ -535,12 +574,12 @@ class FarmTest {
         assertEquals(50, f.stat(Stat.HARVESTS))
         assertTrue(f.shackAt() != null)
         assertTrue(f.priceMult() > price * 0.9)
-        assertEquals(40, f.bestLevel)
+        assertEquals(Levels.of(40), f.bestLevel)
     }
 
     @Test fun legacyPerksHeirloomsAndStartMaps() {
         val f = farm()
-        f.cash = 1_000_000; f.level = 40
+        f.cash = 1_000_000; f.level = Levels.of(40)
         val heir = Legacy.eligible(f).last()
         val junk = Strains.ladder.first { it.level > 40 }.id
         assertTrue(Legacy.slots(f) == 1 && Legacy.points(f) == 0)
@@ -563,7 +602,7 @@ class FarmTest {
         // Old Money pays out on the next sale; Quarry Hill starts bigger with boulders.
         f.legacyPerks += listOf(LegacyPerk.SILVER_TONGUE, LegacyPerk.KNOWN_FACE, LegacyPerk.OLD_MONEY, LegacyPerk.BIG_BUDS, LegacyPerk.SEED_VAULT)
         assertEquals(3, Legacy.slots(f))
-        f.level = 40
+        f.level = Levels.of(40)
         assertEquals(Result.OK, f.sellFarm(t0, StartMap.QUARRY, Legacy.eligible(f).takeLast(4).map { it.id }))
         assertEquals(3, f.heirlooms.size)
         assertEquals(30 + Legacy.OLD_MONEY, f.cash)
@@ -596,7 +635,7 @@ class FarmTest {
     @Test fun progressSurvivesASave() {
         val f = farm()
         f.refreshQuests(t0); f.claimDaily(t0); f.bump(Stat.GOLDEN, 4)
-        f.bred += Hybrids.recipes.first().id; f.legacy = 2; f.level = 12
+        f.bred += Hybrids.recipes.first().id; f.legacy = 2; f.level = Levels.of(12)
         f.checkTrophies(silent = true)
         val g = Farm()
         Save.read(Save.write(f), g)
@@ -608,14 +647,14 @@ class FarmTest {
     @Test fun oldSaveFromBeforeProgressLoads() {
         // A 0.1.x save has none of the progress keys; its old totals seed the new counters.
         val f = farm()
-        f.level = 12; f.totalHarvests = 340; f.totalEarned = 50_000
+        f.level = Levels.of(12); f.totalHarvests = 340; f.totalEarned = 50_000
         val o = org.json.JSONObject(Save.write(f))
         for (k in listOf("stats", "trophies", "bred", "legacy", "bestLevel", "streak", "bestStreak", "lastDay", "questDay", "questBonus", "quests")) o.remove(k)
         val g = Farm()
         Save.read(o.toString(), g)
         assertEquals(340, g.stat(Stat.HARVESTS))
         assertEquals(50_000, g.stat(Stat.EARNED))
-        assertEquals(12, g.bestLevel)
+        assertEquals(Levels.of(12), g.bestLevel)
         assertEquals(0, g.legacy)
         assertTrue(g.canClaimDaily(t0))
         g.checkTrophies(silent = true)
@@ -650,14 +689,14 @@ class FarmTest {
 
     // ---- Other farms ----
 
-    private fun rich() = farm().apply { level = 20; bestLevel = 20; cash = 10_000_000_000L }
+    private fun rich() = farm().apply { level = Levels.of(20); bestLevel = Levels.of(20); cash = 10_000_000_000L }
 
     @Test fun buyAndSwitchFarms() {
         val f = rich()
         val red = Sites["redwood"]!!
-        f.level = 14
+        f.level = Levels.of(14)
         assertEquals(Result.LOCKED, f.canBuy(red))
-        f.level = 15
+        f.level = Levels.of(15)
         assertEquals(Result.LOCKED, f.canBuy(Sites["mesa"]!!))
         val cash = f.cash
         assertEquals(Result.OK, f.buySite(red))
@@ -772,7 +811,7 @@ class FarmTest {
     @Test fun farmsSaveAndOldSavesMigrate() {
         val f = rich()
         f.plant(2, 3, "ditch", t0)
-        f.buySite(Sites["mesa"]!!.also { f.level = 30 })
+        f.buySite(Sites["mesa"]!!.also { f.level = Levels.of(30) })
         f.roof = 3
         val g = Farm()
         Save.read(Save.write(f), g)
@@ -799,7 +838,7 @@ class FarmTest {
 
     @Test fun sellingTheFarmKeepsOnlyHome() {
         val f = rich()
-        f.level = 40; f.bestLevel = 40
+        f.level = Levels.of(40); f.bestLevel = Levels.of(40)
         f.buySite(Sites["redwood"]!!)
         assertEquals(Result.OK, f.sellFarm(t0))
         assertEquals(1, f.sites.size)
@@ -809,7 +848,7 @@ class FarmTest {
 
     @Test fun extraGeneratorsCostMore() {
         val f = rich()
-        f.level = 30
+        f.level = Levels.of(30)
         fun grass() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
         val made = f.powerMade()
         val first = f.generatorCost(Generator.DIESEL)
@@ -826,7 +865,7 @@ class FarmTest {
         val (x, y) = grass()
         f.level = WorkHouse.GROW.level - 1
         assertEquals(Result.LOCKED, f.buildHouse(x, y, WorkHouse.GROW))
-        f.level = 30
+        f.level = Levels.of(30)
         val spent = f.stat(Stat.SPENT)
         assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.GROW))
         assertEquals(spent + WorkHouse.GROW.cost, f.stat(Stat.SPENT))
@@ -851,7 +890,7 @@ class FarmTest {
     }
 
     @Test fun bigBuildingsTakeTwoByTwo() {
-        val f = rich().apply { level = 30 }
+        val f = rich().apply { level = Levels.of(30) }
         fun spot() = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
         val (x, y) = spot()
         assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.BUNK))
@@ -880,12 +919,12 @@ class FarmTest {
     }
 
     @Test fun bunkerGrowsUnderTheFarm() {
-        val f = rich().apply { level = 30 }
+        val f = rich().apply { level = Levels.of(30) }
         val free = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }
         val (x, y) = free.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }
         f.level = Bunker.LEVEL - 1
         assertEquals(Result.LOCKED, f.buyBunker(x, y, 1))
-        f.level = 30
+        f.level = Levels.of(30)
         val cash = f.cash
         assertEquals(Result.OK, f.buyBunker(x, y, 1))
         assertEquals(cash - Bunker.COST, f.cash)
@@ -940,7 +979,7 @@ class FarmTest {
     }
 
     @Test fun bunkerHoldsStashAndMachines() {
-        val f = rich().apply { level = 30 }
+        val f = rich().apply { level = Levels.of(30) }
         val bare = f.siteStash()
         val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.canStairs(a, b, 1) && f.canStairs(a, b, 0) }
         assertEquals(Result.OK, f.buyBunker(x, y, 1))
@@ -957,7 +996,7 @@ class FarmTest {
     }
 
     @Test fun oldSmallBuildingsSpreadOut() {
-        val f = rich().apply { level = 30 }
+        val f = rich().apply { level = Levels.of(30) }
         val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) }
         assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.DRYING))
         // An old save had it on one square.
@@ -969,7 +1008,7 @@ class FarmTest {
     }
 
     @Test fun bigThingsShadeTheirNeighbours() {
-        val f = rich().apply { level = 30 }
+        val f = rich().apply { level = Levels.of(30) }
         val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.fits(a, b, 2) && f.fits(a + 2, b, 1) }
         assertFalse(f.shaded(x + 2, y))
         assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.TRIM))
@@ -1110,7 +1149,7 @@ class FarmTest {
 
     @Test fun everyHolidayHasMoreToWorkFor() {
         for (h in Holiday.entries) {
-            assertEquals(h.name, 5, h.strains.size)
+            assertEquals(h.name, 6, h.strains.size)
             assertEquals(h.name, 2, h.sites.size)
         }
         val f = farm()
@@ -1163,7 +1202,7 @@ class FarmTest {
     @Test fun restartWipesAndBucksBuy() {
         val f = farm()
         f.farmer = Farmer("Sage")
-        f.potBucks = 30; f.cash = 99_999; f.level = 12
+        f.potBucks = 30; f.cash = 99_999; f.level = Levels.of(12)
         assertEquals(Result.OK, f.buyWithBucks(BucksItem.JUICE, t0))
         assertEquals(25L, f.potBucks)
         assertTrue(f.on(Buff.JUICE))
@@ -1190,7 +1229,7 @@ class FarmTest {
 
     @Test fun vehiclesParkOnTwoByTwoMoveAndSave() {
         val f = farm()
-        f.cash = 100_000_000; f.level = 30
+        f.cash = 100_000_000; f.level = Levels.of(30)
         val (x, y) = freeSpot(f)
         assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.TRUCK, t0))
         assertEquals(Result.LIMIT, f.buyVehicle(x, y, Vehicle.TRUCK, t0))
@@ -1213,7 +1252,7 @@ class FarmTest {
 
     @Test fun rvAddsBedsAndCrewTakesThem() {
         val f = farm()
-        f.cash = 100_000_000; f.level = 30
+        f.cash = 100_000_000; f.level = Levels.of(30)
         val cap = f.workerCap()
         val (x, y) = freeSpot(f)
         assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.RV, t0))
@@ -1231,7 +1270,7 @@ class FarmTest {
         val f = farm()
         f.cash = 1_000_000_000
         assertEquals(Result.LOCKED, Hunt.send(f, Trip.HILLS, t0))
-        f.level = 15
+        f.level = Levels.of(15)
         val cash = f.cash
         assertEquals(Result.OK, Hunt.send(f, Trip.VALLEY, t0))
         assertEquals(cash - Hunt.cost(f, Trip.VALLEY), f.cash)
@@ -1256,7 +1295,7 @@ class FarmTest {
 
     @Test fun botanistsAndChemistSpeedUpTheirFarm() {
         val f = farm()
-        f.cash = 1_000_000_000; f.level = 30
+        f.cash = 1_000_000_000; f.level = Levels.of(30)
         assertEquals(Result.OK, f.buildFacility(4, 4, Facility.ROLLER))
         val (x, y) = freeSpot(f)
         assertEquals(Result.OK, f.buyVehicle(x, y, Vehicle.RV, t0))
@@ -1343,7 +1382,7 @@ class FarmTest {
 
     @Test fun classContractsIgnoreExotics() {
         val f = farm()
-        f.level = 12
+        f.level = Levels.of(12)
         // Exotic seeds are always for sale, so pricing a class order by them made a level 12 order worth ~100M.
         for (c in CupClass.entries) assertTrue(Contracts.fitting(f, c).none { it.exotic })
         for (day in 0 until 30) {
@@ -1358,9 +1397,9 @@ class FarmTest {
 
     @Test fun contractsOfferTakeShipAndPay() {
         val f = farm()
-        f.level = 5
+        f.level = Levels.of(5)
         assertTrue(Contracts.offers(f, "home", t0).isEmpty())
-        f.level = 10
+        f.level = Levels.of(10)
         f.offerDay.clear()
         val offers = Contracts.offers(f, "home", t0)
         // The daily offers and one event contract; no story yet (that needs a tier), no weekly order.
@@ -1392,7 +1431,7 @@ class FarmTest {
 
     @Test fun storefrontSellsLabBudAndSpeedsResearch() {
         val f = farm()
-        f.level = 30; f.cash = 1_000_000_000
+        f.level = Levels.of(30); f.cash = 1_000_000_000
         val (x, y) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
         assertEquals(Result.OK, f.buildHouse(x, y, WorkHouse.STORE))
         assertEquals(1, f.tile(x, y).lvl)
@@ -1410,9 +1449,9 @@ class FarmTest {
         assertEquals(Math.round(20 * h.price * f.priceMult() * Storefronts.premium(1)).toDouble(), (f.cash - cash).toDouble(), 2.0)
         assertEquals(20, f.stat(Stat.STORE_GRAMS))
         // Growing it: each step needs the level, and the top is a flagship.
-        f.level = 10
+        f.level = Levels.of(10)
         assertEquals(Result.LOCKED, Storefronts.upgrade(f, x, y))
-        f.level = 80
+        f.level = Levels.of(80)
         repeat(4) { assertEquals(Result.OK, Storefronts.upgrade(f, x, y)) }
         assertEquals(Result.LIMIT, Storefronts.upgrade(f, x, y))
         assertEquals("Flagship Store", Storefronts.name(f.tile(x, y).lvl))
@@ -1426,7 +1465,7 @@ class FarmTest {
 
     @Test fun contractsLapseDropAndSave() {
         val f = farm()
-        f.level = 10
+        f.level = Levels.of(10)
         Contracts.offers(f, "home", t0)
         f.rep["home"] = 20
         Contracts.take(f, "home", 0, t0)
@@ -1456,7 +1495,7 @@ class FarmTest {
 
     @Test fun storyChainsWeeklyOrdersAndEvents() {
         val f = farm()
-        f.level = 30
+        f.level = Levels.of(30)
         fun fill(c: Contract) {
             for (n in c.needs) when {
                 n.what.startsWith("lab:") -> f.stash[Strains.hybridList.first().id] = n.amount
@@ -1539,7 +1578,7 @@ class FarmTest {
             println("L$l top=${top.toLong()}/min pumpkin=$${pumpkin.price}x${pumpkin.yield} seed $${pumpkin.seed} xp ${pumpkin.xp}" +
                 " jack=$${jack.price} seed $${jack.seed}")
         }
-        f.level = 80
+        f.level = Levels.of(80)
         assertTrue(money(jack) > money(pumpkin))
         f.level = 1
         assertEquals(pumpkin.price0, pumpkin.price)
@@ -1592,7 +1631,7 @@ class FarmTest {
         val ids = f.finds.keys.toList()
         assertEquals(Result.OK, f.keepMother(ids[1]))
         assertEquals(Result.LIMIT, f.keepMother(ids[2]))
-        f.level = 10
+        f.level = Levels.of(10)
         assertEquals(Result.OK, f.keepMother(ids[2]))
         assertEquals(Result.OK, f.dropMother(ids[2]))
         val cross = Strains.hybridList.first()
@@ -1678,7 +1717,7 @@ class FarmTest {
     }
 
     @Test fun plantingChargesWhatTheShelfShows() {
-        val f = farm(); f.cash = 100_000_000; f.level = 99
+        val f = farm(); f.cash = 100_000_000; f.level = Levels.of(99)
         val thrifty = Strains.all.filter { !it.exotic && Trait.THRIFTY in it.traits && f.unlocked(it) }
         assertTrue(thrifty.isNotEmpty())
         for (s in thrifty) {
@@ -1692,7 +1731,7 @@ class FarmTest {
 
     @Test fun saveCodeCarriesAFarmOverAnother() {
         val f = farm()
-        f.cash = 5_000_000; f.level = 30
+        f.cash = 5_000_000; f.level = Levels.of(30)
         assertEquals(Result.OK, f.buySite(Sites.all[1]))
         f.plant(2, 3, "ditch", t0); f.stash["mids"] = 40; f.tick(t0 + 60_000L)
         val json = Save.write(f)
@@ -1703,11 +1742,11 @@ class FarmTest {
         assertNull(SaveCode.unpack("KUSH1:notreallyasave"))
 
         val keep = Strains.scaleLevel
-        assertEquals(30, SaveCode.peek(json)!!.level)
+        assertEquals(Levels.of(30), SaveCode.peek(json)!!.level)
         assertEquals(keep, Strains.scaleLevel)
 
         // Loading over a farm with its own progress leaves nothing of it behind.
-        val g = farm(); g.cash = 9_000_000; g.level = 50
+        val g = farm(); g.cash = 9_000_000; g.level = Levels.of(50)
         assertEquals(Result.OK, g.buySite(Sites.all[2])); g.stash["ditch"] = 7
         g.restart(t0); Save.read(json, g)
         assertEquals(json, Save.write(g))
@@ -1811,7 +1850,7 @@ class FarmTest {
         val f = farm()
         f.level = Board.LEVEL - 1
         assertTrue(Board.notes(f, t0).isEmpty())
-        f.level = 12
+        f.level = Levels.of(12)
         val notes = Board.notes(f, t0)
         assertEquals(Board.NOTES, notes.size)
         assertTrue(notes.all { !it.prize.startsWith("seeds:") || Strains[it.prize.removePrefix("seeds:")]!!.exotic })
@@ -1836,7 +1875,7 @@ class FarmTest {
         val f = farm()
         f.level = Market.LEVEL - 1
         assertNull(Market.news(f, t0))
-        f.level = 30
+        f.level = Levels.of(30)
         val slots = (0 until 40).map { t0 + it * Market.SLOT }
         val news = slots.mapNotNull { Market.news(f, it) }
         assertTrue(news.isNotEmpty() && news.size < slots.size)
@@ -1856,7 +1895,7 @@ class FarmTest {
         val site = f.site.def.id
         f.level = Restore.LEVEL - 1
         assertNull(Restore.need(f, site))
-        f.level = 10
+        f.level = Levels.of(10)
         f.stash.clear()
         val before = f.yieldMult()
         repeat(Restore.STEPS) { i ->
@@ -1890,7 +1929,7 @@ class FarmTest {
         assertEquals(prize, Radio.pick("home", f, t0, prize))
         assertEquals("town", Radio.pick("town", f, t0, Radio.LOCAL))
         assertTrue(Radio.has(f, Radio.pick("home", f, t0, Radio.SHUFFLE)))
-        f.level = 99
+        f.level = Levels.of(99)
         assertTrue(Radio.LEVELS.keys.all { Radio.has(f, it) })
         assertEquals(Radio.BOARD.size - 1, Radio.BOARD.count { it !in f.tracks })
         val g = farm(); Save.read(Save.write(f), g)

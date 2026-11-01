@@ -50,7 +50,7 @@ internal fun Currencies(ui: UiState) {
     Store.rev
     val now = Store.now()
     val h = Holiday.at(now)
-    val gems = f.gems > 0 || f.level >= 10
+    val gems = f.gems > 0 || f.level >= 14
     if (h == null && !f.festivalOn(now) && !gems) return
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         if (gems) {

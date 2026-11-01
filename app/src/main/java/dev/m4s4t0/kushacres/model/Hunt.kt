@@ -23,14 +23,14 @@ class Loot(val trip: Trip, val strain: String, val seeds: Int, val rare: Boolean
  * found: exotic seeds, some cash, Pot Bucks, XP and now and then a gem.
  */
 object Hunt {
-    const val LEVEL = 12
+    const val LEVEL = 19
 
-    fun cost(f: Farm, t: Trip): Long = nice((150.0 + 30.0 * f.level * f.level) * t.hours.toDouble().pow(0.85))
+    fun cost(f: Farm, t: Trip): Long = nice((150.0 + 30.0 * f.tier * f.tier) * t.hours.toDouble().pow(0.85))
 
     /** The exotic seeds a hunt can find: the best you could buy, and the one above it for a rare find. */
     private fun exotics() = BmItem.entries.filter { it.strain != null && it.site == null }
-    fun common(f: Farm): BmItem = exotics().last { it.level <= max(6, f.level) }
-    fun rareOf(f: Farm): BmItem = exotics().firstOrNull { it.level > max(6, f.level) } ?: common(f)
+    fun common(f: Farm): BmItem = exotics().last { it.level <= max(7, f.level) }
+    fun rareOf(f: Farm): BmItem = exotics().firstOrNull { it.level > max(7, f.level) } ?: common(f)
     fun rareChance(t: Trip) = 0.04 * t.hours
 
     fun away(f: Farm) = Trip.of(f.hunt) != null

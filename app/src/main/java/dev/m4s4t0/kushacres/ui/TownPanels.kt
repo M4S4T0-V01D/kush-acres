@@ -421,7 +421,7 @@ private fun GusShop() {
             Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     T("Runner", 12.sp)
-                    T(if (f.runnerOn) "Next trip in ${dur(left)}. Keeps what open orders need." else "Taking a break", 10.sp, Dim, bold = false)
+                    T(if (f.runnerOn) "Next trip in ${dur(left)}, carries ${f.runnerBag()}g. Keeps what open orders need." else "Taking a break", 10.sp, Dim, bold = false)
                 }
                 Btn(if (f.runnerOn) "On" else "Off", color = if (f.runnerOn) Leaf else Bad) { f.runnerOn = !f.runnerOn; Store.changed() }
             }

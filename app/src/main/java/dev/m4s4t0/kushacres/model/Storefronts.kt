@@ -16,7 +16,7 @@ object Storefronts {
     /** Grams an hour at each level, before a worker staffs it. */
     private val RATE = intArrayOf(20, 45, 100, 220, 480)
     /** The farm level each store level needs, and what it costs to reach it from the one below. */
-    val LEVELS = intArrayOf(8, 12, 18, 26, 34)
+    val LEVELS = intArrayOf(11, 19, 34, 60, 93)
     private val COST = longArrayOf(0, 60_000, 400_000, 2_500_000, 15_000_000)
     const val STAFFED = 1.5
 
@@ -51,7 +51,7 @@ object Storefronts {
     fun researchSpeed(f: Farm) = minOf(MAX_SPEED, (1 + 0.1 * levels(f) + 0.5 * chemists(f)) * Legacy.mult(f, LegacyPerk.LAB_NOTES, 0.5))
     const val MAX_SPEED = 4.0
     /** Plain research time: about an hour for the first crosses, up to seven for the last. */
-    fun researchMinutes(s: Strain) = 30L + 5L * s.level
+    fun researchMinutes(s: Strain) = (30.0 + 5.0 * s.tier).toLong()
     fun researchMillis(f: Farm, s: Strain) = (researchMinutes(s) * 60_000L / researchSpeed(f)).toLong()
 
     /** The lab bud a store sells next: the dearest hybrid in the stash. */

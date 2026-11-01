@@ -73,7 +73,7 @@ class DealPay(val cash: Long, val bucks: Long, val xp: Long, val rep: Int, val t
  * town's reputation goes up. Running out of time only costs reputation: what was shipped is paid at market.
  */
 object Contracts {
-    const val LEVEL = 8
+    const val LEVEL = 11
     const val OFFERS = 3
     const val LAPSE_REP = 30
     /** The tier a town starts posting a standing weekly order at, and how big one is. */
@@ -85,7 +85,7 @@ object Contracts {
     val TIERS = intArrayOf(0, 100, 300, 700, 1500, 3000)
     val TIER_NAMES = listOf("Stranger", "Known", "Trusted", "Partner", "Regular", "Legend")
 
-    fun taken(f: Farm) = if (f.level >= 40) 3 else 2
+    fun taken(f: Farm) = if (f.level >= 123) 3 else 2
     /** Contracts in hand that count towards [taken]; story, weekly and event ones don't. */
     fun held(f: Farm) = f.deals.count { it.tag.isEmpty() }
     fun week(now: Long) = localDay(now) / 7

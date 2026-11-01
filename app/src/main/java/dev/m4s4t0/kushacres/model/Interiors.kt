@@ -18,29 +18,29 @@ enum class Furn(val title: String, val price: Long, val level: Int, val w: Int, 
     RUG("Shag Rug", 400, 2, 2, 2, false, true, true, 3),
     ARMCHAIR("Armchair", 600, 3, 1, 1, false, true, false, 4),
     LAMP("Lava Lamp", 350, 3, 1, 1, false, true, true, 3),
-    COUCH("Couch", 1_500, 5, 3, 1, false, true, false, 8),
-    COFFEE_TABLE("Coffee Table", 900, 5, 2, 1, false, true, false, 4),
-    BED("Big Bed", 3_000, 6, 2, 2, false, true, false, 10),
-    RECORDS("Record Player", 2_000, 7, 1, 1, false, true, true, 5),
-    BOOKSHELF("Bookshelf", 2_500, 8, 2, 1, false, true, false, 5),
-    FRIDGE("Snack Fridge", 4_000, 9, 1, 1, false, true, false, 6),
-    TV("Big TV", 8_000, 10, 2, 1, false, true, false, 10),
-    DINING("Dining Table", 6_000, 12, 2, 2, false, true, false, 8),
-    FISH_TANK("Fish Tank", 15_000, 14, 2, 1, false, true, true, 10),
-    ARCADE("Arcade Cabinet", 30_000, 16, 1, 1, false, true, true, 12),
-    POOL("Pool Table", 90_000, 20, 3, 2, false, true, false, 18),
-    JUKEBOX("Jukebox", 150_000, 24, 1, 1, false, true, true, 14),
-    HOT_TUB("Hot Tub", 600_000, 30, 3, 3, false, true, false, 28),
-    STATUE("Gold Leaf Statue", 5_000_000, 40, 1, 1, false, true, true, 30),
+    COUCH("Couch", 1_500, 6, 3, 1, false, true, false, 8),
+    COFFEE_TABLE("Coffee Table", 900, 6, 2, 1, false, true, false, 4),
+    BED("Big Bed", 3_000, 7, 2, 2, false, true, false, 10),
+    RECORDS("Record Player", 2_000, 9, 1, 1, false, true, true, 5),
+    BOOKSHELF("Bookshelf", 2_500, 11, 2, 1, false, true, false, 5),
+    FRIDGE("Snack Fridge", 4_000, 12, 1, 1, false, true, false, 6),
+    TV("Big TV", 8_000, 14, 2, 1, false, true, false, 10),
+    DINING("Dining Table", 6_000, 19, 2, 2, false, true, false, 8),
+    FISH_TANK("Fish Tank", 15_000, 23, 2, 1, false, true, true, 10),
+    ARCADE("Arcade Cabinet", 30_000, 28, 1, 1, false, true, true, 12),
+    POOL("Pool Table", 90_000, 40, 3, 2, false, true, false, 18),
+    JUKEBOX("Jukebox", 150_000, 53, 1, 1, false, true, true, 14),
+    HOT_TUB("Hot Tub", 600_000, 76, 3, 3, false, true, false, 28),
+    STATUE("Gold Leaf Statue", 5_000_000, 123, 1, 1, false, true, true, 30),
 
     // Floor, for the store
-    COUNTER("Shop Counter", 2_000, 8, 3, 1, false, false, true, 8),
-    REGISTER("Till", 800, 8, 1, 1, false, false, true, 4),
-    JARS("Jar Stand", 1_200, 8, 1, 1, false, false, true, 5),
-    SHELVES("Display Shelves", 3_000, 10, 2, 1, false, false, true, 8),
-    CASE("Glass Case", 8_000, 14, 2, 1, false, false, true, 12),
-    BENCH("Waiting Bench", 1_500, 9, 2, 1, false, false, true, 4),
-    ATM("Cash Machine", 25_000, 18, 1, 1, false, false, true, 10),
+    COUNTER("Shop Counter", 2_000, 11, 3, 1, false, false, true, 8),
+    REGISTER("Till", 800, 11, 1, 1, false, false, true, 4),
+    JARS("Jar Stand", 1_200, 11, 1, 1, false, false, true, 5),
+    SHELVES("Display Shelves", 3_000, 14, 2, 1, false, false, true, 8),
+    CASE("Glass Case", 8_000, 23, 2, 1, false, false, true, 12),
+    BENCH("Waiting Bench", 1_500, 12, 2, 1, false, false, true, 4),
+    ATM("Cash Machine", 25_000, 34, 1, 1, false, false, true, 10),
 
     // Wall
     POSTER_LEAF("Leaf Poster", 80, 1, 1, 1, true, true, true, 1),
@@ -48,12 +48,12 @@ enum class Furn(val title: String, val price: Long, val level: Int, val w: Int, 
     POSTER_BAND("Band Poster", 250, 4, 1, 1, true, true, true, 2),
     CLOCK("Wall Clock", 300, 3, 1, 1, true, true, true, 2),
     WINDOW("Window", 800, 4, 1, 1, true, true, true, 3),
-    PAINTING("Oil Painting", 3_000, 9, 2, 1, true, true, true, 5),
-    TAPESTRY("Tapestry", 1_800, 7, 2, 1, true, true, false, 4),
-    NEON_LEAF("Neon Leaf", 5_000, 11, 1, 1, true, true, true, 6),
-    GOLD_RECORD("Gold Record", 40_000, 22, 1, 1, true, true, true, 10),
-    NEON_OPEN("Neon OPEN Sign", 2_500, 8, 2, 1, true, false, true, 6),
-    MENU_BOARD("Menu Board", 4_000, 10, 2, 1, true, false, true, 6),
+    PAINTING("Oil Painting", 3_000, 12, 2, 1, true, true, true, 5),
+    TAPESTRY("Tapestry", 1_800, 9, 2, 1, true, true, false, 4),
+    NEON_LEAF("Neon Leaf", 5_000, 16, 1, 1, true, true, true, 6),
+    GOLD_RECORD("Gold Record", 40_000, 46, 1, 1, true, true, true, 10),
+    NEON_OPEN("Neon OPEN Sign", 2_500, 11, 2, 1, true, false, true, 6),
+    MENU_BOARD("Menu Board", 4_000, 14, 2, 1, true, false, true, 6),
     ;
 
     fun fits(k: RoomKind) = if (k == RoomKind.HOME) home else store
@@ -81,7 +81,7 @@ object Interiors {
     const val PAINT = 250L
     /** The most a full room adds: 10% more XP from a comfy home, 10% more for store sales in a stylish one. */
     const val MAX_SCORE = 100
-    const val STORE_LEVEL = 8
+    const val STORE_LEVEL = 11
 
     /** Columns × rows of floor; the back wall has a slot per column. A bigger shack or store means a bigger room. */
     fun size(f: Farm, k: RoomKind): Pair<Int, Int> = when (k) {

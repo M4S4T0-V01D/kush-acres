@@ -78,7 +78,7 @@ class BudDrop(private val rng: Random) {
         const val CAP = 60
 
         /** Cash for a round scoring [score] at [level]: a tenth of a day's login cash per 10 points, up to [CAP]. */
-        fun cash(score: Int, level: Int): Long = if (score <= 0) 0 else nice((60.0 + 30.0 * level * level) * min(score, CAP) / 100.0)
+        fun cash(score: Int, level: Int): Long = if (score <= 0) 0 else nice((60.0 + 30.0 * Levels.tier(level).let { it * it }) * min(score, CAP) / 100.0)
         fun xp(score: Int): Long = (min(score, CAP) / 2).toLong()
 
         /** Paid rounds left today. */

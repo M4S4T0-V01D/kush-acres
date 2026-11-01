@@ -9,7 +9,7 @@ import kotlin.random.Random
  * and some slots are quiet. Opens at [LEVEL].
  */
 object Market {
-    const val LEVEL = 5
+    const val LEVEL = 6
     const val SLOT = 4 * 3_600_000L
 
     /** One story: [what] is "class:FAST" or "goods:ROLLER"; prices of it are times [mult] until [until]. */

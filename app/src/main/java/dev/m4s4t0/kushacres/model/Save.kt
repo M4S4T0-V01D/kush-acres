@@ -5,7 +5,7 @@ import org.json.JSONObject
 
 /** The farm as JSON. Unknown or missing fields fall back to defaults, so old saves keep loading. */
 object Save {
-    const val VERSION = 5
+    const val VERSION = 6
 
     private fun ints(m: Map<String, Int>) = JSONObject().apply { m.forEach { (k, v) -> put(k, v) } }
     private fun readInts(o: JSONObject?, into: MutableMap<String, Int>, ok: (String) -> Boolean) {
@@ -177,6 +177,9 @@ object Save {
         f.totalHarvests = o.optLong("harvests"); f.totalEarned = o.optLong("earned")
         // Before 0.9.0 the shack and Violet's upgrades were shared; old saves give them to every farm they own.
         val oldShack = o.optInt("shack").coerceIn(0, SHACKS.size - 1)
+        // Before 0.23.0 the top level was 80; move old levels onto the longer curve, keeping XP short of the next one.
+        val old = o.optInt("v") < 6
+        if (old) { f.level = Levels.of(f.level); f.xp = f.xp.coerceIn(0, Farm.xpNeed(f.level) - 1) }
         f.level = f.level.coerceIn(1, Farm.MAX_LEVEL)
         f.envelopes = o.optInt("envelopes")
         f.bmRot = o.optLong("bmRot", -1); f.bmBought.clear()
@@ -220,7 +223,7 @@ object Save {
         }
         strings("hunting", f.hunting) { it in f.mothers }
         f.startMap = StartMap.of(o.optString("startMap"))
-        f.bestLevel = maxOf(o.optInt("bestLevel", 1), f.level)
+        f.bestLevel = maxOf(o.optInt("bestLevel", 1).let { if (old) Levels.of(it) else it }, f.level)
         f.streak = o.optInt("streak"); f.bestStreak = o.optInt("bestStreak"); f.lastDay = o.optLong("lastDay", -1)
         f.questDay = o.optLong("questDay", -1); f.questBonus = o.optBoolean("questBonus")
         f.cupWeek = o.optLong("cupWeek", -1); f.cupScores.clear()

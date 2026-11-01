@@ -28,7 +28,7 @@ class CupPrize(val place: Int, val cash: Long, val bucks: Long, val gems: Long, 
  * lower places came before it.
  */
 object Cup {
-    const val LEVEL = 10
+    const val LEVEL = 14
     const val ENTRIES = 3
     const val THEME_BONUS = 15
     private val RIVALS = listOf(
@@ -84,7 +84,7 @@ object Cup {
     fun best(f: Farm, now: Long): Int = if (f.cupWeek != week(now)) 4 else f.cupScores.minOfOrNull { place(f.cupWeek, it.second) }?.coerceAtMost(4) ?: 4
 
     fun prize(f: Farm, place: Int): CupPrize {
-        val cash = nice((300.0 + 60.0 * f.level * f.level) * when (place) { 1 -> 3.0; 2 -> 1.5; 3 -> 0.8; else -> 0.0 })
+        val cash = nice((300.0 + 60.0 * f.tier * f.tier) * when (place) { 1 -> 3.0; 2 -> 1.5; 3 -> 0.8; else -> 0.0 })
         val xp = (Farm.xpNeed(f.level) * when (place) { 1 -> 0.15; 2 -> 0.08; 3 -> 0.04; else -> 0.01 }).roundToLong()
         return CupPrize(place, if (place <= 3) cash else 0, when (place) { 1 -> 15L; 2 -> 6L; 3 -> 3L; else -> 0L }, if (place == 1) 2 else 0, max(1, xp))
     }

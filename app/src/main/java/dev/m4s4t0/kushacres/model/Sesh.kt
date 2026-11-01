@@ -36,7 +36,7 @@ object Sesh {
 
     /** Minutes of buff before what's already running: better strains and a comfier home last longer. */
     fun minutes(f: Farm, s: Strain, size: SeshSize): Int {
-        val strain = 1 + 0.02 * s.level + (if (s.holiday != null || s.exotic) 0.25 else 0.0)
+        val strain = 1 + 0.02 * s.tier + (if (s.holiday != null || s.exotic) 0.25 else 0.0)
         val comfort = 1 + 0.5 * Interiors.score(f, RoomKind.HOME) / Interiors.MAX_SCORE
         return (size.minutes * strain * comfort).toInt()
     }
@@ -87,7 +87,7 @@ object Sesh {
 
     /** The clinic's town: wherever you are, if it has one, or Kushville. */
     fun clinicTown(f: Farm): String = f.site.def.id.takeIf { it in Towns.ids } ?: "home"
-    fun donateRep(s: Strain, grams: Int): Int = max(1, grams * (5 + s.level) / 100)
+    fun donateRep(s: Strain, grams: Int): Int = max(1, grams * (5 + s.tier.toInt()) / 100)
     fun donateBucks(grams: Int): Long = (grams / 150L).coerceIn(1L, 10L)
     fun donateXp(s: Strain, grams: Int): Long = max(1L, s.xp0.toLong() * grams / max(1, s.yield) / 3)
 

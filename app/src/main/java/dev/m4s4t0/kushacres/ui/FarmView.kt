@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import dev.m4s4t0.kushacres.art.Keeper
+import dev.m4s4t0.kushacres.art.Figure
 import dev.m4s4t0.kushacres.SavePic
 import dev.m4s4t0.kushacres.Store
 import dev.m4s4t0.kushacres.audio.Audio
@@ -137,9 +138,9 @@ class World {
     private fun seen(cx: Int, cy: Int) = cx + 40 > vx && cx - 40 < vx + vw && cy + 24 > vy && cy - 84 < vy + vh
     private val dst = RectF()
 
-    /** Draws a sprite (S× finer than the art grid) with its top-left at art pixel x,y. */
-    private fun blit(b: Bitmap, x: Float, y: Float) {
-        dst.set(x, y, x + b.width / S.toFloat(), y + b.height / S.toFloat())
+    /** Draws a sprite ([fine]× finer than the art grid, S by default) with its top-left at art pixel x,y. */
+    private fun blit(b: Bitmap, x: Float, y: Float, fine: Int = S) {
+        dst.set(x, y, x + b.width / fine.toFloat(), y + b.height / fine.toFloat())
         canvas.drawBitmap(b, null, dst, paint)
     }
     private val paint = Paint().apply { isFilterBitmap = false; isAntiAlias = false }
@@ -345,6 +346,8 @@ class World {
     private class Walker(
         val look: (Int) -> Bitmap, val fx: Float, val fy: Float, val moving: Boolean,
         val ax: Int = People.P_AX, val ay: Int = People.P_AY, val shadow: Float = 4f,
+        /** Draws [Figure]'s detailed farmer instead when the view is fine enough to show it. */
+        val hd: ((Int) -> Bitmap)? = null,
     )
 
     /**
@@ -365,20 +368,20 @@ class World {
             }
             return if (ok(cx, cy)) cx to cy else f.ox to f.oy
         }
-        fun walk(id: Int, look: (Int) -> Bitmap, pet: Boolean = false, at: (Int) -> Pair<Int, Int>): Walker {
+        fun walk(id: Int, look: (Int) -> Bitmap, pet: Boolean = false, hd: ((Int) -> Bitmap)? = null, at: (Int) -> Pair<Int, Int>): Walker {
             val tt = t + id * 1.7f
             val seg = (tt / 6f).toInt()
             val a = at(seg); val b = at(seg + 1)
             val k = ((tt / 6f - seg) * 6f / 3.5f).coerceIn(0f, 1f)
             val fx = a.first + (b.first - a.first) * k; val fy = a.second + (b.second - a.second) * k
             return if (pet) Walker(look, fx, fy, k < 1f && a != b, People.PET_AX, People.PET_AY, 5f)
-            else Walker(look, fx, fy, k < 1f && a != b)
+            else Walker(look, fx, fy, k < 1f && a != b, hd = hd)
         }
         val home = f.shackAt()?.let { (x, y) -> x + 1 to y + 2 } ?: (f.ox + land / 2 to f.oy + land / 2)
         val out = Helper.entries.filter { f.has(it) }.map { h ->
             walk(h.ordinal, { People.helper(h, it) }) { seg -> spot(h.ordinal, seg, home.first, home.second, 5) }
         }.toMutableList()
-        f.farmer?.let { me -> out += walk(50, { People.farmer(me, it) }) { seg -> spot(50, seg, home.first, home.second, 3, plots = true) } }
+        f.farmer?.let { me -> out += walk(50, { People.farmer(me, it) }, hd = { People.farmer(me, it, hd = true) }) { seg -> spot(50, seg, home.first, home.second, 3, plots = true) } }
         // Pets roam the whole farm.
         f.pets.mapNotNull { n -> Pet.entries.firstOrNull { it.name == n } }.forEachIndexed { i, p ->
             out += walk(200 + i, { People.pet(p, it) }, pet = true) { seg -> spot(200 + i, seg, 0, 0, 0) }
@@ -404,7 +407,9 @@ class World {
         val frame = if (w.moving) ((t * 6).toInt() and 1) else 0
         fill.color = 0x40000000
         canvas.drawOval(sx - w.shadow, sy - 1, sx + w.shadow, sy + 2, fill)
-        blit(w.look(frame), (sx - w.ax).toInt().toFloat(), (sy - w.ay).toInt().toFloat())
+        val hd = w.hd?.takeIf { k >= Figure.K }
+        if (hd != null) blit(hd(frame), (sx - w.ax).toInt().toFloat(), (sy - w.ay).toInt().toFloat(), Figure.K)
+        else blit(w.look(frame), (sx - w.ax).toInt().toFloat(), (sy - w.ay).toInt().toFloat())
     }
 
     /** Where festival tents pitch: a few open grass squares, the same ones every frame. */
@@ -1041,6 +1046,12 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             } else centerOnLand()
         }
         if (ui.recenter != 0) { centerOnLand(); ui.recenter = 0 }
+        if (ui.zoomSteps != 0 && scale != 0f) {
+            val c = Offset(wPx / 2, hPx / 2)
+            val ns = (scale * 1.4f.pow(ui.zoomSteps)).coerceIn(minScale(), 12f)
+            offset = c - (c - offset) * (ns / scale); scale = ns
+            clamp(); ui.zoomSteps = 0
+        }
         val savedCam = remember { arrayOf("", "") }
         val savedAt = remember { longArrayOf(0L) }
         SideEffect {
@@ -1418,7 +1429,7 @@ fun FarmView(ui: UiState, modifier: Modifier = Modifier) {
             val light = Light.at(now)
             drawRect(Color(backdrop(light.tint)))
             // Only what's on screen gets drawn: finely when zoomed in, one bitmap pixel per art pixel when zoomed out.
-            val d = if (scale >= S) S else 1
+            val d = if (scale >= Figure.K) Figure.K else if (scale >= S) S else 1
             val x0 = floor(-offset.x / scale).toInt(); val y0 = floor(-offset.y / scale).toInt()
             world.view(x0, y0, x0 + ceil(size.width / scale).toInt() + 1, y0 + ceil(size.height / scale).toInt() + 1, d)
             world.render(f, now, t, light, ui.selected, m is Mode.Build || m is Mode.PlaceFacility || m is Mode.PlaceDecor || (m is Mode.Move && m.from != null),

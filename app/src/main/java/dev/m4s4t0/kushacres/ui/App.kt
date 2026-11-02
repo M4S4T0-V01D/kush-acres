@@ -123,6 +123,8 @@ class UiState {
     /** The facility whose sheet is open. */
     var fac by mutableStateOf<Pair<Int, Int>?>(null)
     var recenter by mutableIntStateOf(0)
+    /** Zoom steps asked for by the ＋/－ buttons (positive zooms in); the farm view applies and clears them. */
+    var zoomSteps by mutableIntStateOf(0)
     /** Quarter turns of the farm view (-1 until the saved one is loaded). */
     var rot by mutableIntStateOf(-1)
     /** The square whose right-click / long-hold menu is open, and where on screen (px) it was opened. */
@@ -511,6 +513,13 @@ private fun SkyChip(ui: UiState) {
                     Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 8.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
                     Spacer(Modifier.width(4.dp))
                 }
+                // Zoom out / in about the middle of the screen, and back to the whole farm.
+                for ((label, act) in listOf<Pair<String, () -> Unit>>("−" to { ui.zoomSteps-- }, "+" to { ui.zoomSteps++ })) {
+                    Box(Modifier.woodBox().clickable { act() }.padding(horizontal = 7.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
+                    Spacer(Modifier.width(4.dp))
+                }
+                Box(Modifier.woodBox().clickable { ui.recenter++ }.padding(horizontal = 5.dp, vertical = 3.dp)) { T("Fit", 11.sp, Cream) }
+                Spacer(Modifier.width(4.dp))
                 Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
                 Spacer(Modifier.width(4.dp))
                 Box(Modifier.woodBox().clickable { ui.panel = Panel.RADIO }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("♪", 14.sp, Cream) }

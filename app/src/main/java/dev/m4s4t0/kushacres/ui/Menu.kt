@@ -498,7 +498,7 @@ internal fun Settings(ui: UiState) {
     val f = Store.farm
     f.farmer?.let { me ->
         Row(Modifier.fillMaxWidth().frame(WoodIn, WoodEdge).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
-            Px(People.farmer(me, 0), 40.dp)
+            Px(People.farmerBust(me), 40.dp)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 T(me.name, 14.sp, Cream)

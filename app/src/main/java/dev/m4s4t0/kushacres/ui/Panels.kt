@@ -751,7 +751,11 @@ fun Dialogs() {
         lv != null -> key(lv.level) { Modal(onClose = { Store.dismissLevelUp() }, party = true) {
             Box(contentAlignment = Alignment.Center) {
                 Rays(Modifier.size(120.dp))
-                Px(Sprites.star, 48.dp)
+                val me = f.farmer
+                if (me != null) {
+                    Px(dev.m4s4t0.kushacres.art.People.farmerBust(me), 84.dp)
+                    Px(Sprites.star, 28.dp, Modifier.align(Alignment.TopEnd))
+                } else Px(Sprites.star, 48.dp)
             }
             T("LEVEL ${lv.level}!", 24.sp, Gold)
             Spacer(Modifier.height(6.dp))

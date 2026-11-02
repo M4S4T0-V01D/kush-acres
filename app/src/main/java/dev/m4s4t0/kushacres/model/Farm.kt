@@ -1579,7 +1579,7 @@ class Farm(var rng: Random = Random.Default) {
     }
 
     /** Changes your farmer's look: free the first time, then cash or Pot Bucks. */
-    fun hasHat(i: Int) = i < Farmer.BASE_HATS || Farmer.HATS.getOrNull(i) in hats
+    fun hasHat(i: Int) = Farmer.freeHat(i) || Farmer.HATS.getOrNull(i) in hats
     fun buyHat(h: Holiday): Result {
         if (h.hat in hats) return Result.BLOCKED
         payTokens(h, Holiday.HAT).let { if (it != Result.OK) return it }

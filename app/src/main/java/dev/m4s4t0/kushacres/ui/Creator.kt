@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,7 +58,7 @@ private fun fresh(f: Farm) = f.farmer == null && f.level == 1 && f.totalHarvests
  * A new game then picks where on the map its farm starts.
  */
 @Composable
-internal fun Creator(ui: UiState) {
+internal fun Creator(ui: UiState, startTab: Int = 0) {
     val f = Store.farm
     Store.rev
     val first = f.farmer == null
@@ -80,9 +81,22 @@ internal fun Creator(ui: UiState) {
         T(if (first) "Make your farmer" else "Restyle your farmer", 18.sp, Gold)
         Spacer(Modifier.height(6.dp))
         var frame by remember { mutableIntStateOf(0) }
-        LaunchedEffect(Unit) { while (true) { delay(420); frame = 1 - frame } }
-        Box(Modifier.size(132.dp).frame(Color(0xFF3E6A30), Color(0xFF6A9A4A)), contentAlignment = Alignment.Center) {
-            Px(People.farmer(look, frame), 124.dp)
+        var walking by remember { mutableStateOf(true) }
+        var bust by remember { mutableStateOf(false) }
+        LaunchedEffect(walking) { frame = 0; while (walking) { delay(420); frame = 1 - frame } }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(width = 120.dp, height = 168.dp).frame(Color(0xFF3E6A30), Color(0xFF6A9A4A)), contentAlignment = Alignment.Center) {
+                if (bust) Px(People.farmerBust(look), 112.dp) else Px(People.farmer(look, frame, hd = true), 160.dp)
+            }
+            Spacer(Modifier.width(6.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Btn(if (walking) "Walking" else "Standing", Modifier.width(96.dp), color = WoodEdge, size = 11.sp) { walking = !walking }
+                Btn(if (bust) "Portrait" else "Full body", Modifier.width(96.dp), color = WoodEdge, size = 11.sp) { bust = !bust }
+                Box(Modifier.size(96.dp, 52.dp).frame(Color(0xFF3E6A30), Color(0xFF6A9A4A)), contentAlignment = Alignment.Center) {
+                    // How it looks out on the farm, zoomed out.
+                    Px(People.farmer(look, frame), 48.dp)
+                }
+            }
         }
         Spacer(Modifier.height(6.dp))
         BasicTextField(
@@ -91,16 +105,62 @@ internal fun Creator(ui: UiState) {
             singleLine = true, textStyle = TextStyle(color = Cream, fontSize = 15.sp), cursorBrush = SolidColor(Gold),
         )
         Spacer(Modifier.height(6.dp))
-        Pick("Skin", look.skin, Farmer.SKINS.size, swatch = Farmer.SKINS[look.skin]) { look = look.copy(skin = it) }
-        Pick("Hair", look.hair, Farmer.HAIRS.size, label = Farmer.HAIRS[look.hair]) { look = look.copy(hair = it) }
-        Pick("Hair colour", look.hairColor, Farmer.HAIR_COLORS.size, swatch = Farmer.HAIR_COLORS[look.hairColor]) { look = look.copy(hairColor = it) }
-        Pick("Outfit", look.outfit, Farmer.OUTFITS.size, label = Farmer.OUTFITS[look.outfit]) { look = look.copy(outfit = it) }
-        Pick("Top", look.shirt, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.shirt]) { look = look.copy(shirt = it) }
-        Pick("Bottoms", look.pants, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.pants]) { look = look.copy(pants = it) }
-        Pick("Hat", look.hat, Farmer.HATS.size, label = Farmer.HATS[look.hat], ok = { f.hasHat(it) }) { look = look.copy(hat = it) }
-        Pick("Face", look.face, Farmer.FACES.size, label = Farmer.FACES[look.face]) { look = look.copy(face = it) }
+        T("Start from", 11.sp, Dim, bold = false)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Farmer.PRESETS.forEach { (name, p) ->
+                Column(Modifier.width(58.dp).frame(WoodIn, WoodEdge).clickable { look = p.copy(name = look.name) }.padding(3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Px(People.farmerBust(p), 48.dp)
+                    T(name, 9.sp, Cream, maxLines = 1)
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        var tab by remember { mutableIntStateOf(startTab) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            TABS.forEachIndexed { i, t ->
+                Box(Modifier.weight(1f).frame(if (i == tab) WoodEdge else WoodIn, if (i == tab) Gold else WoodEdge).clickable { tab = i }.padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center) { T(t, 11.sp, if (i == tab) Gold else Cream, maxLines = 1) }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        when (tab) {
+            0 -> {
+                Pick("Body", look.body, Farmer.BODIES.size, label = Farmer.BODIES[look.body]) { look = look.copy(body = it) }
+                Pick("Skin", look.skin, Farmer.SKINS.size, swatch = Farmer.SKINS[look.skin]) { look = look.copy(skin = it) }
+                Toggles(listOf("Blush" to (look.blush == 1), "Freckles" to (look.freckles == 1), "Beauty mark" to (look.mole == 1))) { i ->
+                    look = when (i) { 0 -> look.copy(blush = 1 - look.blush); 1 -> look.copy(freckles = 1 - look.freckles); else -> look.copy(mole = 1 - look.mole) }
+                }
+            }
+            1 -> {
+                Pick("Eyes", look.eyes, Farmer.EYES.size, label = Farmer.EYES[look.eyes]) { look = look.copy(eyes = it) }
+                Pick("Eye colour", look.eyeColor, Farmer.EYE_COLORS.size, swatch = Farmer.EYE_COLORS[look.eyeColor]) { look = look.copy(eyeColor = it) }
+                Pick("Brows", look.brows, Farmer.BROWS.size, label = Farmer.BROWS[look.brows]) { look = look.copy(brows = it) }
+                Pick("Lips", look.lips, Farmer.LIPS.size, swatch = Farmer.LIPS[look.lips].takeIf { look.lips > 0 }, label = "Natural") { look = look.copy(lips = it) }
+                Pick("Eyeshadow", look.shadow, Farmer.SHADOWS.size, swatch = Farmer.SHADOWS[look.shadow].takeIf { look.shadow > 0 }, label = "None") { look = look.copy(shadow = it) }
+                Pick("Face", look.face, Farmer.FACES.size, label = Farmer.FACES[look.face]) { look = look.copy(face = it) }
+                Toggles(listOf("Lashes" to (look.lashes == 1))) { look = look.copy(lashes = 1 - look.lashes) }
+            }
+            2 -> {
+                Pick("Hair", look.hair, Farmer.HAIRS.size, label = Farmer.HAIRS[look.hair]) { look = look.copy(hair = it) }
+                Pick("Hair colour", look.hairColor, Farmer.HAIR_COLORS.size, swatch = Farmer.HAIR_COLORS[look.hairColor]) { look = look.copy(hairColor = it) }
+                Pick("Hat", look.hat, Farmer.HATS.size, label = Farmer.HATS[look.hat], ok = { f.hasHat(it) }) { look = look.copy(hat = it) }
+            }
+            3 -> {
+                Pick("Top", look.outfit, Farmer.OUTFITS.size, label = Farmer.OUTFITS[look.outfit]) { look = look.copy(outfit = it) }
+                Pick("Top colour", look.shirt, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.shirt]) { look = look.copy(shirt = it) }
+                Pick("Bottoms", look.bottom, Farmer.BOTTOMS.size, label = Farmer.BOTTOMS[look.bottom]) { look = look.copy(bottom = it) }
+                Pick("Bottoms colour", look.pants, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.pants]) { look = look.copy(pants = it) }
+                Pick("Shoes", look.shoes, Farmer.SHOES.size, label = Farmer.SHOES[look.shoes]) { look = look.copy(shoes = it) }
+                Pick("Shoe colour", look.shoeColor, Farmer.CLOTH.size, swatch = Farmer.CLOTH[look.shoeColor]) { look = look.copy(shoeColor = it) }
+            }
+            else -> Toggles(Farmer.EXTRAS.mapIndexed { i, e -> e to look.has(i) }) { look = look.toggle(it) }
+        }
         Spacer(Modifier.height(8.dp))
-        Btn("🎲 Random", Modifier.fillMaxWidth(), color = WoodEdge) { look = Farmer.random().copy(name = look.name) }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Btn("🎲 ${TABS[tab]}", Modifier.weight(1f), color = WoodEdge, size = 11.sp) { look = reroll(look, tab, f) }
+            Btn("🎲 Everything", Modifier.weight(1f), color = WoodEdge, size = 11.sp) { look = Farmer.random().copy(name = look.name) }
+        }
         Spacer(Modifier.height(6.dp))
         val named = look.copy(name = look.name.trim().ifEmpty { "Farmer" })
         if (first) {
@@ -144,6 +204,31 @@ private fun Overlay(onBack: (() -> Unit)? = null, content: @Composable () -> Uni
             Modifier.widthIn(max = 340.dp).fillMaxWidth().padding(10.dp).woodBox(edge = Gold, w = 3.dp).vScroll().padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { content() }
+    }
+}
+
+private val TABS = listOf("Body", "Face", "Hair", "Outfit", "Extras")
+
+/** [look] with just one creator tab's choices shuffled, styled to fit its body. */
+private fun reroll(look: Farmer, tab: Int, f: Farm): Farmer {
+    val r = Farmer.random(body = look.body)
+    return when (tab) {
+        0 -> Farmer.random().let { look.copy(body = it.body, skin = it.skin, blush = it.blush, freckles = it.freckles, mole = it.mole) }
+        1 -> look.copy(eyes = r.eyes, eyeColor = r.eyeColor, brows = r.brows, lips = r.lips, shadow = r.shadow, face = r.face, lashes = r.lashes)
+        2 -> look.copy(hair = r.hair, hairColor = r.hairColor, hat = r.hat.takeIf { f.hasHat(it) } ?: 0)
+        3 -> look.copy(outfit = r.outfit, shirt = r.shirt, bottom = r.bottom, pants = r.pants, shoes = r.shoes, shoeColor = r.shoeColor)
+        else -> look.copy(extras = r.extras)
+    }
+}
+
+/** On/off choices, two to a row; gold when on. */
+@Composable
+private fun Toggles(items: List<Pair<String, Boolean>>, flip: (Int) -> Unit) {
+    items.withIndex().chunked(2).forEach { row ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            row.forEach { (i, e) -> Btn(e.first, Modifier.weight(1f), color = if (e.second) Gold else WoodEdge, size = 11.sp) { flip(i) } }
+            if (row.size == 1) Spacer(Modifier.weight(1f))
+        }
     }
 }
 

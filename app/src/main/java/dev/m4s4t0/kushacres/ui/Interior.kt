@@ -204,7 +204,7 @@ private fun RoomCanvas(modifier: Modifier, k: RoomKind, picked: Placed?, placing
     val wallItems = shown.filter { it.furn.wall }
     val aw = cols * CW; val ah = WALL + rows * CD
     // Someone to live there: you at home, a worker (or you) behind the counter at the store.
-    val person: Bitmap? = if (k == RoomKind.HOME) (f.farmer?.let { People.farmer(it, 0) } ?: People.worker(0, 0)) else People.worker(2, 0)
+    val person: Bitmap? = if (k == RoomKind.HOME) (f.farmer?.let { People.farmer(it, 0, hd = true) } ?: People.worker(0, 0)) else People.worker(2, 0)
     val stand = remember(shown.size, cols, rows, shown.sumOf { it.x * 31 + it.y }) {
         (rows - 1 downTo 0).flatMap { y -> (0 until cols).map { x -> (cols / 2 + x) % cols to y } }
             .firstOrNull { (x, y) -> Interiors.at(f, k, x, y, false).let { it == null || it.furn.flat } }
@@ -279,9 +279,9 @@ private fun drawFloor(style: Int, cols: Int, rows: Int, r: (Float, Float, Float,
     r(0f, WALL.toFloat(), cols * CW.toFloat(), 3f, Color(0x40000000))
 }
 
-private fun DrawScope.drawBmp(bmp: Bitmap, x: Float, y: Float, s: Float, alpha: Float = 1f) {
-    // Sprites are drawn at 2 fine pixels per art pixel.
-    val w = bmp.width / 2f; val h = bmp.height / 2f
+private fun DrawScope.drawBmp(bmp: Bitmap, x: Float, y: Float, s: Float, alpha: Float = 1f, fine: Int = 2) {
+    // Sprites are drawn at 2 fine pixels per art pixel unless told otherwise.
+    val w = bmp.width / fine.toFloat(); val h = bmp.height / fine.toFloat()
     drawImage(bmp.img(), IntOffset.Zero, IntSize(bmp.width, bmp.height), IntOffset(x.toInt(), y.toInt()),
         IntSize((w * s).toInt(), (h * s).toInt()), alpha = alpha, filterQuality = FilterQuality.None)
 }
@@ -292,7 +292,9 @@ private fun DrawScope.drawPiece(p: Placed, ox: Float, oy: Float, s: Float, alpha
 }
 
 private fun DrawScope.drawPerson(bmp: Bitmap, at: Pair<Int, Int>, ox: Float, oy: Float, s: Float) {
-    val w = bmp.width / 2f; val h = bmp.height / 2f
+    // People are all P_W art pixels wide; the farmer comes in at Figure's finer detail.
+    val fine = bmp.width / People.P_W
+    val w = bmp.width / fine.toFloat(); val h = bmp.height / fine.toFloat()
     val x = at.first * CW + (CW - w) / 2; val y = WALL + (at.second + 1) * CD - h - 1
-    drawBmp(bmp, ox + x * s, oy + y * s, s)
+    drawBmp(bmp, ox + x * s, oy + y * s, s, fine = fine)
 }

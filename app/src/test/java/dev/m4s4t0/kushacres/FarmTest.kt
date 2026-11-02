@@ -1214,6 +1214,27 @@ class FarmTest {
         assertEquals(look, Farmer.decode(look.name, look.encode()))
     }
 
+    @Test fun farmerLooks() {
+        // Saves from before the bigger creator only had eight numbers; the new parts fall back to the defaults.
+        val old = Farmer.decode("Old", "2,4,1,3,0,5,1,2")
+        assertEquals(Farmer("Old", skin = 2, hair = 4, hairColor = 1, outfit = 3, shirt = 0, pants = 5, hat = 1, face = 2), old)
+        assertEquals(Farmer("Bad"), Farmer.decode("Bad", "1,2"))
+        assertEquals(Farmer("Null"), Farmer.decode("Null", null))
+        // Every preset names real options, and every look survives a round trip.
+        for ((name, p) in Farmer.PRESETS) {
+            for (v in listOf(p.hair, p.outfit, p.hat, p.face, p.eyes, p.brows, p.bottom, p.shoes)) assertTrue("$name: $v", v >= 0)
+            assertTrue(name, Farmer.freeHat(p.hat))
+            assertEquals(name, p, Farmer.decode(p.name, p.encode()))
+        }
+        val rnd = kotlin.random.Random(3)
+        repeat(300) {
+            val r = Farmer.random(rnd, it % 3)
+            assertEquals(it % 3, r.body)
+            assertTrue(Farmer.freeHat(r.hat))
+            assertEquals(r, Farmer.decode(r.name, r.encode()))
+        }
+    }
+
     @Test fun shortAmounts() {
         val cases = listOf(0L to "0", 999L to "999", 1000L to "1K", 1250L to "1.25K", 45_600L to "45.6K", 789_000L to "789K",
             999_600L to "1M", 1_230_000L to "1.23M", 12_300_000_000L to "12.3B", -2500L to "-2.5K")
@@ -1788,11 +1809,11 @@ class FarmTest {
         f.stash[s.id] = 1000
         val before = f.priceMult()
         assertEquals(Result.OK, Sesh.smoke(f, s.id, SeshSize.JOINT, t0))
-        assertEquals(1000 - SeshSize.JOINT.grams, f.stash[s.id])
+        assertEquals(1000 - Sesh.grams(s, SeshSize.JOINT), f.stash[s.id])
         assertTrue(f.on(Buff.HIGH_PRICE))
         assertFalse(f.on(Buff.HIGH_GROW))
         assertEquals(before * 1.15, f.priceMult(), 1e-9)
-        assertEquals(SeshSize.JOINT.grams.toLong(), f.stat(Stat.SMOKED))
+        assertEquals(Sesh.grams(s, SeshSize.JOINT).toLong(), f.stat(Stat.SMOKED))
         // Hotboxing over and over never passes the cap, and each one adds less.
         var last = Long.MAX_VALUE
         repeat(8) {
@@ -1806,6 +1827,18 @@ class FarmTest {
         assertEquals(Result.NO_BUD, Sesh.smoke(f, s.id, SeshSize.JOINT, t0))
         // Hybrids give one buff per trait.
         Strains.all.firstOrNull { it.traits.size > 1 }?.let { h -> assertEquals(h.traits.size, Sesh.buffs(h).toSet().size) }
+    }
+
+    @Test fun betterBudTakesLessPerSesh() {
+        val low = Strains.ladder.minBy { it.tier }; val top = Strains.ladder.maxBy { it.tier }
+        for (z in SeshSize.entries) {
+            assertEquals(z.grams, Sesh.grams(low, z))
+            assertEquals(Math.round(z.grams * Sesh.BEST_SHARE).toInt(), Sesh.grams(top, z))
+        }
+        // Never more for a better strain, whatever the size.
+        val sorted = Strains.ladder.sortedBy { it.tier }
+        for (z in SeshSize.entries) sorted.zipWithNext { a, b -> assertTrue(Sesh.grams(b, z) <= Sesh.grams(a, z)) }
+        Strains.all.firstOrNull { it.holiday != null }?.let { assertEquals(Sesh.grams(top, SeshSize.HOTBOX), Sesh.grams(it, SeshSize.HOTBOX)) }
     }
 
     @Test fun wholesaleShipsOneAtATimeAndPaysOnArrival() {

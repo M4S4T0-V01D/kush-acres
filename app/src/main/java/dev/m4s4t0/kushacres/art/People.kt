@@ -84,7 +84,18 @@ object People {
     }
 
     /** Your own farmer, as picked in the creator. */
-    fun farmer(f: Farmer, frame: Int): Bitmap = personCache.getOrPut("f${f.encode()}.$frame") { figurePx(f, frame).bitmap() }
+    fun farmer(f: Farmer, frame: Int, hd: Boolean = false): Bitmap =
+        if (hd) personCache.getOrPut("F${f.encode()}.$frame") { Figure.px(f, frame).bitmap() }
+        else personCache.getOrPut("f${f.encode()}.$frame") { figurePx(f, frame).bitmap() }
+
+    /** Head and shoulders of the HD farmer, square, for portraits and cards. */
+    fun farmerBust(f: Farmer): Bitmap = personCache.getOrPut("B${f.encode()}") {
+        val full = Figure.px(f, 0)
+        val n = Figure.W
+        val out = Px(n, n, 1)
+        for (y in 0 until n) for (x in 0 until n) out.set(x, y, full.get(x, y))
+        out.bitmap()
+    }
 
     /**
      * A person at [P_W]×[P_H]: shaded clothes lit from the left, a face with catchlights, and the hair, hat and face
@@ -96,10 +107,27 @@ object People {
         val hair = Farmer.HAIR_COLORS[look.hairColor]; val hairD = shade(hair, 0.7f); val hairL = mix(hair, 0xFFFFFFFF.toInt(), 0.3f)
         val shirt = Farmer.CLOTH[look.shirt]; val shirtD = shade(shirt, 0.72f); val shirtL = mix(shirt, 0xFFFFFFFF.toInt(), 0.22f)
         val pants = Farmer.CLOTH[look.pants]; val pantsD = shade(pants, 0.7f)
-        val shoe = 0xFF2C2420.toInt()
-        val outfit = Farmer.OUTFITS[look.outfit]; val hairStyle = Farmer.HAIRS[look.hair]
-        val hat = Farmer.HATS[look.hat]; val face = Farmer.FACES[look.face]
-        val dress = outfit == "Dress"
+        val shoe = shade(Farmer.CLOTH[look.shoeColor], 0.8f)
+        // Options newer than this little sprite fall back to the nearest one it can draw; [Figure] draws them properly.
+        val outfit = when (val o = Farmer.OUTFITS[look.outfit]) {
+            "Sundress" -> "Dress"
+            "Sweater", "Puffer", "Jersey" -> "Hoodie"
+            "Denim jacket", "Leather jacket", "Cardigan", "Lab coat", "Kimono" -> "Flannel"
+            "Tank top", "Crop top", "Blouse", "Polo", "Halter", "Peasant top", "Off-shoulder" -> "Tee"
+            else -> o
+        }
+        val hairStyle = when (val h = Farmer.HAIRS[look.hair]) {
+            "Pixie", "Undercut", "Buzz", "Shag" -> "Short"
+            "Bob", "Wavy", "Mermaid", "Bangs", "Side swept", "Braids" -> "Long"
+            "Space buns", "Top knot", "Beehive" -> "Bun"
+            "Curls" -> "Afro"
+            "Pigtails", "Mullet" -> "Ponytail"
+            else -> h
+        }
+        val hat = when (val h = Farmer.HATS[look.hat]) { "Sun hat" -> "Straw hat"; "Cowgirl" -> "Cowboy"; "Beret", "Visor" -> "Cap"; "Headscarf" -> "Bandana"; else -> h }
+        val face = when (val fc = Farmer.FACES[look.face]) { "Round specs" -> "Glasses"; "Heart shades" -> "Shades"; "Goatee" -> "Moustache"; else -> fc }
+        val bottom = Farmer.BOTTOMS[look.bottom]
+        val dress = outfit == "Dress" || bottom == "Skirt" || bottom == "Mini skirt"
         val step = frame == 1
 
         // Hair that hangs behind the body.
@@ -128,8 +156,9 @@ object People {
         }
         for (y in 12..18) for (x in 3..10) px.set(x, y, cloth(x, y))
         if (dress) {
-            for (y in 19..21) for (x in 2 - (y - 19) / 2..11 + (y - 19) / 2) px.set(x, y, cloth(x, y))
-            px.rect(3, 18, 8, 1, shirtD)
+            val skirt = outfit != "Dress"
+            for (y in 18..21) for (x in 2 - (y - 19) / 2..11 + (y - 19) / 2) if (y > 18 || skirt) px.set(x, y, if (skirt) (if (x >= 10) pantsD else pants) else cloth(x, y))
+            if (!skirt) px.rect(3, 18, 8, 1, shirtD)
         } else px.rect(3, 18, 8, 1, shade(pants, 0.6f))
         when (outfit) {
             "Tee" -> { px.rect(6, 12, 2, 1, skinS) }
@@ -161,7 +190,9 @@ object People {
         px.set(5, 7, 0xFF1E1610.toInt()); px.set(8, 7, 0xFF1E1610.toInt())
         px.dot(5 * S, 7 * S, 0xFFFFFFFF.toInt()); px.dot(8 * S, 7 * S, 0xFFFFFFFF.toInt())
         px.set(4, 8, mix(skin, 0xFFF06A86.toInt(), 0.3f)); px.set(9, 8, mix(skinS, 0xFFF06A86.toInt(), 0.3f))
-        px.dot(6 * S + 1, 9 * S + 1, shade(skin, 0.55f)); px.dot(7 * S, 9 * S + 1, shade(skin, 0.55f)); px.dot(7 * S + 1, 9 * S + 1, shade(skin, 0.6f))
+        val lip = Farmer.LIPS[look.lips].takeIf { it != 0 }
+        px.dot(6 * S + 1, 9 * S + 1, lip ?: shade(skin, 0.55f)); px.dot(7 * S, 9 * S + 1, lip ?: shade(skin, 0.55f)); px.dot(7 * S + 1, 9 * S + 1, lip?.let { shade(it, 0.8f) } ?: shade(skin, 0.6f))
+        if (look.lashes == 1) { px.dot(5 * S - 1, 7 * S - 1, 0xFF1E1610.toInt()); px.dot(8 * S + 2, 7 * S - 1, 0xFF1E1610.toInt()) }
         // Facial hair and eyewear.
         when (face) {
             "Beard" -> { px.rect(4, 8, 6, 3, hair); px.rect(5, 11, 4, 1, hairD); px.rect(6, 9, 2, 1, shade(skin, 0.55f)); px.set(9, 8, hairD) }

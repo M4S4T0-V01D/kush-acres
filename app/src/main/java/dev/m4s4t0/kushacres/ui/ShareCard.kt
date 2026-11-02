@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import dev.m4s4t0.kushacres.art.People
 import dev.m4s4t0.kushacres.art.S
 import dev.m4s4t0.kushacres.art.Sprites
 import dev.m4s4t0.kushacres.art.Sprites.TH
@@ -81,6 +82,12 @@ object ShareCard {
         box(44, 516, W - 44, 616, def.wood, def.edge)
         say(def.name, W / 2f, 562f, if (def.name.length > 14) 40f else 48f, GOLD, Paint.Align.CENTER)
         say("Level ${f.level} · ${f.sites.size} farm${if (f.sites.size > 1) "s" else ""} · ${f.land}×${f.land} acres", W / 2f, 598f, 22f, CREAM, Paint.Align.CENTER)
+        // The farmer, in full detail, stepping out of the scene onto the plate's right end.
+        f.farmer?.let { me ->
+            val fb = People.farmer(me, 0, hd = true)
+            val fl = W - 52f - fb.width * 2; val ft = 612f - fb.height * 2
+            c.drawBitmap(fb, null, RectF(fl, ft, fl + fb.width * 2, ft + fb.height * 2), art)
+        }
 
         // The numbers, two to a row.
         val stats = listOf(

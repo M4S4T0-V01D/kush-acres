@@ -155,7 +155,7 @@ internal fun HolidayPanel(ui: UiState) {
             Store.rev
             val owned = h.hat in f.hats
             val look = (f.farmer ?: Farmer()).let { it.copy(hat = Farmer.HATS.indexOf(h.hat)) }
-            Card(People.farmer(look, 0), h.hat, "A ${h.title} hat for your farmer. Put it on from Menu › Restyle.", if (owned) "In your wardrobe" else null,
+            Card(People.farmerBust(look), h.hat, "A ${h.title} hat for your farmer. Put it on from Menu › Restyle.", if (owned) "In your wardrobe" else null,
                 "${Holiday.HAT}", enabled = !owned && f.tokens(h) >= Holiday.HAT, actionIcon = tok) {
                 buy(f.buyHat(h), "${h.hat} bought! Wear it from Restyle.")
             }

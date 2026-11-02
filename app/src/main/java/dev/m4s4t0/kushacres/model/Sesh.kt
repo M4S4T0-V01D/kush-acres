@@ -34,6 +34,15 @@ object Sesh {
     }
     fun buffs(s: Strain): List<Buff> = s.traits.sortedBy { it.ordinal }.map { buffFor(it) }
 
+    /** Share of the usual grams the best bud needs: stronger weed goes further. */
+    const val BEST_SHARE = 0.4
+
+    /** Grams one [size] sesh of [s] takes: the full amount for ditch weed, down to [BEST_SHARE] of it at the top tier. */
+    fun grams(s: Strain, size: SeshSize): Int {
+        val q = if (s.holiday != null || s.exotic) 1.0 else ((s.tier - 1) / 79).coerceIn(0.0, 1.0)
+        return max(1, kotlin.math.round(size.grams * (1 - (1 - BEST_SHARE) * q)).toInt())
+    }
+
     /** Minutes of buff before what's already running: better strains and a comfier home last longer. */
     fun minutes(f: Farm, s: Strain, size: SeshSize): Int {
         val strain = 1 + 0.02 * s.tier + (if (s.holiday != null || s.exotic) 0.25 else 0.0)
@@ -51,13 +60,14 @@ object Sesh {
 
     fun smoke(f: Farm, strain: String, size: SeshSize, now: Long): Result {
         val s = Strains[strain] ?: return Result.NO_BUD
-        if ((f.stash[strain] ?: 0) < size.grams) return Result.NO_BUD
+        val g = grams(s, size)
+        if ((f.stash[strain] ?: 0) < g) return Result.NO_BUD
         val base = minutes(f, s, size)
         val gains = buffs(s).map { it to adds(f, it, base, now) }
         if (gains.all { it.second == 0 }) return Result.LIMIT
-        take(f, strain, size.grams)
+        take(f, strain, g)
         gains.forEach { (b, m) -> if (m > 0) f.addBuff(b, now, m) }
-        f.bump(Stat.SMOKED, size.grams.toLong())
+        f.bump(Stat.SMOKED, g.toLong())
         return Result.OK
     }
 

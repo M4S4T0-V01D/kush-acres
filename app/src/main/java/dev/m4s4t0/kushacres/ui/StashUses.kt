@@ -57,13 +57,15 @@ internal fun SeshSection(ui: UiState) {
         T("Each strain's trait gives its own buff; better strains and a comfier home make it last. Piling on more fades out at ${Sesh.MAX_MINUTES / 60}h.", 10.sp, Dim, bold = false)
         val highs = listOf(Buff.HIGH_GROW, Buff.HIGH_YIELD, Buff.HIGH_GOLD, Buff.HIGH_XP, Buff.HIGH_PRICE).filter { f.on(it) }
         highs.forEach { b -> T("${b.title} · ${dur(((f.buffs[b] ?: now) - now) / 1000 + 1)}", 11.sp, Leaf) }
-        val list = stashed(SeshSize.JOINT.grams)
+        val list = stashed(1).filter { (s, g) -> g >= Sesh.grams(s, SeshSize.JOINT) }
         if (list.isEmpty()) T("Nothing to roll. Harvest something first.", 12.sp, Dim)
         list.forEach { (s, g) ->
             val buffs = Sesh.buffs(s).joinToString { it.title.substringBefore(':') }
-            StrainRow(s, g, "$buffs · ${Sesh.minutes(f, s, SeshSize.JOINT)}m a joint") {
+            val less = 100 - 100 * Sesh.grams(s, SeshSize.HOTBOX) / SeshSize.HOTBOX.grams
+            StrainRow(s, g, "$buffs · ${Sesh.minutes(f, s, SeshSize.JOINT)}m a joint" + if (less >= 5) " · strong stuff, $less% less" else "") {
                 SeshSize.entries.forEach { z ->
-                    Btn("${z.title} ${z.grams}g", Modifier.weight(1f), enabled = g >= z.grams, color = if (z == SeshSize.HOTBOX) Gold else WoodEdge, size = 11.sp) {
+                    val need = Sesh.grams(s, z)
+                    Btn("${z.title} ${need}g", Modifier.weight(1f), enabled = g >= need, color = if (z == SeshSize.HOTBOX) Gold else WoodEdge, size = 11.sp) {
                         val r = Sesh.smoke(f, s.id, z, Store.now())
                         if (r == Result.OK) {
                             Stoned.begin(s, z)

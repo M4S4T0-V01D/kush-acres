@@ -173,6 +173,35 @@ internal fun dumpPanels(dir: String) {
     shot("contracts", 0, 2000) { ContractsTab() }
     val lab = Strains.hybridList.first { f.unlocked(Strains[it.parents!!.first]!!) && f.unlocked(Strains[it.parents!!.second]!!) }
     f.bred += Strains.hybridList.take(2).map { it.id }.filter { it != lab.id }
+    for ((n, t) in listOf(8f, 30f, 60f).withIndex()) shot("drop-$n", 0, 700) { dev.m4s4t0.kushacres.ui.BudDropStill(7 + n, t) }
+    run {
+        // HD farmers: the presets plus random looks, standing and mid-stride, with the old sprite under each.
+        val F = dev.m4s4t0.kushacres.model.Farmer
+        val rnd = kotlin.random.Random(7)
+        val looks = F.PRESETS.map { it.second } + List(16) { F.random(rnd, it % 3) }
+        val P = dev.m4s4t0.kushacres.art.People
+        for ((page, chunk) in looks.chunked(12).withIndex()) {
+            val sheet = org.jetbrains.skia.Surface.makeRasterN32Premul(12 * 2 * 60 + 8, 120 + 60)
+            val c = sheet.canvas
+            c.clear(0xFF6A8A4A.toInt())
+            for ((i, look) in chunk.withIndex()) for (fr in 0..1) {
+                val x = (i * 2 + fr) * 60 + 4
+                c.drawImage(org.jetbrains.skia.Image.makeFromBitmap(P.farmer(look, fr, hd = true).sk), x.toFloat(), 4f)
+                c.drawImage(org.jetbrains.skia.Image.makeFromBitmap(P.farmer(look, fr).sk), x.toFloat(), 120f)
+            }
+            File(dir, "farmers-$page.png").writeBytes(sheet.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        // The creator on a restyle, and the whole farm at the finest zoom with the HD farmer walking it.
+        val was = f.farmer
+        f.farmer = F.PRESETS[0].second.copy(name = "Mary Jane")
+        for (tab in 0..4) shot("creator-$tab", 0, 1250) { dev.m4s4t0.kushacres.ui.Creator(UiState().apply { creator = true }, tab) }
+        val w = dev.m4s4t0.kushacres.ui.World()
+        val (x0, y0, x1, y1) = f.landBox()
+        w.view(w.centerX(x0, y1) - 40, w.centerY(x0, y0) - 80, w.centerX(x1, y0) + 40, w.centerY(x1, y1) + 40, dev.m4s4t0.kushacres.art.Figure.K)
+        w.render(f, now, 1.3f, dev.m4s4t0.kushacres.ui.Light(0f, -1, 0f, 0f, 0f), null, false)
+        File(dir, "farm-hd.png").writeBytes(org.jetbrains.skia.Image.makeFromBitmap(w.bitmap.sk).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        f.farmer = was
+    }
     for (p in listOf(lab.parents!!.first, lab.parents!!.second)) f.stash[p] = 999
     val (sx, sy) = (f.oy until f.oy + f.land).flatMap { b -> (f.ox until f.ox + f.land).map { it to b } }.first { (a, b) -> f.tile(a, b).kind == Kind.GRASS }
     f.buildHouse(sx, sy, WorkHouse.STORE); f.tile(sx, sy).lvl = 3
@@ -311,13 +340,17 @@ internal fun dumpPanels(dir: String) {
         dev.m4s4t0.kushacres.model.Sesh.ship(f, first, 250, now)
         shot("ship-busy", 0, 600) { dev.m4s4t0.kushacres.ui.ShipTab() }
         shot("clinic", 0, 700) { dev.m4s4t0.kushacres.ui.ClinicTab() }
-        val len = 3_500L + 5 * 60_000L
-        for ((theme, e) in listOf(dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 1_200L, dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 3_000L, dev.m4s4t0.kushacres.ui.TripTheme.CLASSIC to 60_000L, dev.m4s4t0.kushacres.ui.TripTheme.HALLOWEEN to 2_200L, dev.m4s4t0.kushacres.ui.TripTheme.HALLOWEEN to 90_000L,
-                dev.m4s4t0.kushacres.ui.TripTheme.CHRISTMAS to 3_200L, dev.m4s4t0.kushacres.ui.TripTheme.VALENTINE to 120_000L, dev.m4s4t0.kushacres.ui.TripTheme.BUCKS to 2_800L, dev.m4s4t0.kushacres.ui.TripTheme.FOURTWENTY to 45_000L, dev.m4s4t0.kushacres.ui.TripTheme.STPATRICK to 30_000L, dev.m4s4t0.kushacres.ui.TripTheme.EASTER to 3_000L)) {
-            shot("trip-${theme.name.lowercase()}-$e", 0, 900) {
+        val len = 5_000L + 5 * 60_000L
+        val tt = dev.m4s4t0.kushacres.ui.TripTheme.entries.associateBy { it.name }
+        val sz = dev.m4s4t0.kushacres.model.SeshSize.entries.associateBy { it.name }
+        for ((theme, size, e) in listOf(Triple("CLASSIC", "JOINT", 700L), Triple("CLASSIC", "JOINT", 1_600L), Triple("CLASSIC", "BLUNT", 1_600L), Triple("CLASSIC", "BLUNT", 3_000L),
+                Triple("CLASSIC", "HOTBOX", 900L), Triple("CLASSIC", "HOTBOX", 1_700L), Triple("CLASSIC", "HOTBOX", 3_200L), Triple("CLASSIC", "JOINT", 4_200L), Triple("CLASSIC", "BLUNT", 60_000L),
+                Triple("HALLOWEEN", "BLUNT", 2_600L), Triple("HALLOWEEN", "JOINT", 90_000L), Triple("CHRISTMAS", "HOTBOX", 3_600L), Triple("VALENTINE", "BLUNT", 120_000L),
+                Triple("BUCKS", "JOINT", 3_400L), Triple("FOURTWENTY", "HOTBOX", 45_000L), Triple("EASTER", "BLUNT", 4_000L))) {
+            shot("trip-${theme.lowercase()}-${size.lowercase()}-$e", 0, 900) {
                 androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
                     androidx.compose.foundation.lazy.LazyColumn { item { dev.m4s4t0.kushacres.ui.SeshSection(UiState()) } }
-                    dev.m4s4t0.kushacres.ui.TripLayer(theme, e, len)
+                    dev.m4s4t0.kushacres.ui.TripLayer(tt.getValue(theme), e, len, null, sz.getValue(size))
                 }
             }
         }

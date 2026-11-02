@@ -184,6 +184,22 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [ ] Look over wait times so nothing feels like "pay to skip" bait
 - [ ] Later, maybe: Google Play build without the self-updater (Play forbids it), Mature 17+ rating
 
+## Phase 19 — Farmer & Sesh
+- [x] Better strains take fewer grams per sesh (the best take 60% less)
+- [x] New sesh animation, a better-looking Bud Drop jar, and zoom − / + buttons by the rotate buttons
+- [x] Way more farmer options: body, eyes, eye colour, brows, lashes, lips, eyeshadow, blush, freckles, beauty mark, 24 hairs, 22 tops, bottoms, shoes, 5 new hats, extras (earrings, flowers, necklace, nose ring, bracelets, tattoos, gloves)
+- [x] Presets (Mary Jane, Willow, Daisy, Skye, Cowgirl, Hippie, Grower, Punk)
+- [x] HD farmer (4× detail): shown in the creator, home, share card, and on the farm when zoomed in close; portraits in the menu, holiday hats and level-up
+- [x] Creator rebuilt with Body · Face · Hair · Outfit · Extras tabs, random per tab or everything, walk/stand and portrait/full-body preview
+- [ ] Side/back views of the farmer (still front-facing only)
+
+## Phase 20 — Smoking (planned for 0.25.0)
+- [ ] Smoking gear: papers, then pipe Lv 10, bong Lv 40, vape Lv 120, dab rig Lv 250
+- [ ] Smoke circle with the crew for a work-speed buff
+- [ ] Tasting journal and trophies
+- [ ] Bud Drop power-ups, jar skins and a daily challenge
+- [ ] Rolling minigame: a good roll adds up to +25% buff time
+
 ## Release log
 - 0.2.1 — before this plan
 - 0.3.0 — in-game updater from GitHub releases; land grows to 24×24 (4 new tiers); Settings tab
@@ -202,3 +218,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.10.2 — weekly Cannabis Cup; plants, trees, bushes, lamps and sprinklers shaded
 - 0.10.3 — seed hunts, Botanist and Lab Chemist crew, crews and vehicles in the level-up list
 - 0.10.4 — Farm Book tabs wrap into even rows so names stay whole; timers over two days show days
+- 0.24.0 — Farmer & Sesh: HD farmer with way more looks, presets and a tabbed creator; better strains smoke for fewer grams; new sesh animation; nicer Bud Drop jar; zoom buttons

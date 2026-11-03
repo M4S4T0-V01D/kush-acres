@@ -97,6 +97,31 @@ object Coins {
                     disc(6, 7, 4, 0xFFB07030.toInt()); disc(5, 6, 2, 0xFFC8884A.toInt())
                     rect(1, 3, 10, 2, 0xFF6A4228.toInt()); rect(2, 2, 8, 1, 0xFF8A5A34.toInt()); rect(6, 0, 1, 2, 0xFF4A3220.toInt())
                 }
+                Holiday.SPRINGFAIR -> {
+                    val c = 0xFFFF9AC8.toInt()
+                    disc(6, 3, 2, c); disc(3, 5, 2, c); disc(9, 5, 2, c); disc(4, 9, 2, shade(c, 0.9f)); disc(8, 9, 2, shade(c, 0.9f))
+                    disc(6, 6, 1, 0xFFFFE04A.toInt()); set(5, 2, white)
+                }
+                Holiday.SUMMERFEST -> {
+                    val c = 0xFFFFB08A.toInt()
+                    for (j in 0 until 12) for (i in 0 until 12) {
+                        val dx = (i - 5.5) / 5.5; val dy = (j - 8.0) / 7.0
+                        if (j <= 8 && dx * dx + dy * dy <= 1) set(i, j, if ((i + 12 - j / 3) % 3 == 0) shade(c, 0.8f) else c)
+                    }
+                    rect(4, 9, 4, 2, shade(c, 0.85f)); rect(3, 9, 1, 1, shade(c, 0.85f)); rect(8, 9, 1, 1, shade(c, 0.85f))
+                    set(5, 2, white)
+                }
+                Holiday.HARVESTFAIR -> {
+                    val c = 0xFFE0602A.toInt()
+                    poly(c, 6, 0, 8, 3, 11, 2, 10, 6, 12, 7, 8, 9, 6, 8, 4, 9, 0, 7, 2, 6, 1, 2, 4, 3)
+                    line(6, 3, 6, 11, 0xFF8A3A1A.toInt()); set(5, 2, 0xFFF0B030.toInt()); set(8, 5, 0xFFF0B030.toInt())
+                }
+                Holiday.WINTERWARMER -> {
+                    val c = 0xFFB8E4FF.toInt()
+                    line(6, 0, 6, 11, c); line(1, 3, 11, 9, c); line(1, 9, 11, 3, c)
+                    set(5, 1, c); set(7, 1, c); set(5, 10, c); set(7, 10, c)
+                    disc(6, 6, 1, white)
+                }
             }
             outline(OUT)
         }

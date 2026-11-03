@@ -47,23 +47,34 @@ data class Farmer(
             0xFF1E2A5A.toInt(), 0xFF2E5230.toInt(), 0xFF9A9AA4.toInt(), 0xFFE2C4A0.toInt(), 0xFFFF6A4A.toInt(), 0xFF4ACCBC.toInt())
         val HAIRS = listOf("Short", "Long", "Bun", "Mohawk", "Afro", "Bald", "Ponytail", "Dreads",
             "Pixie", "Bob", "Wavy", "Pigtails", "Braids", "Space buns", "Curls", "Side swept", "Undercut", "Mullet", "Top knot", "Bangs",
-            "Beehive", "Buzz", "Mermaid", "Shag")
+            "Beehive", "Buzz", "Mermaid", "Shag",
+            "Crew cut", "Slicked back", "Man bun", "Spiky", "Surfer", "Cornrows", "Pompadour", "Curtains")
         val OUTFITS = listOf("Tee", "Overalls", "Hoodie", "Flannel", "Tie-dye", "Dress",
             "Tank top", "Crop top", "Sundress", "Blouse", "Sweater", "Denim jacket", "Leather jacket", "Kimono", "Polo", "Lab coat",
-            "Halter", "Peasant top", "Cardigan", "Jersey", "Puffer", "Off-shoulder")
+            "Halter", "Peasant top", "Cardigan", "Jersey", "Puffer", "Off-shoulder",
+            "Button-up", "Work shirt", "Hawaiian", "Henley", "Muscle tee", "Raglan", "Varsity jacket", "Bomber",
+            "Spiral tie-dye", "Ice dye", "Crumple dye", "Tie-dye hoodie", "Leaf tee", "Leaf tank", "Leaf hoodie", "Leaf print", "Leaf tie-dye")
+        /** Outfits that are mostly worn by men; [random] leans on these for masculine frames. */
+        val MENS_OUTFITS = listOf("Tee", "Overalls", "Hoodie", "Flannel", "Tie-dye", "Tank top", "Sweater", "Denim jacket", "Leather jacket",
+            "Polo", "Jersey", "Puffer", "Button-up", "Work shirt", "Hawaiian", "Henley", "Muscle tee", "Raglan", "Varsity jacket", "Bomber",
+            "Spiral tie-dye", "Crumple dye", "Tie-dye hoodie", "Leaf tee", "Leaf tank", "Leaf hoodie", "Leaf print", "Leaf tie-dye")
         /** Outfits that cover the legs themselves, so the bottoms don't show. */
         val DRESSES = setOf("Dress", "Sundress")
-        val BOTTOMS = listOf("Jeans", "Shorts", "Skirt", "Mini skirt", "Cargo pants", "Leggings")
+        val BOTTOMS = listOf("Jeans", "Shorts", "Skirt", "Mini skirt", "Cargo pants", "Leggings",
+            "Chinos", "Joggers", "Board shorts", "Tie-dye pants", "Leaf shorts")
         val SHOES = listOf("Boots", "Sneakers", "Sandals", "Cowboy boots", "Wellies")
         /** Hats sold in each holiday's shop, in [Holiday] order; worn only once bought. */
         val HOLIDAY_HATS = listOf("Party hat", "Heart band", "Leprechaun", "Leaf crown", "Bunny ears", "Uncle Sam", "Pumpkin", "Pilgrim", "Santa")
         /** Free hats added after the holiday ones, so the holiday ones keep their saved indices. */
         val MORE_HATS = listOf("Sun hat", "Cowgirl", "Beret", "Headscarf", "Visor")
-        val HATS = listOf("None", "Cap", "Straw hat", "Beanie", "Bandana", "Cowboy", "Bucket", "Witch") + HOLIDAY_HATS + MORE_HATS
-        val BASE_HATS = HATS.size - HOLIDAY_HATS.size - MORE_HATS.size
+        /** The seasonal festivals' hats, in [Season] order; bought like the holiday ones. */
+        val SEASON_HATS = listOf("Flower crown", "Sailor cap", "Scarecrow", "Earmuffs")
+        val HATS = listOf("None", "Cap", "Straw hat", "Beanie", "Bandana", "Cowboy", "Bucket", "Witch") + HOLIDAY_HATS + MORE_HATS + SEASON_HATS
+        val BASE_HATS = HATS.size - HOLIDAY_HATS.size - MORE_HATS.size - SEASON_HATS.size
         /** Hats anyone can wear without buying them. */
-        fun freeHat(i: Int) = i < BASE_HATS || i >= BASE_HATS + HOLIDAY_HATS.size
-        val FACES = listOf("Plain", "Beard", "Moustache", "Glasses", "Shades", "Round specs", "Heart shades", "Goatee", "Stubble")
+        fun freeHat(i: Int) = i < BASE_HATS || i in BASE_HATS + HOLIDAY_HATS.size until HATS.size - SEASON_HATS.size
+        val FACES = listOf("Plain", "Beard", "Moustache", "Glasses", "Shades", "Round specs", "Heart shades", "Goatee", "Stubble",
+            "Full beard", "Handlebar", "Mutton chops", "Soul patch", "Chin strap")
         val BODIES = listOf("Masculine", "Feminine", "Neutral")
         val EYES = listOf("Round", "Almond", "Big", "Sleepy", "Cat-eye")
         val EYE_COLORS = intArrayOf(0xFF5A3A22.toInt(), 0xFF2A1A14.toInt(), 0xFF8A6A2A.toInt(), 0xFF3A8A4A.toInt(), 0xFF3A7AD0.toInt(),
@@ -101,7 +112,7 @@ data class Farmer(
         ) = Farmer(
             "Farmer", skin, HAIRS.indexOf(hair), hairColor, OUTFITS.indexOf(outfit), shirt, pants, HATS.indexOf(hat), FACES.indexOf(face),
             body = body, eyes = EYES.indexOf(eyes), eyeColor = eyeColor, brows = BROWS.indexOf(brows), lashes = if (body == 1) 1 else 0,
-            lips = lips, freckles = freckles, shadow = shadow, bottom = BOTTOMS.indexOf(bottom), shoes = SHOES.indexOf(shoes), shoeColor = shoeColor,
+            blush = if (body == 0) 0 else 1, lips = lips, freckles = freckles, shadow = shadow, bottom = BOTTOMS.indexOf(bottom), shoes = SHOES.indexOf(shoes), shoeColor = shoeColor,
             extras = extras.fold(0) { m, e -> m or (1 shl EXTRAS.indexOf(e)) },
         )
 
@@ -116,6 +127,16 @@ data class Farmer(
                 "Hippie" to look(2, 7, "Long", 1, "Tie-dye", 3, "Jeans", 1, "Headscarf", "Sandals", 8, face = "Round specs", eyes = "Sleepy", extras = listOf("Necklace", "Bracelets")),
                 "Grower" to look(0, 3, "Short", 1, "Overalls", 2, "Jeans", 1, "Straw hat", "Wellies", 2, face = "Beard", brows = "Bold", extras = listOf("Gloves")),
                 "Punk" to look(2, 0, "Mohawk", 8, "Leather jacket", 0, "Leggings", 6, "None", "Boots", 6, face = "Shades", lips = 7, shadow = 5, extras = listOf("Earrings", "Nose ring", "Tattoos")),
+                "Rasta" to look(0, 5, "Dreads", 0, "Leaf tie-dye", 2, "Board shorts", 3, "Beanie", "Sandals", 8, face = "Goatee", eyes = "Sleepy", extras = listOf("Necklace", "Bracelets")),
+                "Surfer" to look(0, 2, "Surfer", 3, "Hawaiian", 9, "Board shorts", 5, "None", "Sandals", 8, face = "Stubble", eyeColor = 4, extras = listOf("Necklace")),
+                "Cowboy" to look(0, 1, "Crew cut", 1, "Work shirt", 18, "Jeans", 18, "Cowboy", "Cowboy boots", 8, face = "Handlebar", brows = "Bold"),
+                "Skater" to look(0, 0, "Curtains", 2, "Leaf hoodie", 6, "Cargo pants", 11, "Beanie", "Sneakers", 7, eyeColor = 3, freckles = 1),
+                "Old Timer" to look(0, 6, "Bald", 5, "Overalls", 1, "Jeans", 1, "Straw hat", "Boots", 8, face = "Full beard", brows = "Bold", extras = listOf("Gloves")),
+                "Hipster" to look(0, 7, "Man bun", 1, "Button-up", 19, "Chinos", 21, "None", "Boots", 8, face = "Full beard", extras = listOf("Tattoos")),
+                "Jock" to look(0, 3, "Spiky", 0, "Varsity jacket", 17, "Joggers", 20, "Cap", "Sneakers", 7, face = "Chin strap", brows = "Bold"),
+                "Biker" to look(0, 8, "Slicked back", 0, "Leather jacket", 6, "Jeans", 18, "Bandana", "Boots", 6, face = "Mutton chops", brows = "Bold", extras = listOf("Tattoos", "Gloves")),
+                "Kush King" to look(0, 4, "Cornrows", 0, "Leaf print", 6, "Leaf shorts", 2, "None", "Sneakers", 3, face = "Shades", extras = listOf("Necklace", "Earrings")),
+                "Greaser" to look(0, 1, "Pompadour", 0, "Muscle tee", 7, "Jeans", 1, "None", "Boots", 6, face = "Soul patch", brows = "Bold", extras = listOf("Tattoos")),
             )
         }
 
@@ -126,14 +147,16 @@ data class Farmer(
             val b = body ?: rnd.nextInt(BODIES.size)
             val fem = b == 1
             val femHair = listOf(1, 2, 6, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 22, 23)
+            val manHair = listOf(0, 3, 4, 5, 7, 16, 17, 21, 24, 25, 26, 27, 28, 29, 30, 31)
             val face = if (fem) listOf(0, 0, 0, 3, 4, 5, 6).random(rnd) else rnd.nextInt(FACES.size)
+            val outfit = if (b == 0) OUTFITS.indexOf(MENS_OUTFITS.random(rnd)) else rnd.nextInt(OUTFITS.size)
             return Farmer(
-                NAMES.random(rnd), rnd.nextInt(SKINS.size), if (fem) femHair.random(rnd) else rnd.nextInt(HAIRS.size), rnd.nextInt(HAIR_COLORS.size),
-                rnd.nextInt(OUTFITS.size), rnd.nextInt(CLOTH.size), rnd.nextInt(CLOTH.size), if (rnd.nextInt(3) == 0) 0 else FREE_HATS.random(rnd), face,
+                NAMES.random(rnd), rnd.nextInt(SKINS.size), if (fem) femHair.random(rnd) else if (b == 0) manHair.random(rnd) else rnd.nextInt(HAIRS.size), rnd.nextInt(HAIR_COLORS.size),
+                outfit, rnd.nextInt(CLOTH.size), rnd.nextInt(CLOTH.size), if (rnd.nextInt(3) == 0) 0 else FREE_HATS.random(rnd), face,
                 body = b, eyes = rnd.nextInt(EYES.size), eyeColor = rnd.nextInt(EYE_COLORS.size), brows = rnd.nextInt(BROWS.size),
                 lashes = if (fem) 1 else 0, lips = if (fem) rnd.nextInt(LIPS.size) else 0, blush = rnd.nextInt(2), freckles = if (rnd.nextInt(4) == 0) 1 else 0,
                 mole = if (rnd.nextInt(6) == 0) 1 else 0, shadow = if (fem && rnd.nextBoolean()) rnd.nextInt(SHADOWS.size) else 0,
-                bottom = if (fem) rnd.nextInt(BOTTOMS.size) else listOf(0, 1, 4).random(rnd), shoes = rnd.nextInt(SHOES.size),
+                bottom = if (fem) rnd.nextInt(BOTTOMS.size) else listOf(0, 1, 4, 6, 7, 8, 9, 10).random(rnd), shoes = rnd.nextInt(SHOES.size),
                 shoeColor = rnd.nextInt(CLOTH.size), extras = rnd.nextInt(1 shl EXTRAS.size) and rnd.nextInt(1 shl EXTRAS.size) and rnd.nextInt(1 shl EXTRAS.size),
             )
         }

@@ -1136,7 +1136,7 @@ class FarmTest {
             for (x in ox - 1..ox + def.land) for (y in oy - 1..oy + def.land) assertFalse("${def.id} $x,$y", m.yard(x, y))
             if (def !== Sites.HOME) assertEquals(def.id, m.size * m.size, farm().mapOf(def).count { it.kind == Kind.LANDMARK })
         }
-        assertEquals(29, ids.size)
+        assertEquals(37, ids.size)
         val f = farm()
         val m = Sites.HOME.landmark!!
         fun mark() = f.tiles.indices.filter { f.tiles[it].kind == Kind.LANDMARK }
@@ -1187,7 +1187,29 @@ class FarmTest {
         assertEquals(Holiday.NEWYEAR, Holiday.at(at(2027, 1, 1)))
         assertEquals(4 to 5, Holiday.easter(2026))
         assertEquals(26, Holiday.thanksgiving(2026))
-        assertNull(Holiday.at(at(2026, 6, 10)))
+        val june = at(2026, 6, 10)
+        assertEquals(Holiday.festival(Season.at(june)), Holiday.at(june))
+    }
+
+    @Test fun everySeasonHasItsOwnFestival() {
+        val fests = Season.entries.map { Holiday.festival(it) }
+        assertEquals(4, fests.toSet().size)
+        assertEquals(4, fests.map { it.id }.toSet().size)
+        for (h in fests) {
+            assertTrue(h.festival); assertTrue(h !in Holiday.dated)
+            assertEquals(6, h.strains.size); assertEquals(2, h.decor.size); assertEquals(2, h.sites.size)
+            assertFalse(h.title, Farmer.freeHat(Farmer.HATS.indexOf(h.hat)))
+        }
+        // Whatever the week, the festival of that season is on unless a dated holiday takes over.
+        var t = 1_700_000_000_000L
+        repeat(60) {
+            val h = Holiday.at(t)!!
+            if (h.festival) assertEquals(Season.at(t), h.season) else assertTrue(h.active(t))
+            t += 6 * 86_400_000L
+        }
+        val xmas = java.util.Calendar.getInstance().apply { clear(); set(2026, 11, 25, 12, 0) }.timeInMillis
+        assertEquals(Holiday.CHRISTMAS, Holiday.at(xmas))
+        assertTrue(Holiday.festival(Season.at(xmas)).active(xmas))
     }
 
     @Test fun relocateMovesTheFarm() {

@@ -198,7 +198,14 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Smoke circle with the crew for a work-speed buff
 - [x] Tasting journal and trophies
 - [x] Bud Drop power-ups (magnet, slow-mo, wide jar, shield), jar skins and a daily challenge
+- 0.26.0 — Seasonal festivals with blossoms, shells, maple leaves and snowflakes as tokens (strains, decor, pets, hats, farms, estates, towns, tunes); more male farmers, hair and clothing, tie-dye and pot-leaf prints; HUD rows rearranged
 - [x] Rolling minigame: a good roll adds up to +25% buff time
+
+## Phase 21 — Seasons and style (0.26.0)
+- [x] More male farmers, better hair and clothing, male outfits, more tie-dye and pot-leaf prints
+- [x] HUD: rotate, zoom, settings and music one row down; weather to the right of the farm dropdown
+- [x] Four seasonal festivals (Spring Fair, Summer Fest, Harvest Fair, Winter Warmer) with their own tokens
+- [x] Each festival: 6 strains, 2 decor, a pet, a hat, a farm, an estate, a town and a tune
 
 ## Release log
 - 0.2.1 — before this plan

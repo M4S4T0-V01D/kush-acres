@@ -120,7 +120,15 @@ enum class Decor(
     LION("Lion of Zion", "Everything sells 4% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.04, bucks = 40),
     SHROOMS("Glowing Mushrooms", "Neighbours grow 15% faster", 1, 0, black = true, perk = Perk.GROW, amt = 0.15, bucks = 45),
     BUDDHA("Chill Buddha", "+8% XP", 1, 0, black = true, perk = Perk.XP, amt = 0.08, bucks = 50),
-    TIKIBAR("Tiki Bar", "Everything sells 5% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.05, bucks = 60);
+    TIKIBAR("Tiki Bar", "Everything sells 5% higher", 1, 0, black = true, perk = Perk.SELL, amt = 0.05, bucks = 60),
+    MAYPOLE("Maypole", "+6% XP", 1, 0, black = true, holiday = "springfair", perk = Perk.XP, amt = 0.06),
+    TULIPS("Tulip Bed", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "springfair", perk = Perk.GROW, amt = 0.12),
+    PARASOL("Beach Umbrella", "Everything sells 5% higher", 1, 0, black = true, holiday = "summerfest", perk = Perk.SELL, amt = 0.05),
+    SANDCASTLE("Sandcastle", "Neighbours +5% golden chance", 1, 0, black = true, holiday = "summerfest", perk = Perk.GOLD, amt = 0.05),
+    LEAFPILE("Leaf Pile", "Neighbours yield 15% more", 1, 0, black = true, holiday = "harvestfair", perk = Perk.YIELD, amt = 0.15),
+    HAYWAGON("Hay Wagon", "Neighbours grow 12% faster", 1, 0, black = true, holiday = "harvestfair", perk = Perk.GROW, amt = 0.12),
+    ICESCULPTURE("Ice Sculpture", "Neighbours +5% golden chance", 1, 0, black = true, holiday = "winterwarmer", perk = Perk.GOLD, amt = 0.05),
+    COCOA("Cocoa Stand", "+6% XP", 1, 0, black = true, holiday = "winterwarmer", perk = Perk.XP, amt = 0.06);
 
     /** How many squares out its neighbour effect reaches (0: none). Level 1-9 cover 3×3 like a sprinkler, then 5×5, 7×7 and 9×9. */
     val reach: Int get() = when {

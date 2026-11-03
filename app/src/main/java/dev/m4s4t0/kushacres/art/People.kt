@@ -111,13 +111,18 @@ object People {
         // Options newer than this little sprite fall back to the nearest one it can draw; [Figure] draws them properly.
         val outfit = when (val o = Farmer.OUTFITS[look.outfit]) {
             "Sundress" -> "Dress"
-            "Sweater", "Puffer", "Jersey" -> "Hoodie"
+            "Sweater", "Puffer", "Jersey", "Leaf hoodie", "Raglan" -> "Hoodie"
+            "Tie-dye hoodie", "Spiral tie-dye", "Ice dye", "Crumple dye", "Leaf tie-dye" -> "Tie-dye"
+            "Button-up", "Work shirt", "Hawaiian", "Varsity jacket", "Bomber" -> "Flannel"
+            "Henley", "Muscle tee", "Leaf tee", "Leaf tank", "Leaf print" -> "Tee"
             "Denim jacket", "Leather jacket", "Cardigan", "Lab coat", "Kimono" -> "Flannel"
             "Tank top", "Crop top", "Blouse", "Polo", "Halter", "Peasant top", "Off-shoulder" -> "Tee"
             else -> o
         }
         val hairStyle = when (val h = Farmer.HAIRS[look.hair]) {
-            "Pixie", "Undercut", "Buzz", "Shag" -> "Short"
+            "Pixie", "Undercut", "Buzz", "Shag", "Crew cut", "Slicked back", "Spiky", "Pompadour", "Cornrows", "Curtains" -> "Short"
+            "Surfer" -> "Long"
+            "Man bun" -> "Bun"
             "Bob", "Wavy", "Mermaid", "Bangs", "Side swept", "Braids" -> "Long"
             "Space buns", "Top knot", "Beehive" -> "Bun"
             "Curls" -> "Afro"
@@ -125,7 +130,7 @@ object People {
             else -> h
         }
         val hat = when (val h = Farmer.HATS[look.hat]) { "Sun hat" -> "Straw hat"; "Cowgirl" -> "Cowboy"; "Beret", "Visor" -> "Cap"; "Headscarf" -> "Bandana"; else -> h }
-        val face = when (val fc = Farmer.FACES[look.face]) { "Round specs" -> "Glasses"; "Heart shades" -> "Shades"; "Goatee" -> "Moustache"; else -> fc }
+        val face = when (val fc = Farmer.FACES[look.face]) { "Round specs" -> "Glasses"; "Heart shades" -> "Shades"; "Goatee", "Handlebar", "Soul patch" -> "Moustache"; "Full beard", "Mutton chops", "Chin strap" -> "Beard"; else -> fc }
         val bottom = Farmer.BOTTOMS[look.bottom]
         val dress = outfit == "Dress" || bottom == "Skirt" || bottom == "Mini skirt"
         val step = frame == 1
@@ -287,6 +292,24 @@ object People {
                 px.poly(r, 4, 4, 6, 0, 9, 1, 11, 3, 10, 4)
                 px.rect(3, 4, 8, 1, w); px.set(11, 3, w); px.set(12, 4, w); px.set(5, 2, shade(r, 1.2f))
             }
+            "Flower crown" -> {
+                px.rect(4, 3, 6, 1, 0xFF3A8A2A.toInt())
+                for ((x, c) in listOf(4 to 0xFFFF9AC8, 6 to 0xFFF2E040, 8 to 0xFFFFFFFF, 10 to 0xFFB05AE0)) { px.set(x, 2, c.toInt()); px.set(x - 1, 3, c.toInt()); px.set(x, 3, 0xFFF2C440.toInt()) }
+            }
+            "Sailor cap" -> {
+                val w = 0xFFF4F4F0.toInt()
+                px.rect(4, 2, 6, 3, w); px.rect(5, 1, 4, 1, w); px.rect(4, 4, 6, 1, 0xFF2A4AA0.toInt()); px.rect(9, 2, 1, 2, shade(w, 0.8f)); px.set(6, 1, mix(w, 0xFF8AD0FF.toInt(), 0.3f))
+            }
+            "Scarecrow" -> {
+                val st = 0xFFC8A060.toInt()
+                px.rect(5, 1, 4, 3, st); px.rect(5, 3, 4, 1, 0xFF8A4A2A.toInt()); px.rect(1, 4, 12, 1, st); px.rect(2, 5, 10, 1, shade(st, 0.75f))
+                px.set(6, 1, 0xFF6A8A3A.toInt()); px.set(1, 5, 0xFFE8C66A.toInt()); px.set(12, 5, 0xFFE8C66A.toInt()); px.set(0, 4, 0xFFE8C66A.toInt())
+            }
+            "Earmuffs" -> {
+                val m = 0xFFFFFFFF.toInt(); val band = 0xFF3A5AB0.toInt()
+                px.rect(4, 1, 6, 1, band); px.set(3, 2, band); px.set(10, 2, band)
+                px.rect(2, 3, 2, 3, m); px.rect(10, 3, 2, 3, m); px.set(3, 5, shade(m, 0.8f)); px.set(11, 5, shade(m, 0.8f))
+            }
         }
         if (outline) px.outline(OUT)
         return px
@@ -341,6 +364,8 @@ object People {
             // Legs, a round body, a wing, head and beak.
             val leg = 0xFFE0A03A.toInt()
             px.rect(6, 11, 1, 2, leg); px.rect(if (step) 9 else 8, 11, 1, 2, leg)
+            if (p == Pet.PARROT) { px.poly(0xFFE03A3A.toInt(), 5, 8, 0, 12, 1, 13, 6, 10); px.line(1, 12, 4, 10, 0xFF2A6AE0.toInt()) }
+            if (p == Pet.PENGUIN) { px.disc(7, 7, 3, b); px.rect(5, 4, 5, 7, b); px.rect(6, 5, 4, 6, be) }
             if (p == Pet.TURKEY) {
                 // A fan of tail feathers behind.
                 for ((i, c) in intArrayOf(0xFFC03A2A.toInt(), 0xFFE0903A.toInt(), 0xFF8A4A20.toInt(), 0xFFE0C04A.toInt(), 0xFFC03A2A.toInt()).withIndex())
@@ -349,8 +374,9 @@ object People {
             px.disc(7, 8, 3, b); px.rect(4, 8, 7, 3, b); px.rect(5, 10, 5, 1, be)
             px.rect(5, 7, 4, 2, bd); px.set(5, 7, bl)
             val hx = 11; val hy = 4
-            px.rect(hx - 1, hy + 2, 2, 3, if (p == Pet.EAGLE) be else b)
-            px.disc(hx, hy, 1, if (p == Pet.EAGLE) be else 0xFF8AA0C0.toInt())
+            px.rect(hx - 1, hy + 2, 2, 3, if (p == Pet.EAGLE || p == Pet.PENGUIN) be else b)
+            px.disc(hx, hy, 1, when (p) { Pet.EAGLE -> be; Pet.PARROT, Pet.PENGUIN -> b; else -> 0xFF8AA0C0.toInt() })
+            if (p == Pet.PARROT) { px.set(hx, hy - 1, 0xFFF2E040.toInt()); px.set(hx + 2, hy + 1, 0xFF3A3A3A.toInt()) }
             px.rect(hx + 2, hy, 2, 1, 0xFFF2C440.toInt()); px.set(hx + 2, hy + 1, 0xFFE0A03A.toInt())
             if (p == Pet.TURKEY) { px.set(hx + 1, hy + 2, 0xFFE03A3A.toInt()); px.set(hx + 1, hy + 3, 0xFFE03A3A.toInt()) }
             px.set(hx + 1, hy, eye)
@@ -370,6 +396,8 @@ object People {
                 Pet.POODLE -> { px.set(2, 4, b); px.disc(2, 3, 1, bl) }
                 Pet.REINDEER -> px.set(2, 6, be)
                 Pet.SLOTH -> {}
+                Pet.LAMB -> { px.disc(2, 6, 1, b); for (x in 4..11 step 2) { px.set(x, 5, bl); px.set(x + 1, 8, bd) } }
+                Pet.HEDGEHOG -> { for (x in 3..11 step 2) { px.set(x, 4, bd); px.set(x + 1, 3, bd); px.set(x, 5, bd) }; px.set(2, 5, bd) }
                 else -> px.set(2, 5, b)
             }
             // Head and ears.
@@ -382,6 +410,8 @@ object People {
                 Pet.PUG -> { px.set(hx - 2, hy - 1, be); px.set(hx + 2, hy - 1, be); px.rect(hx, hy, 3, 2, be) }
                 Pet.POODLE -> { px.disc(hx, hy - 2, 1, bl); px.disc(hx - 2, hy, 1, bl) }
                 Pet.SLOTH -> { px.rect(hx - 1, hy, 3, 1, be); px.set(hx - 1, hy, 0xFF3A2A20.toInt()) }
+                Pet.LAMB -> { px.disc(hx + 1, hy + 1, 1, be); px.set(hx - 2, hy, be); px.disc(hx - 1, hy - 2, 1, b) }
+                Pet.HEDGEHOG -> { px.set(hx - 1, hy - 2, bd); px.set(hx - 2, hy - 1, bd); px.set(hx + 4, hy + 1, 0xFF14100E.toInt()) }
                 else -> {}
             }
             px.set(hx + 1, hy - 1, eye)

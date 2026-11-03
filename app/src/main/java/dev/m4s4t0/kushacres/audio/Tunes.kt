@@ -88,6 +88,14 @@ object Tunes {
         "warren" to Tune(58, 150, false, intArrayOf(0, 3, 4, 0), Lead.PULSE, 291, style = Style.CHIP),
         "frontier" to Tune(53, 78, false, intArrayOf(0, 3, 4, 4), Lead.GUITAR, 301),
         "orchard" to Tune(55, 76, false, intArrayOf(0, 5, 3, 4), Lead.GUITAR, 311, style = Style.LOFI),
+        "blossomvale" to Tune(57, 84, false, intArrayOf(0, 3, 4, 5), Lead.FLUTE, 321, style = Style.LOFI),
+        "sunnyshores" to Tune(55, 118, false, intArrayOf(0, 4, 5, 4), Lead.STEEL, 331, style = Style.HOUSE),
+        "mapleridge" to Tune(50, 74, true, intArrayOf(0, 5, 3, 4), Lead.GUITAR, 341),
+        "frostbiteflats" to Tune(62, 96, true, intArrayOf(0, 3, 5, 4), Lead.BELL, 351, style = Style.SYNTHPOP),
+        "glasshouse" to Tune(60, 90, false, intArrayOf(0, 5, 1, 4), Lead.ORGAN, 361, style = Style.FUSION),
+        "fairground" to Tune(58, 128, false, intArrayOf(0, 4, 3, 4), Lead.SYNTH, 371, style = Style.ITALO),
+        "cornmaze" to Tune(51, 80, false, intArrayOf(0, 3, 0, 5), Lead.MELODICA, 381, bubble = true),
+        "alpinelodge" to Tune(49, 68, true, intArrayOf(0, 6, 3, 4), Lead.HORN, 391, style = Style.LOFI),
     )
 
     /** Radio-only tracks, won by levelling and from the town board: (id, name, tune). */

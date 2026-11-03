@@ -22,12 +22,13 @@ internal object Figure {
     private val GOLD = 0xFFF2C440.toInt()
 
     /** Hats that leave the top of the head (and any bun on it) showing. */
-    private val OPEN_HATS = setOf("None", "Heart band", "Leaf crown", "Bunny ears", "Visor", "Party hat")
+    private val OPEN_HATS = setOf("None", "Heart band", "Leaf crown", "Bunny ears", "Visor", "Party hat", "Flower crown", "Earmuffs")
 
     private enum class Sleeve { NONE, SHORT, LONG, PUFFY }
     private fun sleeve(o: String) = when (o) {
-        "Tank top", "Sundress", "Halter", "Overalls" -> Sleeve.NONE
-        "Tee", "Crop top", "Polo", "Jersey", "Dress", "Tie-dye" -> Sleeve.SHORT
+        "Tank top", "Sundress", "Halter", "Overalls", "Muscle tee", "Leaf tank" -> Sleeve.NONE
+        "Tee", "Crop top", "Polo", "Jersey", "Dress", "Tie-dye", "Hawaiian", "Spiral tie-dye", "Ice dye", "Crumple dye",
+        "Leaf tee", "Leaf print", "Leaf tie-dye" -> Sleeve.SHORT
         "Blouse", "Peasant top", "Puffer", "Kimono", "Off-shoulder" -> Sleeve.PUFFY
         else -> Sleeve.LONG
     }
@@ -72,6 +73,96 @@ internal object Figure {
         }
     }
 
+    private val TIE = intArrayOf(0xFFFF5A5A.toInt(), 0xFFFFB03A.toInt(), 0xFFF4E04A.toInt(), 0xFF5AD06A.toInt(), 0xFF4AA0F0.toInt(), 0xFFB060E0.toInt())
+    private val RASTA = intArrayOf(0xFFD83A2A.toInt(), 0xFFF2C440.toInt(), 0xFF3AA04A.toInt())
+    private val LEAF = 0xFF4CB848.toInt()
+    /** A small pot leaf, tiled by the leaf prints. */
+    private val NUG = arrayOf("..X..", "X.X.X", ".XXX.", "..X..")
+    /** The big pot leaf on the chest of the leaf tees, tanks and hoodies. */
+    private val BIG_LEAF = arrayOf(
+        "......X......",
+        ".....XLX.....",
+        "..X..XLX..X..",
+        "..XX.XLX.XX..",
+        "...XXXLXXX...",
+        "X...XXLXX...X",
+        ".XXX.XLX.XXX.",
+        "..XXXXLXXXX..",
+        "....XXLXX....",
+        "...X..L..X...",
+        "......L......",
+    )
+    private fun green(c: Int): Boolean { val r = c shr 16 and 255; val g = c shr 8 and 255; val bl = c and 255; return g > r + 20 && g > bl }
+    /** A leaf colour that shows up on cloth [c]. */
+    private fun leafOn(c: Int) = if (green(c)) 0xFFF2E6B0.toInt() else LEAF
+    /** The other colour for raglan and varsity sleeves: cream on dark cloth, charcoal on light. */
+    private fun contrast(c: Int): Int { val l = (c shr 16 and 255) * 3 + (c shr 8 and 255) * 6 + (c and 255); return if (l > 1700) 0xFF2A2A30.toInt() else 0xFFF0EEE6.toInt() }
+    private fun nugAt(x: Int, y: Int, w: Int = 9, h: Int = 8): Boolean {
+        val row = Math.floorDiv(y, h); val lx = Math.floorMod(x + (row % 2) * (w / 2), w); val ly = Math.floorMod(y, h)
+        return ly < NUG.size && lx < 5 && NUG[ly][lx] == 'X'
+    }
+    private fun wave(x: Int, y: Int, a: Float, b: Float, c: Float) =
+        kotlin.math.sin(x * a + kotlin.math.sin(y * b) * 2f) + kotlin.math.sin(y * c + kotlin.math.sin(x * b) * 1.6f)
+
+    /** The colour of [outfit]'s cloth at a point, shared by the body and the sleeves so prints and dyes carry on down the arms. */
+    private fun cloth(look: Farmer, outfit: String): (Int, Int) -> Int {
+        val shirt = Farmer.CLOTH[look.shirt]; val pants = Farmer.CLOTH[look.pants]
+        val sD = dk(shirt, 0.72f); val sL = lt(shirt, 0.22f)
+        return { x, y ->
+            when (outfit) {
+                "Flannel", "Work shirt" -> {
+                    val n = if (outfit == "Flannel") 7 else 9
+                    val vx = Math.floorMod(x, n) < 2; val hy = Math.floorMod(y, n) < 2
+                    if (outfit == "Work shirt") { if (vx && hy) dk(shirt, 0.82f) else if (vx || hy) dk(shirt, 0.92f) else shirt }
+                    else if (vx && hy) dk(shirt, 0.5f) else if (vx || hy) sD else if (Math.floorMod(x, 7) == 4) sL else shirt
+                }
+                "Tie-dye", "Tie-dye hoodie" -> TIE[Math.floorMod(((x - CX) * (x - CX) + (y - 58) * (y - 58)) / 18 + look.shirt, 6)]
+                "Spiral tie-dye" -> {
+                    val a = kotlin.math.atan2((y - 57).toFloat(), (x - CX).toFloat()) / (2 * Math.PI.toFloat())
+                    val r = kotlin.math.sqrt(((x - CX) * (x - CX) + (y - 57) * (y - 57)).toFloat())
+                    val i = Math.floorMod((a * 6f + r / 5f).toInt() + look.shirt, 6)
+                    if (Math.floorMod((a * 60f + r).toInt(), 7) == 0) lt(TIE[i], 0.45f) else TIE[i]
+                }
+                "Ice dye" -> {
+                    val v = wave(x, y, 0.42f, 0.31f, 0.37f)
+                    val i = Math.floorMod(((v + 3f) * 1.1f).toInt() + look.shirt, 6)
+                    mix(TIE[i], WHITE, if (Math.floorMod(x * 7 + y * 3, 11) == 0) 0.75f else 0.55f)
+                }
+                "Crumple dye" -> {
+                    val v = wave(x, y, 0.7f, 0.45f, 0.62f)
+                    when { abs(v) < 0.22f -> dk(shirt, 0.5f); v > 1.1f -> lt(shirt, 0.45f); v < -1.1f -> dk(shirt, 0.78f); else -> shirt }
+                }
+                "Leaf tie-dye" -> {
+                    val d = ((x - CX) * (x - CX) + (y - 57) * (y - 57)) / 22
+                    val c = RASTA[Math.floorMod(d, 3)]
+                    if (Math.floorMod(x + y * 3, 13) == 0) lt(c, 0.25f) else c
+                }
+                "Leaf print" -> if (nugAt(x, y)) leafOn(shirt) else if (Math.floorMod(x * 5 + y * 3, 17) == 0) lt(shirt, 0.12f) else shirt
+                "Hawaiian" -> {
+                    val row = Math.floorDiv(y, 7); val lx = Math.floorMod(x + (row % 2) * 4, 8); val ly = Math.floorMod(y, 7)
+                    when {
+                        lx == 2 && ly == 2 -> GOLD
+                        (lx == 2 && ly in 1..3) || (ly == 2 && lx in 1..3) -> lt(shirt, 0.7f)
+                        lx == 5 && ly in 4..5 || lx == 6 && ly == 5 -> 0xFF2E7A3A.toInt()
+                        else -> shirt
+                    }
+                }
+                "Button-up" -> if (Math.floorMod(x, 4) == 0) lt(shirt, 0.18f) else shirt
+                "Bomber" -> if (Math.floorMod(x + y / 3, 9) == 0) lt(shirt, 0.12f) else shirt
+                "Sweater" -> if (Math.floorMod(x, 3) == 0) dk(shirt, 0.88f) else shirt
+                "Puffer" -> if (Math.floorMod(y - TOP, 6) == 5) dk(shirt, 0.7f) else if (Math.floorMod(y - TOP, 6) == 0) sL else shirt
+                "Leather jacket" -> 0xFF2A2428.toInt()
+                "Lab coat" -> 0xFFF2F2EE.toInt()
+                "Kimono" -> if (Math.floorMod(x * 3 + y * 5, 23) == 0) lt(pants, 0.3f) else shirt
+                "Sundress" -> if (Math.floorMod(x + y * 2, 9) == 0) lt(shirt, 0.5f) else shirt
+                else -> shirt
+            }
+        }
+    }
+    /** Outfits whose cloth is a print or dye rather than one flat colour. */
+    private val PRINTS = setOf("Flannel", "Tie-dye", "Sweater", "Puffer", "Kimono", "Work shirt", "Tie-dye hoodie", "Spiral tie-dye", "Ice dye",
+        "Crumple dye", "Leaf tie-dye", "Leaf print", "Hawaiian", "Button-up", "Bomber")
+
     fun px(look: Farmer, frame: Int, outline: Boolean = true): Px {
         val px = Px(W, H, 1)
         val b = body(look.body)
@@ -103,7 +194,8 @@ internal object Figure {
             when {
                 x >= 38 || (x >= 36 && y > 30) -> d
                 Math.floorMod(x * 5 + y / 3, 11) == 0 -> d
-                y in 14..17 && x in 19..27 -> l
+                run { val r = (x - CX + 3) * (x - CX + 3) + (y - 27) * (y - 27); r in 118..150 && y < 22 && x < CX + 5 } ->
+                    if (Math.floorMod(x + y, 3) == 0) lt(c, 0.5f) else l
                 Math.floorMod(x * 3 + y / 4, 13) == 0 -> l
                 y > 60 && Math.floorMod(x, 4) == 0 -> dd
                 else -> c
@@ -128,6 +220,9 @@ internal object Figure {
             "Side swept" -> px.fill(13, 18, 43, 52, { x, y -> abs(x - CX) <= 15 - maxOf(0, y - 48) }, back)
             "Shag" -> px.fill(12, 18, 44, 54, { x, y -> abs(x - CX) <= 16 && y <= 46 + Math.floorMod(x * 3, 8) }, back)
             "Bob" -> px.fill(13, 18, 43, 42, { x, y -> abs(x - CX) <= 15 }, back)
+            "Surfer" -> px.fill(12, 18, 44, 46, { x, y -> abs(x - CX) <= 15 - maxOf(0, y - 38) / 2 && y <= 42 + Math.floorMod(x * 5, 5) }) { x, y -> if (y >= 40) dk(mix(c, 0xFFD8A860.toInt(), 0.3f), 0.8f) else back(x, y) }
+            "Curtains" -> px.fill(13, 18, 43, 40, { x, y -> abs(x - CX) <= 14 && y <= 37 + Math.floorMod(x * 3, 4) }, back)
+            "Man bun" -> if (!covered) px.fill(20, 2, 36, 16, { x, y -> inE(x, y, CX, 9, 6, 5) }, hc)
             "Mullet" -> px.fill(15, 20, 41, 54, { x, y -> abs(x - CX) <= 13 - maxOf(0, y - 50) }, back)
             "Curls" -> {
                 val bumps = listOf(14 to 22, 12 to 32, 13 to 42, 17 to 50, 23 to 54, 33 to 54, 39 to 50, 43 to 42, 44 to 32, 42 to 22, 20 to 13, 28 to 10, 36 to 13)
@@ -226,6 +321,43 @@ internal object Figure {
                 cap({ x -> 17 + (x - CX) * (x - CX) / 16 }) { x, y -> if (Math.floorMod(x + y, 3) == 0) dk(fuzz, 0.9f) else fuzz }
             }
             "Bald" -> { px.tint(23, 16, 3, 2, WHITE, 0.4f) }
+            "Crew cut" -> {
+                val fade = mix(skin, c, 0.55f)
+                cap({ x -> 17 + (x - CX) * (x - CX) / 18 }) { x, y -> if (abs(x - CX) > 9 && y > 17) (if (Math.floorMod(x + y, 3) == 0) dk(fade, 0.9f) else fade) else hc(x, y) }
+            }
+            "Slicked back" -> cap({ x -> 16 + (x - CX) * (x - CX) / 14 }) { x, y ->
+                val k = Math.floorMod(x - CX + (y - 12) / 3 * (if (x < CX) 1 else -1), 4)
+                when { k == 0 -> lt(c, 0.4f); k == 2 -> dk(c, 0.78f); x >= 37 -> dk(c, 0.72f); else -> c }
+            }
+            "Man bun" -> {
+                cap(pulled)
+                if (!covered) { px.fill(21, 0, 35, 11, { x, y -> inE(x, y, CX, 6, 5, 5) }) { x, y -> if (inE(x, y, 26, 4, 2, 1)) lt(c, 0.35f) else if (Math.floorMod(x * 2 + y, 5) == 0) dk(c, 0.75f) else c }; px.rect(24, 10, 9, 2, dk(c, 0.5f)) }
+            }
+            "Spiky" -> {
+                cap({ x -> 19 + (x - CX) * (x - CX) / 16 })
+                if (!hatted) for ((sx, h) in listOf(17 to 4, 22 to 6, 28 to 8, 34 to 6, 39 to 4)) px.fill(sx - 3, 12 - h, sx + 3, 16, { x, y -> abs(x - sx) <= (y - (12 - h)) / 2 }) { x, _ -> if (x < sx) lt(c, 0.3f) else if (x > sx) dk(c, 0.75f) else c }
+            }
+            "Surfer" -> {
+                cap({ x -> if (abs(x - CX) <= 1) 15 else 20 + abs(x - CX) / 3 })
+                locks(42, wave = true)
+                px.fill(12, 35, 44, 44, { x, y -> px.get(x, y) == hc(x, y) }) { x, y -> mix(hc(x, y), 0xFFD8A860.toInt(), 0.3f) }
+            }
+            "Cornrows" -> cap({ x -> 17 + (x - CX) * (x - CX) / 16 }) { x, y ->
+                val k = Math.floorMod(x - CX + 2, 5)
+                when { k == 0 -> mix(skin, c, 0.45f); k == 1 -> lt(c, 0.25f); Math.floorMod(y + k, 3) == 0 -> dk(c, 0.7f); else -> c }
+            }
+            "Pompadour" -> {
+                val fade = mix(skin, c, 0.6f)
+                cap({ x -> 18 + (x - CX) * (x - CX) / 16 }) { x, y -> if (abs(x - CX) > 9) fade else hc(x, y) }
+                if (!hatted) px.fill(15, 2, 41, 20, { x, y -> inE(x, y, CX - 1, 12, 11, 7) && y <= 18 }) { x, y ->
+                    when { inE(x, y, CX - 5, 9, 4, 2) -> lt(c, 0.45f); Math.floorMod(x + y * 2, 6) == 0 -> dk(c, 0.75f); x > CX + 6 -> dk(c, 0.72f); else -> c }
+                }
+            }
+            "Curtains" -> {
+                cap({ x -> val dx = abs(x - CX); if (dx <= 1) 15 else minOf(17 + dx * 3 / 2, 30) })
+                locks(38)
+                px.line(CX, 13, CX, 16, dk(c, 0.55f))
+            }
         }
     }
 
@@ -237,8 +369,14 @@ internal object Figure {
         val bottom = if (dress) "" else Farmer.BOTTOMS[look.bottom]
         val lift = if (step) 5 else 0; val swing = if (step) 3 else 0
         val skirt = bottom == "Skirt" || bottom == "Mini skirt"
-        val pantsTo = when (bottom) { "Jeans", "Cargo pants", "Leggings" -> ANKLE; "Shorts" -> 82; else -> 0 }
+        val pantsTo = when (bottom) { "Jeans", "Cargo pants", "Leggings", "Chinos", "Joggers", "Tie-dye pants" -> ANKLE; "Shorts", "Leaf shorts" -> 82; "Board shorts" -> 86; else -> 0 }
         val cloth = if (bottom == "Leggings") dk(pants, 0.8f) else pants
+        val legCloth: (Int, Int) -> Int = when (bottom) {
+            "Tie-dye pants" -> { x, y -> TIE[Math.floorMod((abs(x - CX) * 3 + y) / 6 + look.pants, 6)] }
+            "Leaf shorts" -> { x, y -> if (nugAt(x, y, 8, 7)) leafOn(pants) else cloth }
+            "Joggers" -> { _, y -> if (y >= ANKLE - 3) (if (y % 2 == 0) dk(pants, 0.78f) else dk(pants, 0.9f)) else cloth }
+            else -> { _, _ -> cloth }
+        }
         val legs = listOf(
             intArrayOf(CX - b.hi, HIP, CX - 1, HIP, CX - 2 - swing, ANKLE - lift, CX - 8 - swing, ANKLE - lift),
             intArrayOf(CX + 1, HIP, CX + b.hi, HIP, CX + 8, ANKLE, CX + 2, ANKLE),
@@ -247,7 +385,7 @@ internal object Figure {
         for ((i, pts) in legs.withIndex()) {
             val p = pts.copyOf()
             if (narrow > 0) { p[0] += 1; p[2] -= 1; p[4] -= 0; p[6] += 0 }
-            px.poly(p) { _, y -> if (y <= pantsTo) cloth else skin }
+            px.poly(p) { x, y -> if (y <= pantsTo) legCloth(x, y) else skin }
             val inner = if (i == 0) CX - 1 else CX + 1
             if (bottom == "Jeans") px.line(inner + (if (i == 0) -3 else 3), HIP + 4, inner + (if (i == 0) -4 else 4), ANKLE - 3, lt(pants, 0.15f))
             if (bottom == "Cargo pants") {
@@ -255,10 +393,18 @@ internal object Figure {
                 px.rect(ox, 80, 4, 6, dk(pants, 0.85f)); px.rect(ox, 80, 4, 1, dk(pants, 0.65f))
             }
             if (bottom == "Leggings") px.line(inner + (if (i == 0) -5 else 5), HIP + 4, inner + (if (i == 0) -6 else 6), ANKLE - 4, lt(cloth, 0.25f))
+            if (bottom == "Chinos") px.line(inner + (if (i == 0) -3 else 3), HIP + 6, inner + (if (i == 0) -4 else 4), ANKLE - 2, dk(pants, 0.86f))
+            // A stripe down the outside of each leg.
+            if (bottom == "Joggers" || bottom == "Board shorts") {
+                val out = if (i == 0) p[0] + 1 else p[2] - 1; val end = if (bottom == "Joggers") ANKLE - 4 else 84
+                val oe = if (i == 0) p[6] + 1 else p[4] - 1
+                px.line(out, HIP + 2, out + (oe - out) * (end - HIP) / (ANKLE - HIP), end, if (bottom == "Joggers") WHITE else Farmer.CLOTH[(look.pants + 3) % Farmer.CLOTH.size])
+            }
         }
         px.round(HIP, ANKLE, cloth); px.round(HIP, ANKLE, skin)
-        if (bottom == "Shorts") px.fill(0, 81, W - 1, 82, { x, y -> px.get(x, y) != 0 && px.get(x, y) != skin }) { _, _ -> dk(pants, 0.7f) }
-        if (bottom == "Jeans") px.fill(0, ANKLE - 2, W - 1, ANKLE, { x, y -> px.get(x, y) != 0 }) { _, _ -> lt(pants, 0.12f) }
+        if (bottom == "Board shorts") px.fill(0, 85, W - 1, 86, { x, y -> px.get(x, y) != 0 && px.get(x, y) != skin }) { _, _ -> dk(pants, 0.7f) }
+        if (bottom == "Shorts" || bottom == "Leaf shorts") px.fill(0, 81, W - 1, 82, { x, y -> px.get(x, y) != 0 && px.get(x, y) != skin }) { _, _ -> dk(pants, 0.7f) }
+        if (bottom == "Jeans" || bottom == "Chinos") px.fill(0, ANKLE - 2, W - 1, ANKLE, { x, y -> px.get(x, y) != 0 }) { _, _ -> lt(pants, 0.12f) }
         // Knees on bare legs.
         if (pantsTo < 84) { px.set(CX - 6 - swing / 2, 86 - lift / 2, dk(skin, 0.86f)); px.set(CX + 5, 86, dk(skin, 0.86f)) }
         if (skirt) {
@@ -326,30 +472,14 @@ internal object Figure {
         val bottom = Farmer.BOTTOMS[look.bottom]
         val dress = outfit in Farmer.DRESSES
         val pts = torsoPts(b)
-        val tie = intArrayOf(0xFFFF5A5A.toInt(), 0xFFFFB03A.toInt(), 0xFFF4E04A.toInt(), 0xFF5AD06A.toInt(), 0xFF4AA0F0.toInt(), 0xFFB060E0.toInt())
-        val pattern: (Int, Int) -> Int = { x, y ->
-            when (outfit) {
-                "Flannel" -> {
-                    val vx = Math.floorMod(x, 7) < 2; val hy = Math.floorMod(y, 7) < 2
-                    if (vx && hy) dk(shirt, 0.5f) else if (vx || hy) sD else if (Math.floorMod(x, 7) == 4) sL else shirt
-                }
-                "Tie-dye" -> tie[Math.floorMod(((x - CX) * (x - CX) + (y - 58) * (y - 58)) / 18 + look.shirt, 6)]
-                "Sweater" -> if (Math.floorMod(x, 3) == 0) dk(shirt, 0.88f) else shirt
-                "Puffer" -> if (Math.floorMod(y - TOP, 6) == 5) dk(shirt, 0.7f) else if (Math.floorMod(y - TOP, 6) == 0) sL else shirt
-                "Leather jacket" -> 0xFF2A2428.toInt()
-                "Lab coat" -> 0xFFF2F2EE.toInt()
-                "Kimono" -> if (Math.floorMod(x * 3 + y * 5, 23) == 0) lt(pants, 0.3f) else shirt
-                "Sundress" -> if (Math.floorMod(x + y * 2, 9) == 0) lt(shirt, 0.5f) else shirt
-                else -> shirt
-            }
-        }
+        val pattern = cloth(look, outfit)
         val base = pattern(CX, 60)
         // Skin first for the tops that leave shoulders or a midriff bare.
         px.poly(pts) { _, _ -> skin }
         px.round(TOP, HIP, skin)
         when (outfit) {
-            "Tank top", "Sundress" -> {
-                val strap = if (outfit == "Sundress") 1 else 2
+            "Tank top", "Sundress", "Muscle tee", "Leaf tank" -> {
+                val strap = when (outfit) { "Sundress" -> 1; "Muscle tee" -> 4; else -> 2 }
                 px.poly(pts) { x, y -> if (y >= TOP + 8 || abs(abs(x - CX) - (b.sh - 5)) < strap) pattern(x, y) else 0 }
                 px.fill(0, TOP + 8, W - 1, TOP + 10, { x, y -> px.get(x, y) == pattern(x, y) && y == TOP + 8 + abs(x - CX) / 6 - 1 }) { x, y -> skin }
             }
@@ -366,20 +496,29 @@ internal object Figure {
             "Peasant top" -> px.poly(pts) { x, y -> if (inE(x, y, CX, TOP, 9, 4)) 0 else pattern(x, y) }
             else -> px.poly(pts) { x, y -> pattern(x, y) }
         }
-        if (outfit !in setOf("Flannel", "Tie-dye", "Sweater", "Puffer", "Kimono")) px.round(TOP, HIP + 2, base)
+        if (outfit !in PRINTS) px.round(TOP, HIP + 2, base)
         // A soft line for the bust on a feminine frame.
         if (b.fem && outfit != "Puffer") {
             for (s in listOf(-1, 1)) for (k in 0..3) px.set(CX + s * (2 + k), 56 + (if (k == 0 || k == 3) 0 else 1), dk(px.get(CX + s * (2 + k), 56).takeIf { it != 0 } ?: base, 0.86f))
         }
+        if (outfit in setOf("Leaf tee", "Leaf tank", "Leaf hoodie", "Leaf tie-dye")) {
+            val lc = if (outfit == "Leaf tie-dye") 0xFF1E3A1A.toInt() else leafOn(shirt)
+            px.map(CX - 6, if (outfit == "Leaf tank") 55 else 50, BIG_LEAF, mapOf('X' to lc, 'L' to dk(lc, 0.72f)))
+        }
         val neck = dk(skin, 0.86f)
         when (outfit) {
-            "Tee", "Dress", "Jersey" -> {
+            "Tee", "Dress", "Jersey", "Leaf tee", "Leaf print", "Raglan", "Henley" -> {
                 px.fill(CX - 5, TOP, CX + 5, TOP + 5, { x, y -> inE(x, y, CX, TOP, 4, 3) }) { _, _ -> neck }
                 px.fill(CX - 6, TOP, CX + 6, TOP + 5, { x, y -> !inE(x, y, CX, TOP, 4, 3) && inE(x, y, CX, TOP, 5, 4) }) { _, _ -> sD }
                 if (outfit == "Jersey") {
                     val n = Farmer.CLOTH[(look.shirt + 6) % Farmer.CLOTH.size]
                     px.map(CX - 3, 53, arrayOf("XXXXXX", "....XX", "...XX.", "..XX..", "..XX..", "..XX.."), mapOf('X' to n))
                     px.rect(CX - b.sh + 1, TOP + 3, 3, 2, n); px.rect(CX + b.sh - 3, TOP + 3, 3, 2, n)
+                }
+                if (outfit == "Raglan") { val n = contrast(shirt); px.line(CX - 5, TOP + 1, CX - b.sh + 1, TOP + 7, n); px.line(CX + 5, TOP + 1, CX + b.sh - 1, TOP + 7, n) }
+                if (outfit == "Henley") {
+                    px.rect(CX - 1, TOP + 3, 3, 9, dk(shirt, 0.88f)); px.line(CX + 1, TOP + 3, CX + 1, TOP + 11, sD)
+                    for (k in 0..2) px.set(CX, TOP + 5 + k * 3, lt(shirt, 0.6f))
                 }
             }
             "Overalls" -> {
@@ -389,11 +528,11 @@ internal object Figure {
                 px.rect(CX - 6, 53, 2, 2, GOLD); px.rect(CX + 5, 53, 2, 2, GOLD)
                 px.rect(CX - 3, 56, 7, 5, dk(pants, 0.85f))
             }
-            "Hoodie" -> {
-                px.fill(CX - 8, TOP - 2, CX + 8, TOP + 4, { x, y -> inE(x, y, CX, TOP, 8, 4) && !inE(x, y, CX, TOP, 4, 2) }) { x, _ -> if (x > CX + 3) sD else dk(shirt, 0.85f) }
+            "Hoodie", "Tie-dye hoodie", "Leaf hoodie" -> {
+                px.fill(CX - 8, TOP - 2, CX + 8, TOP + 4, { x, y -> inE(x, y, CX, TOP, 8, 4) && !inE(x, y, CX, TOP, 4, 2) }) { x, y -> if (x > CX + 3) dk(pattern(x, y), 0.72f) else dk(pattern(x, y), 0.85f) }
                 px.line(CX - 2, TOP + 3, CX - 2, TOP + 10, 0xFFF4F4F0.toInt()); px.line(CX + 2, TOP + 3, CX + 2, TOP + 9, 0xFFE8E4DC.toInt())
-                px.poly(dk(shirt, 0.86f), CX - 7, 60, CX + 7, 60, CX + 9, 68, CX - 9, 68)
-                px.line(CX - 7, 60, CX + 7, 60, sD)
+                px.poly(intArrayOf(CX - 7, 60, CX + 7, 60, CX + 9, 68, CX - 9, 68)) { x, y -> dk(pattern(x, y), 0.86f) }
+                px.line(CX - 7, 60, CX + 7, 60, dk(pattern(CX, 60), 0.72f))
             }
             "Flannel", "Denim jacket", "Cardigan", "Leather jacket", "Lab coat" -> {
                 val inner = when (outfit) { "Leather jacket" -> shirt; "Lab coat" -> shirt; else -> 0xFFF0EEE6.toInt() }
@@ -419,6 +558,32 @@ internal object Figure {
                 for (k in 0 until if (outfit == "Polo") 2 else 4) px.set(CX, TOP + 6 + k * 5, lt(shirt, 0.55f))
                 if (outfit == "Polo") px.rect(CX - 9, 53, 2, 2, Farmer.CLOTH[(look.shirt + 3) % Farmer.CLOTH.size])
             }
+            "Button-up", "Work shirt", "Hawaiian" -> {
+                val camp = outfit == "Hawaiian"
+                px.fill(CX - 4, TOP, CX + 4, TOP + 6, { x, y -> abs(x - CX) <= (if (camp) 4 else 3) - (y - TOP) / 2 }) { _, _ -> neck }
+                val col = if (camp) lt(shirt, 0.3f) else lt(shirt, 0.4f)
+                px.poly(col, CX - 8, TOP - 1, CX - 1, TOP + 1, CX - 4, TOP + (if (camp) 7 else 5))
+                px.poly(dk(col, 0.82f), CX + 1, TOP + 1, CX + 8, TOP - 1, CX + 4, TOP + (if (camp) 7 else 5))
+                px.line(CX, TOP + 4, CX, HIP + 1, dk(shirt, 0.78f))
+                for (k in 0 until if (camp) 3 else 5) px.set(CX + 1, TOP + 6 + k * 5, 0xFFF4F0E6.toInt())
+                if (outfit == "Work shirt") for (sx in listOf(CX - 9, CX + 4)) {
+                    px.rect(sx, 52, 6, 6, dk(shirt, 0.9f)); px.rect(sx, 51, 6, 2, dk(shirt, 0.78f)); px.set(sx + 3, 52, 0xFFF4F0E6.toInt())
+                }
+            }
+            "Varsity jacket", "Bomber" -> {
+                val rib = if (outfit == "Varsity jacket") contrast(shirt) else dk(shirt, 0.6f)
+                px.fill(CX - 6, TOP - 1, CX + 6, TOP + 4, { x, y -> inE(x, y, CX, TOP, 6, 4) && !inE(x, y, CX, TOP - 1, 4, 3) }) { x, _ -> if (x % 2 == 0) rib else dk(rib, 0.85f) }
+                px.fill(CX - 4, TOP, CX + 4, TOP + 3, { x, y -> inE(x, y, CX, TOP - 1, 3, 3) }) { _, _ -> neck }
+                if (outfit == "Bomber") {
+                    px.line(CX, TOP + 3, CX, HIP, 0xFFB8BCC4.toInt()); px.set(CX + 1, TOP + 4, 0xFFE8ECF0.toInt())
+                    px.rect(CX - 10, 52, 4, 1, dk(shirt, 0.6f)); px.rect(CX + 7, 52, 4, 1, dk(shirt, 0.6f))
+                } else {
+                    px.line(CX, TOP + 3, CX, HIP, dk(shirt, 0.7f))
+                    for (k in 0..3) px.set(CX + 1, TOP + 6 + k * 5, 0xFFF4F0E6.toInt())
+                    // A felt K for Kush on the chest.
+                    px.map(CX - 10, 51, arrayOf("X..X", "X.X.", "XX..", "X.X.", "X..X"), mapOf('X' to rib))
+                }
+            }
             "Sweater" -> {
                 px.fill(CX - 6, TOP, CX + 6, TOP + 4, { x, y -> inE(x, y, CX, TOP, 5, 3) }) { x, y -> if (inE(x, y, CX, TOP, 3, 2)) neck else dk(shirt, 0.82f) }
                 px.fill(0, HIP - 1, W - 1, HIP + 2, { x, y -> px.get(x, y) != 0 && abs(x - CX) <= b.hi }) { x, _ -> if (x % 2 == 0) dk(shirt, 0.8f) else dk(shirt, 0.92f) }
@@ -430,13 +595,18 @@ internal object Figure {
             }
             "Puffer" -> px.fill(CX - 6, TOP - 2, CX + 6, TOP + 3, { x, y -> abs(x - CX) <= 5 && !(abs(x - CX) <= 2 && y >= TOP) }) { x, _ -> if (x > CX) sD else shirt }
             "Peasant top" -> px.fill(0, TOP, W - 1, TOP + 6, { x, y -> !inE(x, y, CX, TOP, 9, 4) && inE(x, y, CX, TOP, 10, 5) && px.get(x, y) != 0 }) { x, _ -> if (x % 3 == 0) pants else sL }
-            "Tie-dye" -> px.fill(CX - 5, TOP, CX + 5, TOP + 5, { x, y -> inE(x, y, CX, TOP, 4, 3) }) { _, _ -> neck }
+            "Tie-dye", "Spiral tie-dye", "Ice dye", "Crumple dye", "Leaf tie-dye", "Leaf tank", "Muscle tee" -> if (sleeve(outfit) != Sleeve.NONE) px.fill(CX - 5, TOP, CX + 5, TOP + 5, { x, y -> inE(x, y, CX, TOP, 4, 3) }) { _, _ -> neck }
         }
         // Waistband for anything with legs showing below a top.
         if (!dress && outfit != "Overalls" && outfit != "Lab coat" && bottom != "Skirt" && bottom != "Mini skirt") {
             val belt = if (bottom == "Leggings") dk(pants, 0.7f) else dk(pants, 0.85f)
             px.poly(intArrayOf(CX - b.hi, HIP - 1, CX + b.hi, HIP - 1, CX + b.hi, HIP + 2, CX - b.hi, HIP + 2)) { x, _ -> if (x >= CX + b.hi - 2) dk(belt, 0.8f) else belt }
-            if (bottom == "Jeans" || bottom == "Cargo pants") px.rect(CX - 1, HIP - 1, 2, 2, GOLD)
+            if (bottom == "Jeans" || bottom == "Cargo pants" || bottom == "Chinos") px.rect(CX - 1, HIP - 1, 2, 2, GOLD)
+            if (bottom == "Joggers" || bottom == "Board shorts") { px.line(CX - 1, HIP + 1, CX - 2, HIP + 5, WHITE); px.line(CX + 1, HIP + 1, CX + 2, HIP + 5, 0xFFE8E4DC.toInt()) }
+        }
+        if (outfit == "Varsity jacket" || outfit == "Bomber") {
+            val rib = if (outfit == "Varsity jacket") contrast(shirt) else dk(shirt, 0.6f)
+            px.fill(0, HIP - 1, W - 1, HIP + 1, { x, y -> px.get(x, y) != 0 && abs(x - CX) <= b.hi }) { x, _ -> if (x % 2 == 0) rib else dk(rib, 0.85f) }
         }
         if (dress) {
             val end = if (outfit == "Sundress") 86 else 90
@@ -455,7 +625,11 @@ internal object Figure {
     // ---- Arms ----
 
     private fun arms(px: Px, look: Farmer, b: Body, step: Boolean, skin: Int, outfit: String) {
-        val shirt = when (outfit) { "Leather jacket" -> 0xFF2A2428.toInt(); "Lab coat" -> 0xFFF2F2EE.toInt(); else -> Farmer.CLOTH[look.shirt] }
+        val shirt = when (outfit) { "Leather jacket" -> 0xFF2A2428.toInt(); "Lab coat" -> 0xFFF2F2EE.toInt(); "Raglan", "Varsity jacket" -> contrast(Farmer.CLOTH[look.shirt]); else -> Farmer.CLOTH[look.shirt] }
+        val pattern = cloth(look, outfit)
+        val printed = outfit in PRINTS && outfit != "Sweater" && outfit != "Puffer"
+        val ribbed = outfit == "Varsity jacket" || outfit == "Bomber"
+        val rib = if (outfit == "Varsity jacket") Farmer.CLOTH[look.shirt] else dk(shirt, 0.6f)
         val sl = sleeve(outfit)
         val stripe = if (outfit == "Jersey") Farmer.CLOTH[(look.shirt + 6) % Farmer.CLOTH.size] else 0
         for (s in listOf(-1, 1)) {
@@ -471,7 +645,8 @@ internal object Figure {
                 when {
                     y < start -> skin
                     y <= sleeveTo -> when {
-                        outfit == "Tie-dye" -> intArrayOf(0xFFFF5A5A.toInt(), 0xFFF4E04A.toInt(), 0xFF4AA0F0.toInt())[Math.floorMod(y / 3, 3)]
+                        ribbed && y >= sleeveTo - 2 -> if (x % 2 == 0) rib else dk(rib, 0.85f)
+                        printed -> if (y >= sleeveTo - 1 && sl != Sleeve.LONG) dk(pattern(x, y), 0.8f) else pattern(x, y)
                         stripe != 0 && y in TOP + 7..TOP + 8 -> stripe
                         y >= sleeveTo - 1 && sl != Sleeve.NONE -> dk(shirt, 0.8f)
                         else -> shirt
@@ -523,10 +698,11 @@ internal object Figure {
             px.set(ex, 27, d); px.set(ex, 28, d)
         }
         // Face: a round crown narrowing to the chin; [Body.chin] is the curve power, higher is squarer.
-        px.fill(14, 12, 42, 42, { x, y ->
+        val faceIn = { x: Int, y: Int ->
             if (y <= 28) inE(x, y, CX, 26, 11, 13)
             else { val t = (y - 28) / 13.5f; t <= 1f && abs(x - CX) <= 11.5f * (1f - t.pow(b.chin)).pow(1f / b.chin) }
-        }) { x, y ->
+        }
+        px.fill(14, 12, 42, 42, faceIn) { x, y ->
             when {
                 x >= 36 || (y >= 38 && x >= 31) -> s
                 x <= 20 && y in 25..33 -> l
@@ -579,6 +755,28 @@ internal object Figure {
             }
             "Moustache" -> { for (x in 24..32) px.set(x, 34, hc); for (x in 23..25) px.set(x, 35, hc); for (x in 31..33) px.set(x, 35, hd); px.set(28, 34, hd) }
             "Goatee" -> { for (x in 25..31) px.set(x, 34, hc); px.fill(24, 38, 32, 42, { x, y -> abs(x - CX) <= 3 - (y - 38) / 3 && px.get(x, y) != 0 }) { x, _ -> if (x > CX) hd else hc } }
+            "Full beard" -> {
+                px.fill(13, 24, 43, 48, { x, y ->
+                    val onFace = px.get(x, y) != 0 && y >= 27 && abs(x - CX) <= 13 && (y >= 32 || abs(x - CX) >= 10)
+                    (onFace || inE(x, y, CX, 40, 10, 7) && y >= 38) && !(y in 35..37 && abs(x - CX) <= 3)
+                }) { x, y -> when { Math.floorMod(x * 3 + y, 5) == 0 -> hd; x > 35 -> hd; Math.floorMod(x + y * 2, 7) == 0 -> lt(hc, 0.2f); else -> hc } }
+                for (x in 24..32) px.set(x, 34, hc)
+            }
+            "Handlebar" -> {
+                for (x in 24..32) px.set(x, 34, hc); px.set(28, 34, hd)
+                for (x in 22..24) px.set(x, 35, hc); for (x in 32..34) px.set(x, 35, hd)
+                px.set(21, 34, hc); px.set(20, 33, hc); px.set(35, 34, hd); px.set(36, 33, hd)
+            }
+            "Mutton chops" -> {
+                px.fill(15, 25, 41, 39, { x, y -> faceIn(x, y) && abs(x - CX) >= 11 - minOf(5, (y - 25) / 2) && (y <= 36 || abs(x - CX) >= 7) }) { x, y ->
+                    if (Math.floorMod(x * 3 + y, 5) == 0 || x >= 38) hd else if (x > CX) dk(hc, 0.88f) else hc
+                }
+                for (x in 22..34) px.set(x, 34, if (x > 30) hd else hc); for (x in 23..33) if (abs(x - CX) >= 3) px.set(x, 35, if (x > 30) hd else hc)
+            }
+            "Soul patch" -> { px.rect(27, 39, 3, 2, hc); px.set(29, 40, hd) }
+            "Chin strap" -> px.fill(14, 26, 42, 43, { x, y ->
+                faceIn(x, y) && y >= 28 && (!faceIn(x - 2, y) || !faceIn(x + 2, y) || !faceIn(x, y + 2))
+            }) { x, _ -> if (x > CX + 4) hd else hc }
             "Stubble" -> px.fill(15, 32, 41, 43, { x, y -> px.get(x, y) != 0 && y >= 33 && Math.floorMod(x + y, 2) == 0 && !(y in 35..37 && abs(x - CX) <= 3) && abs(x - CX) <= 11 }) { x, y -> mix(px.get(x, y), hc, 0.4f) }
             "Glasses" -> for (ex in listOf(23, 33)) {
                 val f = 0xFF3A2A20.toInt()
@@ -738,6 +936,32 @@ internal object Figure {
                 val c = 0xFFF4F4F0.toInt()
                 px.fill(14, 15, 42, 19, { x, y -> inE(x, y, CX, 24, 13, 9) && !inE(x, y, CX, 26, 13, 9) }) { _, _ -> c }
                 px.fill(12, 17, 44, 23, { x, y -> inE(x, y, CX + 2, 20, 15, 2) && y >= 19 }) { _, _ -> pants }
+            }
+            "Flower crown" -> {
+                val d = 0xFF3A8A2A.toInt()
+                px.fill(14, 12, 42, 18, { x, y -> inE(x, y, CX, 24, 13, 11) && !inE(x, y, CX, 25, 13, 11) }) { _, _ -> d }
+                val cols = intArrayOf(0xFFFF9AC8.toInt(), 0xFFFFFFFF.toInt(), 0xFFF2E040.toInt(), 0xFFB088E0.toInt(), 0xFFFF6A4A.toInt())
+                for ((i, fx) in (16..40 step 4).withIndex()) {
+                    val fy = 14 + ((fx - CX) * (fx - CX)) / 40; val p = cols[i % cols.size]
+                    px.disc(fx, fy, 2, p); px.set(fx, fy, 0xFFFFD23A.toInt()); px.set(fx + 1, fy + 1, dk(p, 0.8f))
+                }
+            }
+            "Sailor cap" -> {
+                val w = 0xFFF4F4F0.toInt(); val n = 0xFF2A4AA0.toInt()
+                dome(CX, 15, 12, 8, 17, w)
+                px.rect(16, 15, 25, 3, n); px.rect(CX - 1, 7, 3, 2, n)
+            }
+            "Scarecrow" -> {
+                val st = 0xFFC8A060.toInt()
+                brim(CX, 18, 25, 4, st); dome(CX, 13, 10, 9, 16, st)
+                px.rect(18, 13, 21, 3, 0xFF8A4A2A.toInt())
+                px.rect(31, 6, 5, 5, 0xFF6A8A3A.toInt()); px.line(31, 6, 35, 10, dk(0xFF6A8A3A.toInt(), 0.7f))
+                for (x in listOf(3, 6, 49, 52)) px.line(x, 18 + (x % 3), x - 1, 23, 0xFFE8C66A.toInt())
+            }
+            "Earmuffs" -> {
+                val m = 0xFFFFFFFF.toInt(); val band = 0xFF3A5AB0.toInt()
+                px.fill(12, 6, 44, 16, { x, y -> inE(x, y, CX, 22, 16, 16) && !inE(x, y, CX, 23, 15, 15) }) { _, _ -> band }
+                for (ex in listOf(12, 44)) px.fill(ex - 5, 20, ex + 5, 34, { x, y -> inE(x, y, ex, 27, 4, 6) }) { x, y -> if (Math.floorMod(x + y, 3) == 0) shade(m, 0.85f) else m }
             }
         }
     }

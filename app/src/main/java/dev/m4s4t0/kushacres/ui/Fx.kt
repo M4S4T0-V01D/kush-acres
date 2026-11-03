@@ -70,6 +70,8 @@ private val FLY_DOWN = arrayOf("..o..", ".#o#.", "..o..")
 private val GOOSE_UP = arrayOf("#...", ".#oo", "..##")
 private val GOOSE_DOWN = arrayOf("..oo", "####", "#...")
 private val LEAF = arrayOf(".#.", "###", ".#.", "#..")
+private val FLAKE = arrayOf("#.#", ".o.", "#.#")
+private val BLOOM = arrayOf(".#.", "#o#", ".#.")
 
 /** What kind of puff to throw. */
 enum class Burst { WATER, DIRT, HARVEST, GOLDEN, DUST, COINS, SPLASH }
@@ -266,6 +268,44 @@ class Fx {
                 if (a <= 0) continue
                 val col = intArrayOf(0xFFE03A3A.toInt(), 0xFF3AA04A.toInt(), 0xFFFFD23A.toInt())[i % 3]
                 dots(c, hf(i, 92 + floor(t / 9f + hf(i, 93)).toInt()) * w, hf(i, 94 + floor(t / 9f + hf(i, 93)).toInt()) * h, s, SPARK, col, alpha = (255 * a).toInt())
+            }
+            // The festivals run all season, so theirs stay light.
+            Holiday.SPRINGFAIR -> for (i in 0 until 6) {
+                // Blossoms drift down; a bee or two bumbles about.
+                val ph = t * (0.035f + hf(i, 111) * 0.03f) + hf(i, 112); val k = floor(ph).toInt(); val fr = ph - k
+                if (i < 4) dots(c, hf(i, k + 113) * w + sin(t * 1.2f + i) * s * 6, -s * 4 + fr * (h + s * 8), s, BLOOM, 0xFFFF9AC8.toInt(), 0xFFFFE04A.toInt(), (255 * wet).toInt())
+                else dots(c, (0.5f + 0.4f * sin(t * 0.09f + i * 2f) + 0.02f * sin(t * 5f + i)) * w, (0.55f + 0.3f * sin(t * 0.13f + i)) * h, s,
+                    if (sin(t * 16f + i) > 0) FLY_UP else FLY_DOWN, 0xFFF4F4FF.toInt(), 0xFFFFC83A.toInt())
+            }
+            Holiday.SUMMERFEST -> {
+                // Warm motes of light rising through the heat.
+                val b = glows.getOrPut(0xFFD870) { glowBitmap(0xFFD870) }
+                for (i in 0 until 10) {
+                    val ph = t * (0.03f + hf(i, 121) * 0.03f) + hf(i, 122); val k = floor(ph).toInt(); val fr = ph - k
+                    val x = hf(i, k + 123) * w + sin(t * 0.8f + i) * s * 5; val y = h * (1.05f - fr * 1.1f); val r = s * 2.5f
+                    soft.alpha = (150 * sin(fr * 3.14f) * wet * (1f - light.night * 0.5f)).toInt()
+                    rect.set(x - r, y - r, x + r, y + r)
+                    c.drawBitmap(b, null, rect, soft)
+                }
+            }
+            Holiday.HARVESTFAIR -> {
+                // Paper lanterns float up after dusk.
+                if (light.night < 0.2f) return
+                val b = glows.getOrPut(0xFFA040) { glowBitmap(0xFFA040) }
+                for (i in 0 until 6) {
+                    val ph = t * (0.012f + hf(i, 131) * 0.01f) + hf(i, 132); val k = floor(ph).toInt(); val fr = ph - k
+                    val x = hf(i, k + 133) * w + sin(t * 0.5f + i) * s * 8; val y = h * (1.05f - fr * 1.15f)
+                    val a = (255 * light.night * (1f - fr)).toInt()
+                    soft.alpha = a / 2; rect.set(x - s * 6, y - s * 6, x + s * 6, y + s * 6); c.drawBitmap(b, null, rect, soft)
+                    fill.color = 0xFFF0A040.toInt(); fill.alpha = a; c.drawRect(x - s, y - s * 1.5f, x + s, y + s, fill)
+                    fill.color = 0xFFFFE0A0.toInt(); fill.alpha = a; c.drawRect(x - s * 0.5f, y, x + s * 0.5f, y + s, fill)
+                    fill.alpha = 255
+                }
+            }
+            Holiday.WINTERWARMER -> for (i in 0 until 8) {
+                // A few big flakes, dry snow or not.
+                val ph = t * (0.025f + hf(i, 141) * 0.02f) + hf(i, 142); val k = floor(ph).toInt(); val fr = ph - k
+                dots(c, hf(i, k + 143) * w + sin(t * 0.9f + i * 1.7f) * s * 8, -s * 4 + fr * (h + s * 8), s, FLAKE, 0xFFF4FAFF.toInt(), 0xFFB8E4FF.toInt(), 220)
             }
             Holiday.NEWYEAR -> for (i in 0 until 24) {
                 // Confetti tumbling down.

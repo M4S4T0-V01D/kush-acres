@@ -105,6 +105,7 @@ internal fun HolidayPanel(ui: UiState) {
                 Px(tok, 28.dp); Spacer(Modifier.width(8.dp))
                 androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                     T(h.greeting, 12.sp, Color(h.main))
+                    h.season?.let { T("The ${it.title} festival runs all ${it.title.lowercase()}, and comes back with it. Holidays take over while they're on.", 10.sp, Cream, bold = false) }
                     T("Earn ${h.tokens.lowercase()} from orders, sales at the dispensary (half as many), harvests you pick, the dailies, jobs and events; higher strains and levels earn more. Everything here is yours for good.", 10.sp, Dim, bold = false)
                 }
                 Spacer(Modifier.width(6.dp))

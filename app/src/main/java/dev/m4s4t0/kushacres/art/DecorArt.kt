@@ -3,6 +3,7 @@ package dev.m4s4t0.kushacres.art
 import android.graphics.Bitmap
 import dev.m4s4t0.kushacres.model.Decor
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.random.Random
 
 internal fun oval(px: Px, cx: Int, cy: Int, rx: Int, ry: Int, c: Int) {
@@ -493,6 +494,84 @@ object DecorArt {
                 for (x in 4..28 step 2) px.line(x, 13, x, 15, shade(thatch, if (x % 4 == 0) 0.8f else 1f))
                 px.rect(10, 17, 2, 3, 0xFF3AB0D8.toInt()); px.rect(15, 18, 2, 2, 0xFFF08A3A.toInt()); px.set(15, 17, 0xFF4F9A3A.toInt())
                 px.rect(20, 17, 2, 3, 0xFFD83A2E.toInt())
+            }
+            Decor.MAYPOLE -> {
+                base(grassC)
+                val pole = 0xFFF0E8D0.toInt()
+                val ribbons = intArrayOf(0xFFFF9AC8.toInt(), 0xFF7AD05A.toInt(), 0xFFF2C83A.toInt(), 0xFF3AB0D8.toInt())
+                for ((n, ex) in listOf(5, 10, 22, 27).withIndex()) px.line(16, 6, ex, 25 + (n % 2), ribbons[n])
+                px.rect(15, 4, 3, 24, pole); px.rect(17, 4, 1, 24, shade(pole, 0.75f))
+                px.disc(16, 4, 3, 0xFFFF9AC8.toInt()); px.set(15, 3, white); px.set(17, 5, 0xFFF2C83A.toInt())
+            }
+            Decor.TULIPS -> {
+                base(0xFF6A4A30.toInt())
+                px.rect(7, 24, 18, 4, 0xFF5A3A22.toInt()); px.rect(7, 24, 18, 1, 0xFF8A5A36.toInt())
+                val cols = intArrayOf(0xFFE03A5A.toInt(), 0xFFF2C83A.toInt(), 0xFFFF9AC8.toInt(), 0xFFB05AE0.toInt(), 0xFFF08A3A.toInt())
+                for (k in 0..4) {
+                    val x = 9 + k * 3; val top = 13 + (k % 2) * 3
+                    px.line(x, top + 3, x, 24, leaf); px.set(x + 1, 21, leaf)
+                    px.rect(x - 1, top, 3, 3, cols[k]); px.set(x, top - 1, cols[k]); px.set(x - 1, top - 1, cols[k]); px.set(x + 1, top - 1, cols[k])
+                    px.set(x + 1, top + 2, shade(cols[k], 0.75f)); px.set(x - 1, top, mix(cols[k], white, 0.4f))
+                }
+            }
+            Decor.PARASOL -> {
+                base(0xFFE8D498.toInt())
+                px.line(16, 6, 16, 28, white)
+                for (k in 0..15) {
+                    val x = 4 + k * 3 / 2; val w = if (k < 8) k else 15 - k
+                    px.line(x, 12 - w / 2, x, 13, if ((k / 3) % 2 == 0) 0xFFE03A3A.toInt() else white)
+                }
+                px.rect(4, 13, 24, 1, shade(0xFFE03A3A.toInt(), 0.7f)); px.disc(16, 7, 1, gold)
+                px.rect(19, 25, 7, 2, 0xFF3AB0D8.toInt()); px.rect(19, 25, 7, 1, 0xFF8AD8F0.toInt())
+            }
+            Decor.SANDCASTLE -> {
+                val sand = 0xFFE8C88A.toInt()
+                base(0xFFE8D498.toInt())
+                px.rect(8, 18, 16, 10, sand); px.rect(19, 18, 5, 10, shade(sand, 0.8f))
+                for (x in listOf(6, 20)) { px.rect(x, 12, 6, 16, sand); px.rect(x + 4, 12, 2, 16, shade(sand, 0.8f)); px.set(x, 11, sand); px.set(x + 2, 11, sand); px.set(x + 4, 11, shade(sand, 0.8f)) }
+                px.rect(13, 13, 6, 6, sand); px.set(13, 12, sand); px.set(15, 12, sand); px.set(17, 12, shade(sand, 0.8f))
+                px.rect(15, 23, 3, 5, 0xFF8A6A3A.toInt()); px.set(16, 22, 0xFF8A6A3A.toInt())
+                px.line(16, 6, 16, 12, 0xFF6A4325.toInt()); px.rect(17, 6, 4, 3, 0xFF2AB8D8.toInt())
+            }
+            Decor.LEAFPILE -> {
+                base()
+                val r = Random(9)
+                val cols = intArrayOf(0xFFE0602A.toInt(), 0xFFF0B030.toInt(), 0xFFB03A1E.toInt(), 0xFFD88A2A.toInt())
+                oval(px, 16, 24, 11, 5, shade(0xFFD0702A.toInt(), 0.8f))
+                repeat(46) { val a = r.nextInt(22); val h = 9 - abs(a - 11) * 9 / 11; px.set(5 + a, 27 - r.nextInt(h + 3), cols[r.nextInt(4)]) }
+                repeat(5) { px.set(4 + r.nextInt(24), 6 + r.nextInt(8), cols[r.nextInt(4)]) }
+                px.line(23, 12, 27, 27, 0xFF8A5A30.toInt()); px.line(25, 25, 29, 25, 0xFF8A8A94.toInt())
+            }
+            Decor.HAYWAGON -> {
+                base()
+                val wd = 0xFF9A4A2A.toInt(); val h = 0xFFE8C66A.toInt()
+                px.rect(4, 14, 24, 6, h); px.rect(5, 12, 22, 2, shade(h, 1.1f))
+                px.rect(4, 19, 24, 5, wd); px.rect(4, 19, 24, 1, shade(wd, 1.2f))
+                for (x in 6..26 step 5) px.line(x, 20, x, 23, shade(wd, 0.7f))
+                for (x in listOf(9, 23)) { px.disc(x, 25, 3, 0xFF3A2A20.toInt()); px.disc(x, 25, 1, gold) }
+                px.line(28, 22, 31, 24, 0xFF6A4325.toInt()); px.set(14, 11, h); px.set(20, 11, h)
+                px.disc(10, 12, 2, 0xFFF0801E.toInt()); px.set(10, 10, 0xFF4F7A2A.toInt())
+            }
+            Decor.ICESCULPTURE -> {
+                base(0xFFE8F4FC.toInt())
+                val ice = 0xFFB8E4F8.toInt()
+                px.rect(9, 24, 14, 4, shade(ice, 0.85f)); px.rect(9, 24, 14, 1, white)
+                px.poly(ice, 12, 24, 20, 24, 21, 16, 18, 12, 14, 12, 11, 16)
+                px.poly(ice, 14, 13, 13, 6, 16, 9); px.poly(ice, 18, 13, 19, 6, 16, 9)
+                px.poly(shade(ice, 0.8f), 18, 12, 21, 16, 20, 24, 17, 24)
+                px.line(13, 15, 14, 21, white); px.set(14, 10, white); px.set(15, 16, 0xFF3A5AB0.toInt()); px.set(18, 16, 0xFF3A5AB0.toInt())
+                px.set(8, 10, white); px.set(24, 8, white); px.set(25, 14, 0xFFE8F4FC.toInt())
+            }
+            Decor.COCOA -> {
+                base(0xFFE8F4FC.toInt())
+                val wd = 0xFF8A5A34.toInt()
+                px.rect(5, 18, 22, 10, wd); px.rect(20, 18, 7, 10, shade(wd, 0.75f)); px.rect(5, 18, 22, 1, shade(wd, 1.25f))
+                px.rect(6, 7, 2, 11, shade(wd, 0.7f)); px.rect(24, 7, 2, 11, shade(wd, 0.7f))
+                for (x in 4..27) px.rect(x, 5, 1, 4, if ((x / 3) % 2 == 0) 0xFFE03A3A.toInt() else white)
+                px.rect(4, 4, 24, 1, 0xFFF4F4F0.toInt())
+                for (x in listOf(10, 15)) { px.rect(x, 15, 3, 3, white); px.set(x + 3, 16, white); px.set(x + 1, 15, 0xFF6A3A1E.toInt()) }
+                px.disc(11, 12, 1, 0x99F4F4F0.toInt()); px.disc(16, 11, 1, 0x88F4F4F0.toInt())
+                px.rect(8, 21, 10, 3, 0xFF4A2A18.toInt())
             }
             else -> {}
         }

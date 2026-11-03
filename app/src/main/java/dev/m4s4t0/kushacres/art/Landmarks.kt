@@ -36,7 +36,8 @@ object Landmarks {
             "bong" -> bong(k); "egg" -> egg(k); "watertower" -> waterTower(k); "windmill" -> windmill(k)
             "factory" -> factory(k); "watertank" -> waterTank(k); "fountain" -> fountain(k); "potofgold" -> potOfGold(k)
             "balloon" -> balloon(k); "burrow" -> burrow(k); "saloon" -> saloon(k); "ciderbarn" -> ciderBarn(k)
-            "stage" -> stage(k)
+            "stage" -> stage(k); "sakura" -> sakura(k); "surfshack" -> surfShack(k); "sugarshack" -> sugarShack(k)
+            "igloo" -> igloo(k); "glasshouse" -> glasshouse(k); "ferriswheel" -> ferrisWheel(k); "silo" -> silo(k); "lodge" -> lodge(k)
             else -> k.box(0.5f, 0.5f, n - 1f, n - 1f).run { walls(30, STONE); top(30) }
         }
         if (yard != null) yardFront(k, yard)
@@ -615,6 +616,139 @@ object Landmarks {
         }
     }
 
+    // Blossom Vale: the great cherry tree, pink every spring.
+    private fun sakura(k: Kit) {
+        val bx = k.cx(1.5f, 1.5f); val by = k.cy(1.5f, 1.5f)
+        val bark = c(0xFF4A3028)
+        k.tower(bx, by, 7f, 4f, 40f, null) { z, d -> k.round(if ((z.toInt() * 3 + ((d + 1) * 5).toInt()) % 7 == 0) shade(bark, 0.8f) else bark, d) }
+        k.px.line(bx.toInt(), (by - 30).toInt(), bx.toInt() - 18, (by - 48).toInt(), bark); k.px.line(bx.toInt() + 1, (by - 30).toInt(), bx.toInt() + 20, (by - 50).toInt(), bark)
+        val pinks = intArrayOf(c(0xFFFFB0D0), c(0xFFF890B8), c(0xFFFFD0E4))
+        for ((dx, dy, r) in listOf(Triple(-22f, -50f, 18f), Triple(22f, -52f, 18f), Triple(0f, -66f, 24f), Triple(-10f, -48f, 16f), Triple(12f, -46f, 15f), Triple(-26f, -66f, 12f), Triple(26f, -68f, 12f)))
+            k.ell(bx + dx, by + dy, r, r * 0.8f) { u, v -> val n = ((u * 9).roundToInt() * 7 + (v * 9).roundToInt() * 13 + (u * v * 40).toInt()) and 7; k.round(if (n == 0) pinks[2] else if (n < 3) pinks[1] else pinks[0], u * 0.6f + v * 0.4f) }
+        for (i in 0 until 14) k.px.set(bx.toInt() - 30 + (i * 37) % 60, by.toInt() - 4 + (i * 13) % 8, pinks[i % 3])
+        for ((p, q) in listOf(2.6f to 0.4f, 0.4f to 2.6f)) k.light(k.x(p, q), k.y(p, q, 10), 0xFFB0D0, STEADY).also { k.px.rect(k.x(p, q) - 1, k.y(p, q, 12), 3, 4, c(0xFFFF9AC8)); k.px.line(k.x(p, q), k.y(p, q), k.x(p, q), k.y(p, q, 8), DARK) }
+    }
+
+    // Sunny Shores: a thatched surf shack with boards out front.
+    private fun surfShack(k: Kit) {
+        val wood = c(0xFF4AB0C0)
+        val b = k.box(0.9f, 0.6f, 1.6f, 1.8f)
+        b.walls(22, wood, planks)
+        b.pyramid(22, 16, c(0xFFD8B860), 4)
+        b.onR(b.b / 2 - 4, 0, 8, 14) { i, j -> if (i == 0 || i == 7 || j == 13) WHITE else c(0xFF3A2A20) }
+        k.litL(b, 8, 9, 8, 6, 0xFFC060)
+        k.textL(b, 6, 18 - 3, "SURF", c(0xFFFFE07A))
+        val cols = intArrayOf(c(0xFFFF5A3A), c(0xFFFFD23A), c(0xFF3AC04A))
+        for ((n, col) in cols.withIndex()) {
+            val x = k.x(2.7f, 0.6f + n * 0.5f).toFloat(); val y = k.cy(2.7f, 0.6f + n * 0.5f)
+            k.ell(x, y - 14, 3f, 13f) { u, _ -> if (abs(u) < 0.2f) WHITE else k.round(col, u) }
+        }
+        k.ell(k.cx(0.4f, 2.5f), k.cy(0.4f, 2.5f) - 18, 12f, 4f) { u, _ -> if (((u + 1) * 4).toInt() % 2 == 0) RED else WHITE }
+        k.px.rect(k.x(0.4f, 2.5f), k.y(0.4f, 2.5f) - 16, 1, 16, DARK)
+        k.light(k.x(1.5f, 0.4f), k.y(1.5f, 0.4f, 26), 0xFFB040, PARTY)
+    }
+
+    // Maple Ridge: the sugar shack, steam rolling off the boiling sap.
+    private fun sugarShack(k: Kit) {
+        val wall = c(0xFF8A5A34)
+        val b = k.box(0.6f, 0.6f, 2f, 1.8f)
+        b.walls(24, wall, planks)
+        b.gableL(24, 20, c(0xFF8A2A1E), wall, planks, 3)
+        val cx = b.midX(); val cy = b.midY(24) - 22
+        k.px.rect(cx - 4, cy - 8, 8, 8, shade(wall, 0.8f)); k.px.rect(cx - 6, cy - 10, 12, 3, c(0xFF8A2A1E))
+        k.smoke(cx, cy - 12); k.smoke(cx + 3, cy - 10)
+        b.onR(b.b / 2 - 5, 0, 10, 16) { i, j -> if (i == 0 || i == 9 || j == 15) c(0xFFE8D8B0) else c(0xFF5A3A22) }
+        k.litL(b, 10, 10, 6, 7); k.litL(b, 22, 10, 6, 7)
+        for ((p, q) in listOf(2.75f to 0.5f, 2.8f to 1.2f, 0.4f to 2.75f)) {
+            val x = k.x(p, q); val y = k.y(p, q)
+            k.px.rect(x - 1, y - 18, 3, 18, c(0xFF5A4030)); k.px.rect(x - 3, y - 12, 4, 4, c(0xFF9AA0A8))
+        }
+        k.tower(k.cx(2.5f, 2.4f), k.cy(2.5f, 2.4f), 5f, 5f, 9f, c(0xFFB87030)) { _, d -> k.round(c(0xFFA87038), d) }
+    }
+
+    // Frostbite Flats: an igloo, warm light in the door.
+    private fun igloo(k: Kit) {
+        val bx = k.cx(1f, 1f); val by = k.cy(1f, 1f) + 2
+        val ice = c(0xFFE8F4FC)
+        k.dome(bx, by, 28f, 26f) { u, v ->
+            val row = (v * 6).toInt(); val col = ((u + 1) * (8 - row) + row % 2 * 0.5f).toInt()
+            if ((v * 6) % 1 < 0.12f || ((u + 1) * (8 - row) + row % 2 * 0.5f) % 1 < 0.08f && col >= 0) c(0xFFB0CCE0) else k.round(ice, u)
+        }
+        val ex = bx.toInt() - 14; val ey = by.toInt() + 2
+        k.ell(ex.toFloat(), ey - 6f, 8f, 8f) { u, v -> if (v > 0.6f) 0 else if (u * u + v * v > 0.5f) k.round(ice, u) else c(0xFF3A2A20) }
+        k.ell(ex.toFloat(), ey - 5f, 3f, 3f) { _, _ -> LIT }
+        k.light(ex, ey - 5, 0xFFC060)
+        k.flag(bx.toInt() + 2, by.toInt() - 26, 10, c(0xFF8AD0FF))
+    }
+
+    // Glasshouse Gardens: an iron and glass Victorian glasshouse.
+    private fun glasshouse(k: Kit) {
+        val iron = c(0xFFE8ECE8); val glass = c(0xFFA8E0D0)
+        val b = k.box(0.5f, 0.6f, 2.2f, 1.8f)
+        b.walls(28, glass, { c, x, z -> if (z % 7 == 0 || (x + 400) % 6 == 0) iron else if ((x * 3 + z * 7) % 13 == 0) c(0xFF5AA040) else c }, 0.85f)
+        b.gableL(28, 20, c(0xFFC0ECE0), glass, { c, x, z -> if (z % 7 == 0 || (x + 400) % 6 == 0) iron else c }, 2)
+        val tx = b.midX(); val ty = b.midY(28) - 20
+        k.px.rect(tx - 1, ty - 6, 3, 6, iron); k.px.disc(tx, ty - 7, 1, GOLD)
+        for (u in listOf(4, 16, 28)) b.onL(u, 2, 4, 6) { _, j -> if (j < 3) c(0xFFFF7AB0) else c(0xFF3A8A3A) }
+        b.onR(b.b / 2 - 4, 0, 8, 14) { i, j -> if (i == 0 || i == 7 || j == 13) iron else shade(glass, 0.8f) }
+        k.light(b.cx + b.b / 2, b.yr(b.cx + b.b / 2) - 8, 0xC0FFE0, STEADY)
+    }
+
+    // Festival Grounds: the Ferris wheel, lit up all night.
+    private fun ferrisWheel(k: Kit) {
+        val bx = k.cx(1.5f, 1.5f); val by = k.cy(1.5f, 1.5f)
+        val hx = bx.toInt(); val hy = by.toInt() - 58; val r = 44
+        val steel = c(0xFFE8E8F0)
+        k.px.line(hx, hy, hx - 22, by.toInt(), c(0xFF8A8A9A)); k.px.line(hx, hy, hx + 22, by.toInt(), c(0xFF8A8A9A))
+        for (i in 0 until 32) { val a = i / 32f * 6.283f; val b = (i + 1) / 32f * 6.283f
+            for (rr in listOf(r, r - 4)) k.px.line(hx + (cos(a) * rr).roundToInt(), hy + (sin(a) * rr).roundToInt(), hx + (cos(b) * rr).roundToInt(), hy + (sin(b) * rr).roundToInt(), if (rr == r) steel else c(0xFFFF7AB0)) }
+        val cols = intArrayOf(c(0xFFFF4A6A), c(0xFFFFD23A), c(0xFF2AB8D8), c(0xFF7AD05A))
+        for (i in 0 until 8) {
+            val a = i / 8f * 6.283f + 0.2f
+            val ex = hx + (cos(a) * r).roundToInt(); val ey = hy + (sin(a) * r).roundToInt()
+            k.px.line(hx, hy, ex, ey, steel)
+            k.px.rect(ex - 3, ey + 1, 7, 6, cols[i % 4]); k.px.rect(ex - 2, ey + 2, 5, 2, LIT); k.px.rect(ex, ey, 1, 1, DARK)
+            k.light(ex, ey + 3, cols[i % 4] and 0xFFFFFF, PARTY)
+        }
+        k.px.disc(hx, hy, 3, GOLD)
+        val b = k.box(0.3f, 1.0f, 0.7f, 1.0f)
+        b.walls(10, c(0xFFE04A4A), siding); b.top(10, WHITE)
+        k.litL(b, 3, 3, 5, 4, 0xFFD070)
+    }
+
+    // Corn Maze Farm: a tall red grain silo and its shed.
+    private fun silo(k: Kit) {
+        val sx = k.cx(1.8f, 1.6f); val sy = k.cy(1.8f, 1.6f)
+        k.cyl(sx, sy, 16f, 84f, c(0xFFC8C8C0), null, rings = 7)
+        k.dome(sx, sy - 84, 16f, 12f) { u, _ -> k.round(c(0xFF8A2A1E), u) }
+        k.px.rect(sx.toInt() + 6, sy.toInt() - 80, 2, 80, c(0xFF6A6A6A))
+        val b = k.box(0.4f, 0.3f, 1.4f, 1.3f)
+        val red = c(0xFFA8362A)
+        b.walls(22, red, planks); b.gableR(22, 14, c(0xFF5A4A44), red, planks)
+        b.onL(b.a / 2 - 5, 0, 10, 14) { i, j -> if (i == 0 || i == 9 || j == 13 || i == j * 9 / 13 || i == 9 - j * 9 / 13) WHITE else c(0xFF6E241C) }
+        k.light(sx.toInt(), (sy - 96).toInt(), 0xFF2020, BEACON)
+        for ((p, q) in listOf(2.7f to 0.3f, 2.8f to 0.7f)) k.px.rect(k.x(p, q) - 2, k.y(p, q) - 14, 4, 14, c(0xFFD8B840))
+    }
+
+    // Alpine Lodge: a big A-frame ski lodge, snow on the roof and the fire going.
+    private fun lodge(k: Kit) {
+        val wood = c(0xFF8A5A34)
+        val b = k.box(0.6f, 0.6f, 2.8f, 2.6f)
+        b.walls(14, wood, siding)
+        b.gableL(14, 48, SNOW, wood, siding, 4)
+        val tx = b.cx + b.b / 2
+        for ((i, z) in listOf(4, 22, 38).withIndex()) {
+            val w = 20 - i * 6
+            b.onR(b.b / 2 - w / 2, z, w, 10) { ii, jj -> if (ii == 0 || jj == 0 || ii == w - 1 || jj == 9 || ii == w / 2) c(0xFF3A2414) else LIT }
+            k.light(tx, b.yr(tx) - z - 5, 0xFFC060)
+        }
+        k.litL(b, 16, 4, 8, 7); k.litL(b, 40, 4, 8, 7); k.litL(b, 64, 4, 8, 7)
+        val cx = b.cx - b.a + 22; val cy = b.yl(cx) - 14 - 30
+        k.px.rect(cx, cy - 16, 8, 22, c(0xFF7A6A5A)); k.px.rect(cx - 1, cy - 17, 10, 2, SNOW)
+        k.smoke(cx + 4, cy - 19)
+        for ((p, q) in listOf(3.7f to 0.4f, 3.75f to 0.7f)) { k.px.line(k.x(p, q), k.y(p, q), k.x(p, q) - 2, k.y(p, q) - 18, if (p > 3.72f) RED else c(0xFF2A6AE0)) }
+    }
+
     // ---- Yards: the ground, fence and odds and ends round each landmark ----
 
     private enum class Ground { NONE, LAWN, DIRT, SAND, GRAVEL, PAVE, SNOW, TAR }
@@ -660,6 +794,14 @@ object Landmarks {
         "burrow" to Yard(Ground.LAWN, c(0xFF6AAA48), Edge.NONE, 0, -1f, -1f, "c .4 .45, c .4 1.0, F .3 2.6, F 2.6 .35, U 2.75 2.7, K 2.6 1.0, m .3 1.6"),
         "saloon" to Yard(Ground.DIRT, c(0xFFB08858), Edge.NONE, 0, -1f, -1f, "R .35 .4, R .3 .7, X 2.75 2.7, X .3 2.7, H 2.3 .35, K 2.75 1.2"),
         "ciderbarn" to Yard(Ground.LAWN, c(0xFF5E9A40), Edge.RAIL, WOOD, 1.5f, -1f, "A 2.8 2.75, A 2.85 1.3, P .3 .4, P .45 .25, H .3 2.6"),
+        "sakura" to Yard(Ground.LAWN, c(0xFF7AB85A), Edge.PICKET, WHITE, 1.5f, -1f, "F .3 .35, F 2.65 .35, B .35 2.2, U 2.75 2.7, F .3 2.7"),
+        "surfshack" to Yard(Ground.SAND, c(0xFFE8D498), Edge.ROPE, c(0xFFE8D8A8), -1f, -1f, "Y 2.8 2.7, Y .3 .4, T .25 1.6, T 1.6 .2, K .4 2.75"),
+        "sugarshack" to Yard(Ground.DIRT, c(0xFF7A5A3A), Edge.RAIL, WOOD, 1.5f, -1f, "M 2.8 2.7, M .3 .4, R .35 2.6, R .55 2.75, E 2.75 .3"),
+        "igloo" to Yard(Ground.SNOW, SNOW, Edge.NONE, 0, -1f, -1f, "N 1.75 .3, E 1.75 1.7, K .3 1.7"),
+        "glasshouse" to Yard(Ground.PAVE, c(0xFFC8C0B0), Edge.HEDGE, c(0xFF2E6A2A), 1.5f, 1.5f, "F .3 .35, F 2.65 .35, F .35 2.65, F 2.7 2.7, B .3 1.6, L .2 1.05"),
+        "ferriswheel" to Yard(Ground.GRAVEL, c(0xFFA89E8A), Edge.ROPE, c(0xFFFFC83A), -1f, -1f, "L .2 .25, L 2.75 .25, D .3 2.7, V 2.6 2.4, T 2.8 1.2"),
+        "silo" to Yard(Ground.DIRT, c(0xFF9A7A4C), Edge.RAIL, WOOD, -1f, 1.5f, "H .3 2.6, H .5 2.8, H 2.75 2.7, P .3 .25, P .5 .3, O 2.85 1.5"),
+        "lodge" to Yard(Ground.SNOW, SNOW, Edge.RAIL, WOOD, 2f, -1f, "E 3.7 3.7, E .3 3.6, E 3.75 2.6, N .35 .4, L .2 1.6, L 1.6 .2, C .4 2.6"),
         "stage" to Yard(Ground.LAWN, c(0xFF4E8A3A), Edge.ROPE, c(0xFFF0C030), -1f, -1f, "D .25 .3, D .3 2.7, D 2.7 .3, T .2 1.5, T 1.5 .2"),
     )
 
@@ -1119,6 +1261,7 @@ object Landmarks {
         'G' to "### #.. #.# #.# ###", 'H' to "#.# #.# ### #.# #.#", 'I' to "### .#. .#. .#. ###", 'L' to "#.. #.. #.. #.. ###",
         'N' to "##. #.# #.# #.# #.#", 'O' to "### #.# #.# #.# ###", 'R' to "##. #.# ##. #.# #.#", 'S' to "### #.. ### ..# ###",
         'T' to "### .#. .#. .#. .#.", 'W' to "#.# #.# #.# ### #.#", 'Y' to "#.# #.# .#. .#. .#.", '0' to "### #.# #.# #.# ###",
+        'U' to "#.# #.# #.# #.# ###", 'F' to "### #.. ##. #.. #..", 'P' to "##. #.# ##. #.. #..", 'M' to "#.# ### #.# #.# #.#",
         '2' to "### ..# ### #.. ###", '4' to "#.# #.# ### ..# ..#", '!' to ".#. .#. .#. ... .#.",
     ).mapValues { (_, v) -> v.replace(" ", "") }
 

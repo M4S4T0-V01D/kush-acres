@@ -57,6 +57,8 @@ internal fun dumpPanels(dir: String) {
             for (k in row) Px(dev.m4s4t0.kushacres.art.EventArt.portrait(k, dev.m4s4t0.kushacres.model.Holiday.entries.first()), 100.dp, Modifier.padding(3.dp))
         }
     }
+    f.farmer = dev.m4s4t0.kushacres.model.Farmer.PRESETS[0].second
+    shot("hud", 0, 700) { val act = android.app.Activity(); androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalContext provides act, androidx.compose.ui.platform.LocalView provides android.view.View(act)) { dev.m4s4t0.kushacres.ui.App() } }
     shot("rail", 0, 260) { dev.m4s4t0.kushacres.ui.Rail(UiState(), Modifier) }
     shot("cup", 2)
     shot("hunts", 0) { dev.m4s4t0.kushacres.ui.HuntsPanel() }
@@ -191,6 +193,15 @@ internal fun dumpPanels(dir: String) {
             }
             File(dir, "farmers-$page.png").writeBytes(sheet.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+        // Every outfit, hair, bottom and face added in 0.26.0, one per figure, so each can be checked.
+        val base = F.PRESETS.first { it.first == "Cowboy" }.second.copy(hat = 0)
+        val newLooks = (22 until F.OUTFITS.size).mapIndexed { i, o ->
+            base.copy(outfit = o, shirt = (i * 5) % F.CLOTH.size, hair = 24 + i % 8, bottom = 6 + i % 5, pants = (i * 7 + 3) % F.CLOTH.size, face = 9 + i % 5, body = if (i % 4 == 3) 1 else 0, hairColor = i % 6)
+        }
+        val sheet = org.jetbrains.skia.Surface.makeRasterN32Premul(newLooks.size * 60 + 8, 112)
+        sheet.canvas.clear(0xFF6A8A4A.toInt())
+        for ((i, look) in newLooks.withIndex()) sheet.canvas.drawImage(org.jetbrains.skia.Image.makeFromBitmap(P.farmer(look, 0, hd = true).sk), (i * 60 + 4).toFloat(), 4f)
+        File(dir, "farmers-new.png").writeBytes(sheet.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes)
         // The creator on a restyle, and the whole farm at the finest zoom with the HD farmer walking it.
         val was = f.farmer
         f.farmer = F.PRESETS[0].second.copy(name = "Mary Jane")
@@ -303,6 +314,29 @@ internal fun dumpPanels(dir: String) {
         for (row in hs.chunked(5)) androidx.compose.foundation.layout.Row {
             for (h in row) Px(dev.m4s4t0.kushacres.art.People.farmer(dev.m4s4t0.kushacres.model.Farmer(hat = dev.m4s4t0.kushacres.model.Farmer.HATS.indexOf(h)), 0), 48.dp)
         }
+    }
+    run {
+        // The seasonal festivals: their hats (old and HD), pets and decor, and the Summer Fest shop.
+        val F = dev.m4s4t0.kushacres.model.Farmer; val P = dev.m4s4t0.kushacres.art.People
+        val fests = dev.m4s4t0.kushacres.model.Season.entries.map { dev.m4s4t0.kushacres.model.Holiday.festival(it) }
+        val sheet = org.jetbrains.skia.Surface.makeRasterN32Premul(4 * 180 + 8, 300)
+        val c = sheet.canvas; c.clear(0xFF6A8A4A.toInt())
+        fun draw(b: android.graphics.Bitmap, x: Int, y: Int, sc: Float = 1f) =
+            c.drawImageRect(org.jetbrains.skia.Image.makeFromBitmap(b.sk), org.jetbrains.skia.Rect.makeWH(b.width * 1f, b.height * 1f), org.jetbrains.skia.Rect.makeXYWH(x * 1f, y * 1f, b.width * sc, b.height * sc),
+                org.jetbrains.skia.FilterMipmap(org.jetbrains.skia.FilterMode.NEAREST, org.jetbrains.skia.MipmapMode.NONE), null, true)
+        for ((i, h) in fests.withIndex()) {
+            val look = F.PRESETS[i * 2].second.copy(hat = F.HATS.indexOf(h.hat))
+            val x = i * 180 + 4
+            draw(P.farmer(look, 0, hd = true), x, 4); draw(P.farmer(look, 0), x + 64, 4, 3f)
+            draw(P.pet(h.pet, 0), x + 110, 20, 4f)
+            for ((j, d) in h.decor.withIndex()) draw(dev.m4s4t0.kushacres.art.DecorArt.sprite(d), x + j * 84, 150, 2.5f)
+        }
+        File(dir, "festivals.png").writeBytes(sheet.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        val h = fests[1]
+        dev.m4s4t0.kushacres.model.Holiday.force = h
+        f.addTokens(h, 400)
+        shot("festival-shop", 0, 1400) { dev.m4s4t0.kushacres.ui.HolidayPanel(UiState()) }
+        dev.m4s4t0.kushacres.model.Holiday.force = null
     }
     shot("move", 0, 260) { dev.m4s4t0.kushacres.ui.MoveFarm(UiState()) }
     shot("side", 0, 560) {

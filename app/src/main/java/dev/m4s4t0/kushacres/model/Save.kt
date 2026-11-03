@@ -206,7 +206,7 @@ object Save {
         strings("tracks", f.tracks) { id -> dev.m4s4t0.kushacres.audio.Tunes.extras.any { it.first == id } }
         strings("holidayStrains", f.unlockedStrains) { Strains[it]?.holiday != null }
         strings("pets", f.pets) { n -> Pet.entries.any { it.name == n } }
-        strings("hats", f.hats) { it in Farmer.HOLIDAY_HATS }
+        strings("hats", f.hats) { it in Farmer.HOLIDAY_HATS || it in Farmer.SEASON_HATS }
         f.potBucks = o.optLong("potBucks").coerceAtLeast(0)
         f.shipment = o.optJSONObject("shipment")?.let { s ->
             Shipment(s.optString("s"), s.optInt("g"), s.optLong("p").coerceAtLeast(0), s.optLong("x").coerceAtLeast(0), s.optLong("at")).takeIf { Strains[it.strain] != null }

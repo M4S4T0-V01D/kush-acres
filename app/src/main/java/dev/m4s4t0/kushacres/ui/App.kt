@@ -457,7 +457,7 @@ private fun Hud(ui: UiState) {
     Currencies(ui)
 }
 
-/** The farm you're on, the turn buttons, and the weather and clock, under the cash. */
+/** Under the cash: the farm you're on with the weather and clock beside it, then the turn, zoom, settings and music buttons. */
 @Composable
 private fun SkyChip(ui: UiState) {
     Store.rev
@@ -478,9 +478,9 @@ private fun SkyChip(ui: UiState) {
     val hh = h.toInt(); val mm = ((h - hh) * 60).toInt()
     val clock = if (DateFormat.is24HourFormat(ctx)) "%d:%02d".format(hh, mm)
         else "%d:%02d %s".format(if (hh % 12 == 0) 12 else hh % 12, mm, if (hh < 12) "am" else "pm")
-    val weather = @Composable {
+    val weather = @Composable { m: Modifier ->
         Row(
-            Modifier.background(Color(0xAA1C1A14)).clickable {
+            m.background(Color(0xAA1C1A14)).clickable {
                 Store.toast("${season.title}: ${season.desc}. " + when (w) {
                     Weather.RAIN -> if (snow) "Snow is watering every plant for you" else "Rain is watering every plant for you"
                     Weather.FOG -> "Foggy out. Fewer eyes on your farm. Damp, so watch for mould"
@@ -493,46 +493,43 @@ private fun SkyChip(ui: UiState) {
         ) {
             Px(icon, 16.dp)
             Spacer(Modifier.width(4.dp))
-            T("${season.title} · ${if (snow) "Snow" else w.label} · $clock", 11.sp, Cream)
+            FitT("${season.title} · ${if (snow) "Snow" else w.label} · $clock", 11.sp, Cream)
         }
     }
-    // On a phone the weather gets its own line under the buttons, so it never squeezes up against the edge.
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val wide = maxWidth >= 560.dp
-        Column(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Which farm you're on; tap to switch (or to see what Mona sells from Lv 15).
-                val f = Store.farm
-                if (f.sites.size > 1 || f.level >= SiteDef.REALTOR_LEVEL) {
-                    Row(Modifier.woodBox().clickable { ui.panel = Panel.FARMS }.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).background(Color(f.site.def.ground)))
-                        Spacer(Modifier.width(4.dp))
-                        T(f.site.def.name + " ▾", 11.sp, Cream)
-                    }
+    // The farm drop-down with the weather beside it, then a line of view buttons under them.
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Which farm you're on; tap to switch (or to see what Mona sells from Lv 15).
+            val f = Store.farm
+            if (f.sites.size > 1 || f.level >= SiteDef.REALTOR_LEVEL) {
+                Row(Modifier.woodBox().clickable { ui.panel = Panel.FARMS }.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).background(Color(f.site.def.ground)))
                     Spacer(Modifier.width(4.dp))
+                    T(f.site.def.name + " ▾", 11.sp, Cream)
                 }
-                // Turn the farm a quarter round either way.
-                for ((d, label) in listOf(-1 to "↺", 1 to "↻")) {
-                    Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 8.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
-                    Spacer(Modifier.width(4.dp))
-                }
-                // Zoom out / in about the middle of the screen, and back to the whole farm.
-                for ((label, act) in listOf<Pair<String, () -> Unit>>("−" to { ui.zoomSteps-- }, "+" to { ui.zoomSteps++ })) {
-                    Box(Modifier.woodBox().clickable { act() }.padding(horizontal = 7.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
-                    Spacer(Modifier.width(4.dp))
-                }
-                Box(Modifier.woodBox().clickable { ui.recenter++ }.padding(horizontal = 5.dp, vertical = 3.dp)) { T("Fit", 11.sp, Cream) }
-                Spacer(Modifier.width(4.dp))
-                Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
-                Spacer(Modifier.width(4.dp))
-                Box(Modifier.woodBox().clickable { ui.panel = Panel.RADIO }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("♪", 14.sp, Cream) }
-                Spacer(Modifier.width(4.dp))
-                // Bud Drop, the catch game for while things grow.
-                Box(Modifier.woodBox().clickable { ui.drop = true }.padding(horizontal = 5.dp, vertical = 2.dp)) { Px(Sprites.nug, 16.dp) }
-                Spacer(Modifier.width(4.dp))
-                if (wide) { Spacer(Modifier.weight(1f)); weather() }
+                Spacer(Modifier.width(6.dp))
             }
-            if (!wide) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 3.dp)) { Spacer(Modifier.weight(1f)); weather() }
+            weather(Modifier.weight(1f, fill = false))
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Turn the farm a quarter round either way.
+            for ((d, label) in listOf(-1 to "↺", 1 to "↻")) {
+                Box(Modifier.woodBox().clickable { ui.turn(d) }.padding(horizontal = 8.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
+                Spacer(Modifier.width(4.dp))
+            }
+            // Zoom out / in about the middle of the screen, and back to the whole farm.
+            for ((label, act) in listOf<Pair<String, () -> Unit>>("−" to { ui.zoomSteps-- }, "+" to { ui.zoomSteps++ })) {
+                Box(Modifier.woodBox().clickable { act() }.padding(horizontal = 7.dp, vertical = 1.dp)) { T(label, 14.sp, Cream) }
+                Spacer(Modifier.width(4.dp))
+            }
+            Box(Modifier.woodBox().clickable { ui.recenter++ }.padding(horizontal = 5.dp, vertical = 3.dp)) { T("Fit", 11.sp, Cream) }
+            Spacer(Modifier.width(4.dp))
+            Box(Modifier.woodBox().clickable { ui.panel = Panel.SETTINGS }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("⚙", 14.sp, Cream) }
+            Spacer(Modifier.width(4.dp))
+            Box(Modifier.woodBox().clickable { ui.panel = Panel.RADIO }.padding(horizontal = 7.dp, vertical = 1.dp)) { T("♪", 14.sp, Cream) }
+            Spacer(Modifier.width(4.dp))
+            // Bud Drop, the catch game for while things grow.
+            Box(Modifier.woodBox().clickable { ui.drop = true }.padding(horizontal = 5.dp, vertical = 2.dp)) { Px(Sprites.nug, 16.dp) }
         }
     }
 }

@@ -299,6 +299,16 @@ class Farm(var rng: Random = Random.Default) {
     var dropBest = 0
     var dropDay = -1L
     var dropPlays = 0
+    /** Bud Drop jar skins owned (the plain jar always is) and the one in use, and the last day the daily challenge was beaten. */
+    val jarSkins = LinkedHashSet<JarSkin>()
+    var jarSkin = JarSkin.MASON
+    var dropWon = -1L
+    /** Smoking gear bought (papers are always there) and the piece in use (see [Gear]). */
+    val gear = LinkedHashSet<Gear>()
+    var gearOn = Gear.PAPERS
+    /** The tasting journal: smokes per strain, and how many of its trophies are paid (see [Tasting]). */
+    val tasted = LinkedHashMap<String, Int>()
+    var tasteMarks = 0
     /** Landmark restoration (see [Restore]): steps done per site, the open step's need, and what's gone into it so far. */
     val marks = HashMap<String, Int>()
     val markNeeds = HashMap<String, Need>()
@@ -767,8 +777,8 @@ class Farm(var rng: Random = Random.Default) {
         fun visits(at: Long, every: Long): Int { var n = 0; var t = at; while (now >= t && n < 40) { n++; t += every }; return n }
         val handVisits = if (farmhand) visits(handAt, farmhandMillis()) else 0
         if (handVisits > 0) handAt = max(handAt + handVisits * farmhandMillis(), now - farmhandMillis())
-        val cookVisits = if (has(Helper.COOK)) visits(cookAt, Helper.COOK_SECS.at(Helper.COOK) * 1000L) else 0
-        if (cookVisits > 0) cookAt = max(cookAt + cookVisits * Helper.COOK_SECS.at(Helper.COOK) * 1000L, now - Helper.COOK_SECS.at(Helper.COOK) * 1000L)
+        val cookVisits = if (has(Helper.COOK)) visits(cookAt, cookMillis()) else 0
+        if (cookVisits > 0) cookAt = max(cookAt + cookVisits * cookMillis(), now - cookMillis())
         eachSite { s ->
             val before = events.size
             val hands = intArrayOf(handVisits * Helper.FARMHAND_PICKS.at(Helper.FARMHAND))
@@ -792,7 +802,10 @@ class Farm(var rng: Random = Random.Default) {
         }
     }
 
-    fun farmhandMillis() = Helper.FARMHAND_SECS.at(Helper.FARMHAND) * 1000L
+    /** The hired help works faster after a smoke circle. */
+    private fun circle(ms: Long): Long = if (on(Buff.CIRCLE)) (ms / Sesh.CIRCLE_SPEED).toLong() else ms
+    fun farmhandMillis() = circle(Helper.FARMHAND_SECS.at(Helper.FARMHAND) * 1000L)
+    fun cookMillis() = circle(Helper.COOK_SECS.at(Helper.COOK) * 1000L)
 
     /**
      * The farmhand picks what's ready and clears pests, [left] jobs' worth, leaving fresh ripe plants a while for you;
@@ -1667,7 +1680,8 @@ class Farm(var rng: Random = Random.Default) {
         farmer = null; festivalUntil = 0; festivalSite = null
         cupWeek = -1L; cupScores.clear(); hunt = null; huntBack = 0
         offers.clear(); offerDay.clear(); deals.clear(); rep.clear(); chains.clear(); weekly.clear(); lastDeal = null; lapsed = 0
-        dropBest = 0; dropDay = -1L; dropPlays = 0
+        dropBest = 0; dropDay = -1L; dropPlays = 0; jarSkins.clear(); jarSkin = JarSkin.MASON; dropWon = -1L
+        gear.clear(); gearOn = Gear.PAPERS; tasted.clear(); tasteMarks = 0
         board.clear(); boardDay = -1L; boardDone = 0; marks.clear(); markNeeds.clear(); markValue.clear()
         research = null; researchAt = 0
         lastTick = now; nextEventAt = 0
@@ -2107,7 +2121,7 @@ class Farm(var rng: Random = Random.Default) {
     fun runnerMillis(): Long {
         var best = 0
         eachSite { for (s in houses()) if (s.house == WorkHouse.TOOLS) best = max(best, s.house.power(s.staffed)) }
-        val trip = Helper.RUNNER_MIN.at(Helper.RUNNER) * 60_000L
+        val trip = circle(Helper.RUNNER_MIN.at(Helper.RUNNER) * 60_000L)
         return when (best) { 2 -> trip / 2; 1 -> trip * 2 / 3; else -> trip }
     }
 

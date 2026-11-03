@@ -139,6 +139,8 @@ object Save {
         o.put("contracts", Contracts.save(f))
         o.put("board", Board.save(f))
         o.put("drop", BudDrop.save(f))
+        o.put("gear", JSONArray(f.gear.map { it.name })); o.put("gearOn", f.gearOn.name)
+        o.put("tasted", JSONObject(f.tasted.toMap())); o.put("tasteMarks", f.tasteMarks)
         o.put("marks", Restore.save(f))
         o.put("quests", JSONArray().apply {
             f.quests.forEach { q ->
@@ -232,6 +234,10 @@ object Save {
         Contracts.load(f, o.optJSONObject("contracts"))
         Board.load(f, o.optJSONObject("board"))
         BudDrop.load(f, o.optJSONObject("drop"))
+        f.gear.clear(); o.optJSONArray("gear")?.let { a -> for (i in 0 until a.length()) Gear.of(a.optString(i))?.takeIf { it != Gear.PAPERS }?.let { f.gear += it } }
+        f.gearOn = Gear.of(o.optString("gearOn"))?.takeIf { Gear.owns(f, it) } ?: Gear.PAPERS
+        f.tasted.clear(); o.optJSONObject("tasted")?.let { m -> for (k in m.keys()) if (Strains[k] != null) m.optInt(k).takeIf { it > 0 }?.let { f.tasted[k] = it } }
+        f.tasteMarks = o.optInt("tasteMarks").coerceIn(0, Tasting.MARKS.size)
         Restore.load(f, o.optJSONObject("marks"))
         o.optJSONArray("cup")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { e -> f.cupScores += e.optString("s") to e.optInt("p") } }
         f.quests.clear()

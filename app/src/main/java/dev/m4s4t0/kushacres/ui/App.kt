@@ -135,6 +135,8 @@ class UiState {
     var trim by mutableStateOf<Pair<Int, Int>?>(null)
     /** Bud Drop is open (see [BudDropOverlay]). */
     var drop by mutableStateOf(false)
+    /** A sesh waiting on the rolling game (see [RollOverlay]). */
+    var roll by mutableStateOf<RollReq?>(null)
     /** The square whose area of effect is tinted yellow on the farm (from the menu's Area); the next tap clears it. */
     var area by mutableStateOf<Pair<Int, Int>?>(null)
     /** Whether the tools row (seed, move, trim, destroy) is open above the bottom bar. */
@@ -308,6 +310,7 @@ fun App() {
         BudDropOverlay(ui)
         Toast()
         if (ui.panel != Panel.NONE) PanelHost(ui)
+        RollOverlay(ui)
         Dialogs()
         Mover(ui)
         Creator(ui)

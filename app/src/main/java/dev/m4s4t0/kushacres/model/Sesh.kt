@@ -37,18 +37,37 @@ object Sesh {
     /** Share of the usual grams the best bud needs: stronger weed goes further. */
     const val BEST_SHARE = 0.4
 
-    /** Grams one [size] sesh of [s] takes: the full amount for ditch weed, down to [BEST_SHARE] of it at the top tier. */
-    fun grams(s: Strain, size: SeshSize): Int {
+    /**
+     * Grams one [size] sesh of [s] takes: the full amount for ditch weed, down to [BEST_SHARE] of it at the top tier, and
+     * less again out of better [gear].
+     */
+    fun grams(s: Strain, size: SeshSize, gear: Gear = Gear.PAPERS): Int {
         val q = if (s.holiday != null || s.exotic) 1.0 else ((s.tier - 1) / 79).coerceIn(0.0, 1.0)
-        return max(1, kotlin.math.round(size.grams * (1 - (1 - BEST_SHARE) * q)).toInt())
+        return max(1, kotlin.math.round(size.grams * (1 - (1 - BEST_SHARE) * q) * gear.grams).toInt())
     }
 
-    /** Minutes of buff before what's already running: better strains and a comfier home last longer. */
-    fun minutes(f: Farm, s: Strain, size: SeshSize): Int {
+    /**
+     * Minutes of buff before what's already running: better strains, a comfier home and better [gear] last longer, and a
+     * good roll adds [roll] on top (see [Rolling]).
+     */
+    fun minutes(f: Farm, s: Strain, size: SeshSize, gear: Gear = Gear.PAPERS, roll: Double = 0.0): Int {
         val strain = 1 + 0.02 * s.tier + (if (s.holiday != null || s.exotic) 0.25 else 0.0)
         val comfort = 1 + 0.5 * Interiors.score(f, RoomKind.HOME) / Interiors.MAX_SCORE
-        return (size.minutes * strain * comfort).toInt()
+        return (size.minutes * strain * comfort * gear.time * (1 + roll.coerceIn(0.0, Rolling.MAX))).toInt()
     }
+
+    /** Each hired helper in a smoke circle takes this share of what you smoke yourself. */
+    const val CIRCLE_SHARE = 0.5
+    /** The circle's buff speeds the hired help up this much. */
+    const val CIRCLE_SPEED = 1.5
+    /** Who joins a smoke circle: everyone you've hired. */
+    fun crew(f: Farm): Int = Helper.entries.count { f.has(it) }
+    /** Extra grams for passing it round the crew. */
+    fun circleGrams(f: Farm, s: Strain, size: SeshSize, gear: Gear = f.gearOn): Int =
+        crew(f) * kotlin.math.ceil(grams(s, size, gear) * CIRCLE_SHARE).toInt()
+    /** Everything a sesh takes, circle and all. */
+    fun total(f: Farm, s: Strain, size: SeshSize, circle: Boolean): Int =
+        grams(s, size, f.gearOn) + if (circle) circleGrams(f, s, size) else 0
 
     /** Minutes a sesh actually adds to [b]: less the longer it's already running, so piling on fades out. */
     fun adds(f: Farm, b: Buff, base: Int, now: Long): Int {
@@ -58,16 +77,24 @@ object Sesh {
         return min(room, max(1L, base * room / MAX_MINUTES)).toInt()
     }
 
-    fun smoke(f: Farm, strain: String, size: SeshSize, now: Long): Result {
+    /**
+     * Smokes a [size] sesh of [strain] out of the gear in use. A [circle] passes it round the hired help as well, for more
+     * grams and [Buff.CIRCLE] on top; [roll] is the rolling game's bonus. New trophies from the tasting journal land in [marks].
+     */
+    fun smoke(f: Farm, strain: String, size: SeshSize, now: Long, circle: Boolean = false, roll: Double = 0.0,
+              marks: MutableList<TasteMark>? = null): Result {
         val s = Strains[strain] ?: return Result.NO_BUD
-        val g = grams(s, size)
+        if (circle && crew(f) == 0) return Result.BLOCKED
+        val g = total(f, s, size, circle)
         if ((f.stash[strain] ?: 0) < g) return Result.NO_BUD
-        val base = minutes(f, s, size)
-        val gains = buffs(s).map { it to adds(f, it, base, now) }
+        val base = minutes(f, s, size, f.gearOn, roll)
+        val gains = buffs(s).map { it to adds(f, it, base, now) } + if (circle) listOf(Buff.CIRCLE to adds(f, Buff.CIRCLE, base, now)) else emptyList()
         if (gains.all { it.second == 0 }) return Result.LIMIT
         take(f, strain, g)
         gains.forEach { (b, m) -> if (m > 0) f.addBuff(b, now, m) }
         f.bump(Stat.SMOKED, g.toLong())
+        val got = Tasting.note(f, strain)
+        marks?.addAll(got)
         return Result.OK
     }
 

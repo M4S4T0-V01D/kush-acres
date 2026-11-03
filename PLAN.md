@@ -193,12 +193,12 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - [x] Creator rebuilt with Body · Face · Hair · Outfit · Extras tabs, random per tab or everything, walk/stand and portrait/full-body preview
 - [ ] Side/back views of the farmer (still front-facing only)
 
-## Phase 20 — Smoking (planned for 0.25.0)
-- [ ] Smoking gear: papers, then pipe Lv 10, bong Lv 40, vape Lv 120, dab rig Lv 250
-- [ ] Smoke circle with the crew for a work-speed buff
-- [ ] Tasting journal and trophies
-- [ ] Bud Drop power-ups, jar skins and a daily challenge
-- [ ] Rolling minigame: a good roll adds up to +25% buff time
+## Phase 20 — Smoking (0.25.0)
+- [x] Smoking gear: papers, then pipe Lv 10, bong Lv 40, vape Lv 120, dab rig Lv 250
+- [x] Smoke circle with the crew for a work-speed buff
+- [x] Tasting journal and trophies
+- [x] Bud Drop power-ups (magnet, slow-mo, wide jar, shield), jar skins and a daily challenge
+- [x] Rolling minigame: a good roll adds up to +25% buff time
 
 ## Release log
 - 0.2.1 — before this plan
@@ -219,3 +219,4 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started
 - 0.10.3 — seed hunts, Botanist and Lab Chemist crew, crews and vehicles in the level-up list
 - 0.10.4 — Farm Book tabs wrap into even rows so names stay whole; timers over two days show days
 - 0.24.0 — Farmer & Sesh: HD farmer with way more looks, presets and a tabbed creator; better strains smoke for fewer grams; new sesh animation; nicer Bud Drop jar; zoom buttons
+- 0.25.0 — Smoking: pipe, bong, vape and dab rig gear; smoke circle with the crew; rolling minigame; tasting journal with trophies; Bud Drop power-ups, jar skins and a daily challenge

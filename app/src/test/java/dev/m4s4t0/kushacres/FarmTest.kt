@@ -5,6 +5,11 @@ import org.junit.Assert.assertNotNull
 import dev.m4s4t0.kushacres.model.Levels
 import dev.m4s4t0.kushacres.model.BmItem
 import dev.m4s4t0.kushacres.model.BudDrop
+import dev.m4s4t0.kushacres.model.Gear
+import dev.m4s4t0.kushacres.model.JarSkin
+import dev.m4s4t0.kushacres.model.Rolling
+import dev.m4s4t0.kushacres.model.TasteMark
+import dev.m4s4t0.kushacres.model.Tasting
 import dev.m4s4t0.kushacres.model.Cup
 import dev.m4s4t0.kushacres.model.Contracts
 import dev.m4s4t0.kushacres.model.Need
@@ -2003,5 +2008,152 @@ class FarmTest {
         assertTrue(BudDrop.reward(f, 20, t0 + 86_400_000L) > 0)
         val back = Farm(Random(1)).also { Save.read(Save.write(f), it) }
         assertEquals(50, back.dropBest); assertEquals(1, back.dropPlays); assertEquals(f.dropDay, back.dropDay)
+    }
+
+    @Test fun gearTakesLessAndLastsLonger() {
+        val f = farm()
+        val s = Strains.ladder.minBy { it.tier }
+        assertEquals(Result.LOCKED, Gear.buy(f, Gear.PIPE))
+        f.level = Gear.PIPE.level; f.cash = 0
+        assertEquals(Result.NO_CASH, Gear.buy(f, Gear.PIPE))
+        f.cash = Gear.PIPE.cost
+        assertEquals(Result.OK, Gear.buy(f, Gear.PIPE))
+        assertEquals(0L, f.cash); assertEquals(Gear.PIPE, f.gearOn)
+        assertEquals(Result.BLOCKED, Gear.buy(f, Gear.PIPE))
+        assertEquals(Result.LOCKED, Gear.use(f, Gear.DAB))
+        // Each step up the gear ladder takes no more and lasts no less.
+        for (z in SeshSize.entries) Gear.entries.zipWithNext { a, b ->
+            assertTrue(Sesh.grams(s, z, b) <= Sesh.grams(s, z, a))
+            assertTrue(Sesh.minutes(f, s, z, b) >= Sesh.minutes(f, s, z, a))
+        }
+        f.stash[s.id] = 1000
+        assertEquals(Result.OK, Sesh.smoke(f, s.id, SeshSize.BLUNT, t0))
+        assertEquals(1000 - Sesh.grams(s, SeshSize.BLUNT, Gear.PIPE), f.stash[s.id])
+        val back = farm().also { Save.read(Save.write(f), it) }
+        assertTrue(Gear.PIPE in back.gear); assertEquals(Gear.PIPE, back.gearOn)
+    }
+
+    @Test fun rollingStretchesTheBuff() {
+        assertEquals(Rolling.MAX, Rolling.bonus(listOf(0.0, 0.05, -0.08)), 1e-9)
+        assertEquals(0.0, Rolling.bonus(listOf(1.0, -0.9, 0.7)), 1e-9)
+        assertEquals(0.0, Rolling.bonus(emptyList()), 1e-9)
+        assertTrue(Rolling.bonus(listOf(0.3, 0.3, 0.3)) in 0.0..Rolling.MAX)
+        // Missing taps count as misses, and better taps never score less.
+        assertEquals(Rolling.MAX / 3, Rolling.bonus(listOf(0.0)), 1e-9)
+        for (i in 0..100) assertTrue(Rolling.grade(i / 100.0) >= Rolling.grade((i + 1) / 100.0))
+        for (i in 0..200) assertTrue(Rolling.needle(i / 37.0, i % 3) in -1.0..1.0)
+        val f = farm(); val s = Strains.ladder.minBy { it.tier }
+        val plain = Sesh.minutes(f, s, SeshSize.HOTBOX)
+        assertEquals((plain * (1 + Rolling.MAX)).toInt().toDouble(), Sesh.minutes(f, s, SeshSize.HOTBOX, roll = 9.0).toDouble(), 1.0)
+    }
+
+    @Test fun smokeCircleSharesWithTheCrewAndSpeedsThemUp() {
+        val f = farm()
+        val s = Strains.ladder.minBy { it.tier }
+        f.stash[s.id] = 1000
+        assertEquals(Result.BLOCKED, Sesh.smoke(f, s.id, SeshSize.JOINT, t0, circle = true))
+        f.helpers[Helper.FARMHAND.ordinal] = true; f.helpers[Helper.COOK.ordinal] = true
+        assertEquals(2, Sesh.crew(f))
+        val hand = f.farmhandMillis(); val cook = f.cookMillis()
+        val need = Sesh.total(f, s, SeshSize.JOINT, true)
+        assertEquals(Sesh.grams(s, SeshSize.JOINT) + 2 * Math.ceil(Sesh.grams(s, SeshSize.JOINT) * Sesh.CIRCLE_SHARE).toInt(), need)
+        assertEquals(Result.OK, Sesh.smoke(f, s.id, SeshSize.JOINT, t0, circle = true))
+        assertEquals(1000 - need, f.stash[s.id])
+        assertTrue(f.on(Buff.CIRCLE))
+        assertEquals((hand / Sesh.CIRCLE_SPEED).toLong().toDouble(), f.farmhandMillis().toDouble(), 1.0)
+        assertTrue(f.cookMillis() < cook)
+    }
+
+    @Test fun tastingJournalPaysTrophiesForVariety() {
+        val f = farm()
+        val kinds = Strains.ladder.take(Tasting.MARKS[1].count)
+        kinds.forEach { f.stash[it.id] = 1000 }
+        val bucks0 = f.potBucks
+        val got = ArrayList<TasteMark>()
+        var t = t0
+        // Smoking the same strain twice is one page, not two.
+        Sesh.smoke(f, kinds[0].id, SeshSize.JOINT, t, marks = got)
+        Sesh.smoke(f, kinds[0].id, SeshSize.JOINT, t, marks = got)
+        assertEquals(1, Tasting.kinds(f)); assertEquals(2, f.tasted[kinds[0].id])
+        assertTrue(got.isEmpty())
+        for (k in kinds.drop(1)) { t += 1; Sesh.smoke(f, k.id, SeshSize.JOINT, t, marks = got) }
+        assertEquals(kinds.size, Tasting.kinds(f))
+        assertEquals(listOf("Taster", "Sampler"), got.map { it.title })
+        assertEquals(2, f.tasteMarks)
+        // At least the trophies' Bucks (their XP can level up and pay more).
+        assertTrue(f.potBucks >= bucks0 + Tasting.MARKS[0].bucks + Tasting.MARKS[1].bucks)
+        assertEquals(Tasting.notes(kinds[0]), Tasting.notes(kinds[0]))
+        assertTrue(Strains.all.all { Tasting.stars(it) in 1..5 })
+        val back = farm().also { Save.read(Save.write(f), it) }
+        assertEquals(f.tasted, back.tasted); assertEquals(2, back.tasteMarks)
+        f.restart(t0)
+        assertTrue(f.tasted.isEmpty())
+    }
+
+    @Test fun budDropPowerUps() {
+        val g = BudDrop(Random(3))
+        g.jar = 0.5f
+        g.items += BudDrop.Item(BudDrop.Kind.WIDE, 0.5f, 0.87f, 0f)
+        g.step(0.1f)
+        assertEquals(1, g.powers)
+        assertEquals(BudDrop.JAR * BudDrop.WIDE_BY, g.half(), 1e-6f)
+        // The wider mouth catches what a plain jar would miss.
+        g.items += BudDrop.Item(BudDrop.Kind.BUD, 0.5f + BudDrop.JAR * 1.4f, 0.87f, 0f)
+        g.step(0.1f)
+        assertEquals(1, g.caught)
+        g.items += BudDrop.Item(BudDrop.Kind.SHIELD, 0.5f, 0.87f, 0f)
+        g.step(0.1f)
+        assertTrue(g.shield)
+        g.items += BudDrop.Item(BudDrop.Kind.BUG, 0.5f, 0.87f, 0f)
+        g.step(0.1f)
+        assertEquals(BudDrop.LIVES, g.lives); assertEquals(1, g.blocked); assertFalse(g.shield)
+        val v = g.speed()
+        g.items += BudDrop.Item(BudDrop.Kind.SLOW, 0.5f, 0.87f, 0f)
+        g.step(0.1f)
+        assertTrue(g.speed() < v)
+        // It all wears off.
+        repeat(100) { g.step(0.1f); g.items.clear() }
+        assertEquals(BudDrop.JAR, g.half(), 1e-6f)
+        assertEquals(0f, g.slow)
+        // The magnet pulls a bud across into the jar.
+        val m = BudDrop(Random(4)); m.jar = 0.5f
+        m.items += BudDrop.Item(BudDrop.Kind.MAGNET, 0.5f, 0.87f, 0f)
+        m.step(0.1f)
+        val b = BudDrop.Item(BudDrop.Kind.BUD, 0.75f, 0.5f, 0f)
+        m.items += b
+        repeat(120) { m.items.removeAll { it !== b }; m.step(1 / 60f) }
+        assertEquals(1, m.caught)
+    }
+
+    @Test fun budDropDailyChallengeAndSkins() {
+        val day = 86_400_000L
+        assertEquals(BudDrop.challenge(t0).text, BudDrop.challenge(t0 + 1000).text)
+        assertTrue((0 until 20).map { BudDrop.challenge(t0 + it * day).kind }.toSet().size > 1)
+        val f = farm()
+        val c = BudDrop.challenge(t0)
+        val g = BudDrop(Random(1)); g.jar = 0.5f
+        assertFalse(BudDrop.beat(f, g, t0))
+        // Play a round that beats anything: golds and power-ups, no lives lost.
+        repeat(45) {
+            g.items += BudDrop.Item(BudDrop.Kind.GOLD, 0.5f, 0.87f, 0f)
+            g.items += BudDrop.Item(BudDrop.Kind.SHIELD, 0.5f, 0.86f, 0f)
+            g.step(0.1f)
+        }
+        assertTrue(c.met(g))
+        val bucks = f.potBucks
+        assertTrue(BudDrop.beat(f, g, t0))
+        assertTrue(f.potBucks >= bucks + BudDrop.DAILY_BUCKS)
+        assertFalse(BudDrop.beat(f, g, t0 + 1000))
+        // Skins: some unlock with a best score, some are bought.
+        assertEquals(Result.LOCKED, JarSkin.use(f, JarSkin.AMBER))
+        f.dropBest = JarSkin.AMBER.need
+        assertEquals(Result.OK, JarSkin.use(f, JarSkin.AMBER))
+        f.potBucks = 0
+        assertEquals(Result.NO_CASH, JarSkin.buy(f, JarSkin.GALAXY))
+        f.potBucks = JarSkin.GALAXY.bucks
+        assertEquals(Result.OK, JarSkin.buy(f, JarSkin.GALAXY))
+        assertEquals(JarSkin.GALAXY, f.jarSkin)
+        val back = farm().also { Save.read(Save.write(f), it) }
+        assertEquals(JarSkin.GALAXY, back.jarSkin); assertEquals(f.dropWon, back.dropWon)
     }
 }

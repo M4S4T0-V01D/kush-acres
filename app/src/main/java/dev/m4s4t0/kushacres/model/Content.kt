@@ -260,6 +260,8 @@ enum class Buff(val title: String) {
     HIGH_GOLD("Cosmic high: +10% golden"),
     HIGH_XP("Big thoughts: XP ×1.3"),
     HIGH_PRICE("Silver tongue: prices ×1.15"),
+    /** From a smoke circle with the crew (see [Sesh.smoke]). */
+    CIRCLE("Smoke circle: crew works ×1.5 faster"),
 }
 
 enum class EventKind {

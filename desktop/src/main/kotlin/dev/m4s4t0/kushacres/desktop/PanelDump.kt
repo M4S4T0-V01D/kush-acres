@@ -173,7 +173,7 @@ internal fun dumpPanels(dir: String) {
     shot("contracts", 0, 2000) { ContractsTab() }
     val lab = Strains.hybridList.first { f.unlocked(Strains[it.parents!!.first]!!) && f.unlocked(Strains[it.parents!!.second]!!) }
     f.bred += Strains.hybridList.take(2).map { it.id }.filter { it != lab.id }
-    for ((n, t) in listOf(8f, 30f, 60f).withIndex()) shot("drop-$n", 0, 700) { dev.m4s4t0.kushacres.ui.BudDropStill(7 + n, t) }
+    for ((n, t) in listOf(8f, 30f, 60f).withIndex()) shot("drop-$n", 0, 700) { dev.m4s4t0.kushacres.ui.BudDropStill(7 + n, t, skin = dev.m4s4t0.kushacres.model.JarSkin.entries[n * 2]) }
     run {
         // HD farmers: the presets plus random looks, standing and mid-stride, with the old sprite under each.
         val F = dev.m4s4t0.kushacres.model.Farmer
@@ -336,6 +336,10 @@ internal fun dumpPanels(dir: String) {
         val first = f.stash.keys.first()
         dev.m4s4t0.kushacres.model.Sesh.smoke(f, first, dev.m4s4t0.kushacres.model.SeshSize.JOINT, now)
         shot("sesh", 0, 900) { androidx.compose.foundation.lazy.LazyColumn { item { dev.m4s4t0.kushacres.ui.SeshSection(UiState()) } } }
+        f.gear += dev.m4s4t0.kushacres.model.Gear.PIPE; f.gear += dev.m4s4t0.kushacres.model.Gear.BONG; f.gearOn = dev.m4s4t0.kushacres.model.Gear.BONG
+        f.stash.keys.take(3).forEachIndexed { i, k -> f.tasted[k] = i + 1 }
+        shot("sesh-gear", 0, 1400) { androidx.compose.foundation.lazy.LazyColumn { item { dev.m4s4t0.kushacres.ui.SeshSection(UiState()) } } }
+        shot("roll", 0, 900) { dev.m4s4t0.kushacres.ui.RollOverlay(UiState().apply { roll = dev.m4s4t0.kushacres.ui.RollReq(first, dev.m4s4t0.kushacres.model.SeshSize.JOINT, false) }) }
         shot("ship", 0, 900) { dev.m4s4t0.kushacres.ui.ShipTab() }
         dev.m4s4t0.kushacres.model.Sesh.ship(f, first, 250, now)
         shot("ship-busy", 0, 600) { dev.m4s4t0.kushacres.ui.ShipTab() }

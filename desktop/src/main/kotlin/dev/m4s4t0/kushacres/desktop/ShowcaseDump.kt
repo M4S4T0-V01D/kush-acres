@@ -7,6 +7,7 @@ import dev.m4s4t0.kushacres.model.Farm
 import dev.m4s4t0.kushacres.model.Farmer
 import dev.m4s4t0.kushacres.model.Helper
 import dev.m4s4t0.kushacres.model.Kind
+import dev.m4s4t0.kushacres.model.Levels
 import dev.m4s4t0.kushacres.model.Season
 import dev.m4s4t0.kushacres.model.Sites
 import dev.m4s4t0.kushacres.model.Strains
@@ -28,21 +29,22 @@ internal fun dumpShowcase(dir: String) {
     val now = System.currentTimeMillis()
     val f = Store.farm
     f.newGame(now)
-    f.level = 40; f.cash = 9_000_000_000
-    f.farmer = Farmer(hat = 2, outfit = 1)
+    f.level = Levels.MAX; f.cash = 9_000_000_000
+    f.farmer = Farmer.PRESETS[0].second
     val rng = Random(420)
 
-    fun light(hour: Float, w: Weather? = null): Light {
+    fun light(hour: Float, w: Weather? = null, season: Season = Season.SUMMER): Light {
         Light.photoHour = hour; Light.photoWeather = w
         val l = Light.at(now)
         Light.photoHour = null; Light.photoWeather = null
-        return Light(l.night, l.tint, l.rain, l.fog, l.cloud, Season.SUMMER)
+        return Light(l.night, l.tint, l.rain, l.fog, l.cloud, season)
     }
     val day = light(13f)
 
     /** Fills the current site's land: houses, facilities, rows of plants at every stage, paths and decor. */
     fun dress(houses: Boolean) {
-        val strains = Strains.ladder.filter { f.unlocked(it) }.takeLast(8)
+        // A spread along the ladder, from early greens to late exotics, so the rows show a mix of colours.
+        val strains = Strains.ladder.filter { f.unlocked(it) }.let { u -> (0 until 8).map { u[(u.size - 1) * it / 7] } }
         val x0 = f.ox; val y0 = f.oy; val n = f.land
         if (houses) {
             val want = listOf(WorkHouse.GROW, WorkHouse.DRYING, WorkHouse.STORE, WorkHouse.TRIM)
@@ -149,7 +151,9 @@ internal fun dumpShowcase(dir: String) {
         }
         f.switchTo(id)
     }
-    for (id in listOf("zion", "manor", "fort20", "volcano", "neon", "spooky")) runCatching {
+    // The seasonal festivals' farms are shown in their own season.
+    val seasons = mapOf("blossomvale" to Season.SPRING, "sunnyshores" to Season.SUMMER, "mapleridge" to Season.AUTUMN, "frostbiteflats" to Season.WINTER)
+    for (id in listOf("zion", "manor", "fort20", "volcano", "neon", "spooky") + seasons.keys) runCatching {
         visit(id)
         if (f.site.def.id != id) return@runCatching
         repeat(4) { f.expand() }
@@ -161,13 +165,17 @@ internal fun dumpShowcase(dir: String) {
             intArrayOf(xs.min() - 20, ys.min() - 90, xs.max() + 20, ys.max() + 20)
         } else box(60)
         val k = if (id == "fort20") 1 else 2
-        shot("$id-day", b, k, day)
-        shot("$id-night", b, k, light(23f))
+        val season = seasons[id] ?: Season.SUMMER
+        shot("$id-day", b, k, light(13f, season = season))
+        shot("$id-night", b, k, light(23f, season = season))
         if (id == "zion") {
             val zc = intArrayOf((b[0] + b[2]) / 2 - 170, (b[1] + b[3]) / 2 - 120, (b[0] + b[2]) / 2 + 170, (b[1] + b[3]) / 2 + 70)
             frames("anim-zion", zc, 2, 48, 1f / 12, { day })
         }
     }
+    File(dir, "stats.txt").writeText("strains ${Strains.all.size}\nfarms ${(Sites.all + Sites.holidays + Sites.premium).size}\n" +
+        "levels ${Levels.MAX}\nevents ${dev.m4s4t0.kushacres.model.Holiday.entries.size}\npets ${dev.m4s4t0.kushacres.model.Pet.entries.size}\n" +
+        "decor ${Decor.entries.size}\npresets ${Farmer.PRESETS.size}\n")
     File(dir, "sites.txt").writeText((Sites.all + Sites.holidays + Sites.premium).joinToString("\n") { "${it.id} ${it.level} ${it.landmark?.id}" })
     Runtime.getRuntime().halt(0)
 }

@@ -131,6 +131,9 @@ h2 {
 .gallery img, .maps img { transition: transform .3s; }
 .maps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .maps img { aspect-ratio: 4 / 3; object-fit: cover; }
+.strip { max-width: 1040px; margin: 22px auto 0; }
+.strip.narrow { max-width: 728px; }
+.intro { text-align: center; color: var(--muted); font-size: 22px; margin: -18px 0 26px; }
 .panels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: start; }
 .panels img { aspect-ratio: 3 / 4; object-fit: cover; object-position: top; image-rendering: auto; }
 

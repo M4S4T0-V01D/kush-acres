@@ -27,16 +27,19 @@ Plant it, water it, watch it grow under a real sky, and turn a dirt patch behind
 
 | | |
 |---|---|
-| 🌱 **250 strains** | Every plant grows in real time with its own look. Water it, beat the pests and mould, and harvest it ripe and frosty. |
+| 🌱 **357 strains** | Every plant grows in real time with its own look. Water it, beat the pests and mould, and harvest it ripe and frosty. |
 | 🧬 **Breeding & phenos** | Cross strains in the lab, pop seed packs hunting for an elite keeper, then keep her as a mother and clone her. |
 | 🏆 **The Cup** | Enter your best bud against rivals like Skunk Patel and The Reverend for cash, Pot Bucks and bragging rights. |
-| 🗺️ **30 farms** | Redwood Hollow, Volcano Isle, Neon Valley, Fort 20, Zion Gardens, the Haunted Manor and more, each with its own map and town. |
+| 🗺️ **39 farms** | Redwood Hollow, Volcano Isle, Neon Valley, Fort 20, Zion Gardens, the Haunted Manor, a rooftop, a fairground and more, each with its own map, landmark and town. |
+| 🧑‍🌾 **Your farmer** | A detailed HD farmer walks your rows when you zoom in. Pick body, face, makeup, hair, outfit, hats and extras, or start from one of 18 presets. |
 | 🌧️ **Weather & seasons** | Sun, fog, rain and storms roll through, the seasons turn, and lamps and fireflies light up the night. |
-| 💨 **Sesh** | Roll joints, blunts and hotboxes from your own stash for buffs. Some trips get very trippy. |
-| 👨‍🌾 **Crew** | Runners, fetchers, farmhands, cooks, a lookout and a manager keep things running while you're away. |
+| 💨 **Sesh** | Joints, blunts and hotboxes from your own stash for buffs. Unlock a pipe, bong, vape and dab rig, pack the bowl for up to 25% longer, pass it round the smoke circle and fill the tasting journal. Some trips get very trippy. |
+| 🫙 **Bud Drop** | A catch minigame for while plants grow, with power-ups, jar skins and a daily challenge. |
+| 👨‍🌾 **Crew** | Runners, fetchers, farmhands, cooks, a lookout and a manager keep things running while you're away. Ranked-up runners carry a bigger bag to market. |
 | 🏚️ **Build it out** | Grow rooms, drying sheds, trim rooms, rollers, presses, a kitchen, power, a deep bunker and a lawn full of decor. |
-| 🎉 **Holidays** | Real-calendar events like Halloween, Christmas, St Patrick's, Easter and 4/20, each with its own farm, tokens and pets. |
-| 📸 **And more** | Photo mode, 4-way rotation, contracts, vehicles, pets, legacy prestige, 80 levels, and updates from inside the game. |
+| 🎉 **Holidays** | Nine real-calendar events, from New Year's and 4/20 to Halloween and Christmas, each with its own farm, tokens, strains and pet. |
+| 🌸 **Festivals** | Spring Fair, Summer Fest, Harvest Fair and Winter Warmer follow the seasons, each with its own tokens, strains, decor, pet, hat and two farms. |
+| 📸 **And more** | Photo mode, rotation and zoom, contracts, vehicles, pets, legacy prestige, 420 levels, and updates from inside the game. |
 
 ## 🎬 In motion
 
@@ -81,6 +84,21 @@ Plant it, water it, watch it grow under a real sky, and turn a dirt patch behind
 </tr>
 </table>
 
+### Festival season
+
+<table>
+<tr>
+<td><img src="docs/media/blossomvale-day.png" alt="Blossom Vale"><br><sub>Spring Fair · Blossom Vale</sub></td>
+<td><img src="docs/media/sunnyshores-day.png" alt="Sunny Shores"><br><sub>Summer Fest · Sunny Shores</sub></td>
+</tr>
+<tr>
+<td><img src="docs/media/mapleridge-day.png" alt="Maple Ridge"><br><sub>Harvest Fair · Maple Ridge</sub></td>
+<td><img src="docs/media/frostbiteflats-night.png" alt="Frostbite Flats"><br><sub>Winter Warmer · Frostbite Flats</sub></td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/media/farmers.png" width="720" alt="A line-up of HD farmers"></p>
+
 ### The Farm Book
 
 <p align="center">
@@ -89,6 +107,11 @@ Plant it, water it, watch it grow under a real sky, and turn a dirt patch behind
 <img src="docs/media/ui-cup.png" width="19%" alt="The Cup">
 <img src="docs/media/ui-trip.png" width="19%" alt="A 4/20 sesh">
 <img src="docs/media/ui-events.png" width="19%" alt="Visitors and events">
+<img src="docs/media/ui-creator.png" width="19%" alt="Farmer creator">
+<img src="docs/media/ui-roll.png" width="19%" alt="Packing the bowl">
+<img src="docs/media/ui-drop.png" width="19%" alt="Bud Drop">
+<img src="docs/media/ui-festival.png" width="19%" alt="Festival shop">
+<img src="docs/media/ui-hud.png" width="19%" alt="The game on a phone">
 </p>
 
 ## ⬇️ Install
@@ -130,7 +153,8 @@ To release, bump `version.properties` and run `./release.sh "notes"`. Releases m
 The screenshots and GIFs in `docs/media` are rendered by the game itself:
 
 ```sh
-XDG_DATA_HOME=$(mktemp -d) KUSH_SHOWCASE=/tmp/kush-showcase ./build.sh :desktop:run
+XDG_DATA_HOME=$(mktemp -d) KUSH_SHOWCASE=/tmp/kush-showcase ./build.sh :desktop:run   # farms, GIF frames, stats.txt
+XDG_DATA_HOME=$(mktemp -d) KUSH_PANELS=/tmp/kush-panels ./build.sh :desktop:run       # Farm Book panels
 ```
 
 The roadmap lives in [PLAN.md](PLAN.md). The website is in [`docs/`](docs/) and served by GitHub Pages.
